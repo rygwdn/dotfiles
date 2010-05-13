@@ -6,3 +6,4 @@ read -p "install as root (y/N)? " asroot
 $asroot ruby gem install  rubyzip archive-tar-minitar
 $asroot easy_install pip
 $asroot pip install -U pylint
+mkdir $HOME/.vim/tmp

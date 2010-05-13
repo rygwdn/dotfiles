@@ -48,8 +48,8 @@ let mapleader=","               " set <Leader> to , instead of \
 " backup settings {{{
 set backup                      " produce *~ backup files
 set backupext=~                 " add ~ to the end of backup files
-set directory=~/tmp/.vim
-set backupdir=~/tmp/.vim
+set directory=~/.vim/tmp
+set backupdir=~/.vim/tmp
 " }}}-----------------------------------------------------------------
 
 
@@ -343,7 +343,7 @@ endif
 
 "helptags ~/.vim/doc
 
-let g:yankring_history_dir = "/home/rwooden/tmp/.vim/"
+let g:yankring_history_dir = $HOME."/.vim/tmp/"
 command JCommentWriter silent call JCommentWriter()
 let g:AutoClosePairs = {} 
 "{'(': ')', '[': ']', '"': '"'} 
