@@ -351,6 +351,18 @@
   dir: cmdline-complete
 
 
+
+- names: [Vimball]
+  authors: [Charles Campbell]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=1502
+  description: 'vim-based archiver: builds, extracts, and previews'
+  comment:
+  plugin_type: plugin
+  vim_org_id: 11981
+  file_type: vim
+  dir: vimball
+
 - names: [DoxygenToolkit]
   authors: [Mathias Lorente]
   urls:
