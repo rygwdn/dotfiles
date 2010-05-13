@@ -37,7 +37,6 @@ set history=200                 " remember the last 200 commands
 set linebreak                   " wrap on words, not in the middle of them
 set wrap                        " ...
 set guioptions-=T               " no toolbar
-set hidden                      " allow hidden windows
 "set formatoptions=l            " don't insert eols, just wrap
 
 let maplocalleader=','          " all my macros start with ,
@@ -107,7 +106,7 @@ nmap <LocalLeader>nh :nohlsearch<cr>
 " insert mode paste (like esc p i)
 imap  "
 
-nmap Y y$
+map Y y$
 
 map <F4> :FSHere<CR>
 
@@ -119,6 +118,7 @@ nmap <LocalLeader>ln  :lnext<CR>
 nmap <LocalLeader>lp  :lprevious<CR>
 nmap <LocalLeader>cn  :cnext<CR>
 nmap <LocalLeader>cp  :cprevious<CR>
+nmap <LocalLeader>cc  :cc<CR>
 
 " find merge conflict markers
 map <LocalLeader>fc /\v^[<=>]{7}( .*\|$)<CR>
