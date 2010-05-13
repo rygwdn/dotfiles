@@ -1,15 +1,5 @@
 ---
 
-- names: ['The NERD Commenter']
-  authors: [Marty Grenfell]
-  urls:
-    - http://www.vim.org/scripts/script.php?script_id=1218
-  repo: git://github.com/scrooloose/nerdcommenter.git
-  description: 'A plugin that allows for easy commenting of code for many filetypes'
-  comment:
-  plugin_type: plugin
-  dir: nerdcommenter
-
 - names: ['The NERD tree']
   authors: [Marty Grenfell]
   urls:
@@ -132,37 +122,26 @@
   plugin_type: plugin
   dir: git
 
-- names: [snipMate]
-  authors: [Michael Sanders]
-  urls:
-    - http://www.vim.org/scripts/script.php?script_id=2540
-  repo: git://github.com/msanders/snipmate.vim.git
-  description: 'TextMate-style snippets for Vim'
-  comment:
-  plugin_type: plugin
-  dir: snipmate
+#- names: [snipMate]
+#  authors: [Michael Sanders]
+#  urls:
+#    - http://www.vim.org/scripts/script.php?script_id=2540
+#  repo: git://github.com/msanders/snipmate.vim.git
+#  description: 'TextMate-style snippets for Vim'
+#  comment:
+#  plugin_type: plugin
+#  dir: snipmate
 
-- names: [FuzzyFinder, fuf]
-  authors: [Takeshi Nishida]
-  urls:
-    - http://www.vim.org/scripts/script.php?script_id=1984
-  description: 'buffer/file/command/tag/etc explorer with fuzzy matching'
-  comment:
-  plugin_type: plugin
-  vim_org_id: 11852 # 3.5, 2009-12-03, 7.0
-  file_type: zip
-  dir: fuzzy_finder
-
-- names: [AutoComplPop, acp]
-  authors: [Takeshi Nishida]
-  urls:
-    - http://www.vim.org/scripts/script.php?script_id=1879
-  description: 'automatically opens popup menu for completions'
-  comment:
-  plugin_type: plugin
-  vim_org_id: 11894   # 2.14.1, 2009-12-12, 7.0, zip
-  file_type: zip
-  dir: auto_compl_pop
+#- names: [FuzzyFinder, fuf]
+#  authors: [Takeshi Nishida]
+#  urls:
+#    - http://www.vim.org/scripts/script.php?script_id=1984
+#  description: 'buffer/file/command/tag/etc explorer with fuzzy matching'
+#  comment:
+#  plugin_type: plugin
+#  vim_org_id: 11852 # 3.5, 2009-12-03, 7.0
+#  file_type: zip
+#  dir: fuzzy_finder
 
 - names: [matchit]
   authors: [Benji Fisher]
@@ -175,16 +154,6 @@
   file_type: zip
   dir: matchit
 
-- names: [bufexplorer]
-  authors: [jeff lanzarotta]
-  urls:
-    - http://www.vim.org/scripts/script.php?script_id=42
-  description:
-  comment:
-  plugin_type: plugin
-  vim_org_id: 12363
-  file_type: zip
-  dir: bufexplorer
 
 - names: [Marks Browser]
   authors: [Viktor Kojouharov]
@@ -277,3 +246,37 @@
   vim_org_id: 12258
   file_type: zip
   dir: yankring
+
+
+- names: [vim-indent-object]
+  authors: [Michael Smith]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=3037
+  description: 'This plugin defines a new text object, based on indentation levels.'
+  comment:
+  plugin_type: plugin
+  repo: git://github.com/michaeljsmith/vim-indent-object.git
+  dir: vim-indent-object
+
+
+- names: [LustyExplorer]
+  authors: [Stephen Bach]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=1890
+  description: 'LustyExplorer is a fast and responsive way to manage files and buffers in Vim.'
+  comment: Like fuf
+  plugin_type: plugin
+  vim_org_id: 12728
+  file_type: vim
+  dir: lusty-explorer
+
+- names: [pylint.vim]
+  authors: [Oleksandr Tymoshenko]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=891
+  description: 'Compiler plugin for PyLint'
+  comment: requires pylint (sudo pip install pylint)
+  plugin_type: plugin
+  vim_org_id: 10365
+  file_type: vim
+  dir: pylint-vim
