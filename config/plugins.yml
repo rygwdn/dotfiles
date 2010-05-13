@@ -270,16 +270,16 @@
 #  file_type: vim
 #  dir: lusty-explorer
 
-- names: [pylint.vim]
-  authors: [Oleksandr Tymoshenko]
-  urls:
-    - http://www.vim.org/scripts/script.php?script_id=891
-  description: 'Compiler plugin for PyLint'
-  comment: requires pylint (sudo pip install pylint)
-  plugin_type: compiler
-  vim_org_id: 10365
-  file_type: vim
-  dir: pylint
+#- names: [pylint.vim]
+#  authors: [Oleksandr Tymoshenko]
+#  urls:
+#    - http://www.vim.org/scripts/script.php?script_id=891
+#  description: 'Compiler plugin for PyLint'
+#  comment: requires pylint (sudo pip install pylint)
+#  plugin_type: compiler
+#  vim_org_id: 10365
+#  file_type: vim
+#  dir: pylint
 
 
 - names: [cocoa.vim]
