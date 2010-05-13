@@ -308,6 +308,7 @@ autocmd FileType c set omnifunc=ccomplete#Complete
 
 "autocmd FileType python set ft=python.doxygen | delcommand HiLink
 autocmd FileType python set ft=python.doxygen
+autocmd FileType python compiler pylint
 
 " --------------------------------------------------- }}}
 
