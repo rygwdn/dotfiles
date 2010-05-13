@@ -35,6 +35,7 @@ set history=200                 " remember the last 200 commands
 set linebreak                   " wrap on words, not in the middle of them
 set wrap                        " ...
 set guioptions-=T               " no toolbar
+set hidden                      " allow hidden windows
 "set formatoptions=l            " don't insert eols, just wrap
 
 let maplocalleader=','          " all my macros start with ,
