@@ -318,7 +318,9 @@ autocmd FileType python compiler pylint
 " 	adjust window height
 au FileType qf call AdjustWindowHeight(3, 10)
 function! AdjustWindowHeight(minheight, maxheight)
-  exe max([min([line("$"), a:maxheight]), a:minheight]) . "wincmd _"
+    if !exists("g:noqfresize")
+        exe max([min([line("$"), a:maxheight]), a:minheight]) . "wincmd _"
+    endif
 endfunction
 
 " ------------------------------------------------------- }}}

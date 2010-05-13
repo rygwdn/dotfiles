@@ -49,15 +49,15 @@
   plugin_type: plugin
   dir: ragtag
 
-- names: [delimitMate]
-  authors: [Israel Chauca Fuentes]
-  urls:
-    - http://www.vim.org/scripts/script.php?script_id=2754
-  repo: git://github.com/Raimondi/delimitMate.git
-  description: 'Provides auto-balancing and some expansions for parens, quotes, etc.'
-  comment:
-  plugin_type: plugin
-  dir: delimitmate
+#- names: [delimitMate]
+#  authors: [Israel Chauca Fuentes]
+#  urls:
+#    - http://www.vim.org/scripts/script.php?script_id=2754
+#  repo: git://github.com/Raimondi/delimitMate.git
+#  description: 'Provides auto-balancing and some expansions for parens, quotes, etc.'
+#  comment:
+#  plugin_type: plugin
+#  dir: delimitmate
 
 - names: [ack.vim]
   authors: [Miles Sterrett]
