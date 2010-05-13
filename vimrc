@@ -275,11 +275,11 @@ au FileType mail set tw=70 spell
 
 
 " Warn over 77, error over 80
-au BufWinEnter *.c,*.java,*.cpp,*.h let w:m1=matchadd('Search', '\%<81v.\%>77v', -1)
-au BufWinEnter *.c,*.java,*.cpp,*.h let w:m2=matchadd('ErrorMsg', '\%>80v.\+', -1)
+au BufWinEnter *.c,*.java,*.cpp,*.h,*.m let w:m1=matchadd('Search', '\%<81v.\%>77v', -1)
+au BufWinEnter *.c,*.java,*.cpp,*.h,*.m let w:m2=matchadd('ErrorMsg', '\%>80v.\+', -1)
 
 " Highlight whitespace at end of line
-highlight ExtraWhitespace ctermbg=darkgreen guibg=darkgreen
+au BufWinEnter *.c,*.java,*.cpp,*.h,*.m highlight ExtraWhitespace ctermbg=darkgreen guibg=darkgreen
 autocmd Syntax * syn match ExtraWhitespace /\s\+$\| \+\ze\t/ containedin=ALL
 
 

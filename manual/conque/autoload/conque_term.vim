@@ -382,7 +382,7 @@ endfunction "}}}
 " **** PYTHON **********************************************************************************************
 " **********************************************************************************************************
 
-pyfile ~/.vim/autoload/conque.py
-pyfile ~/.vim/autoload/conque_subprocess.py
-pyfile ~/.vim/autoload/conque_screen.py
+pyfile ~/.vim/manual/conque/autoload/conque.py
+pyfile ~/.vim/manual/conque/autoload/conque_subprocess.py
+pyfile ~/.vim/manual/conque/autoload/conque_screen.py
 
