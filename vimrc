@@ -16,6 +16,7 @@ endif
 " http://github.com/tpope/vim-pathogen
 call pathogen#runtime_append_all_bundles()
 call pathogen#runtime_prepend_subdirectories('~/.vim/manual')
+call pathogen#runtime_prepend_subdirectories('~/.vim/pre')
 call pathogen#helptags()
 
 " ------------------------------------------- }}}
@@ -395,8 +396,8 @@ let ropevim_extended_complete=1
 let ropevim_guess_project=1
 "let ropevim_enable_autoimport=0
 
-let $PYTHONPATH .= ":/home/rwooden/src/rope:/home/rwooden/src/ropemode:/home/rwooden/src/ropevim"
-source $HOME/src/ropevim/ropevim.vim
+"let $PYTHONPATH .= ":/home/rwooden/src/rope:/home/rwooden/src/ropemode:/home/rwooden/src/ropevim"
+"source $HOME/src/ropevim/ropevim.vim
 
 " ------------------------------------------------------ }}}
 
