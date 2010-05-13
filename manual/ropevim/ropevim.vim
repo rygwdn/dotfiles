@@ -1,7 +1,7 @@
 function! LoadRope()
     if has('python')
-        python << EOF
-        import ropevim
+python << EOF
+import ropevim
 EOF
     endif
 endfunction
