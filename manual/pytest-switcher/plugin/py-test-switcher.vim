@@ -28,7 +28,7 @@
 
 if has('python')
     python import sys, os
-    python sys.path.append(os.path.expanduser('~/.vim/plugin')) # XXX
+    python sys.path.append(os.path.expanduser('~/.vim/manual/pytest-switcher/plugin')) # XXX
     python import py_test_switcher # see py_test_switcher.py
 endif
 

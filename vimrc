@@ -15,6 +15,7 @@ endif
 " setup runtime path using the excellent vim-pathogen:
 " http://github.com/tpope/vim-pathogen
 call pathogen#runtime_append_all_bundles()
+call pathogen#runtime_prepend_subdirectories('~/.vim/manual')
 call pathogen#helptags()
 
 " ------------------------------------------- }}}
@@ -241,7 +242,7 @@ cabbr wp call Wp()
 fun! Wp()
     set wrap
     set linebreak
-    source ~/.vim/autocorrect/autocorrect.vim
+    source ~/.vim/bundles/autocorrect/autocorrect.vim
     nnoremap j gj
     nnoremap k gk
     nnoremap 0 g0
