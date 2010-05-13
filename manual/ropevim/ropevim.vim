@@ -1,7 +1,9 @@
 function! LoadRope()
-python << EOF
-import ropevim
+    if has('python')
+        python << EOF
+        import ropevim
 EOF
+    endif
 endfunction
 
 call LoadRope()
