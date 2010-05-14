@@ -44,11 +44,26 @@ let mapleader=","               " set <Leader> to , instead of \
 " ----------------------------------------------------------------- }}}
 
 
-" backup settings {{{
+" backup and tempdir settings {{{
 set backup                      " produce *~ backup files
 set backupext=~                 " add ~ to the end of backup files
-set directory=~/.vim/tmp
-set backupdir=~/.vim/tmp
+
+python << EOF
+import os, vim
+
+dirs = ("~/tmp/.vim", "~/.vim/tmp", "/tmp")
+for dir in dirs:
+    p = os.path.realpath(os.path.expanduser(dir))
+    if os.path.isdir(p):
+        vim.command("let g:temp_path='%s'" % p)
+        vim.command("set directory=%s" % p)
+        vim.command("set backupdir=%s" % p)
+        break
+else:
+    vim.command("echo 'Failed to set temp path'")
+EOF
+
+let g:yankring_history_dir = g:temp_path
 " }}}-----------------------------------------------------------------
 
 
@@ -341,7 +356,6 @@ endif
 
 " Plugins {{{
 
-let g:yankring_history_dir = $HOME."/.vim/tmp/"
 command JCommentWriter silent call JCommentWriter()
 
 "" for py-test-switcher
