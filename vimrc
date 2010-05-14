@@ -333,15 +333,15 @@ autocmd FileType python compiler pylint
 " quickfix window tweaks -------------------------------- {{{
 
 " 	adjust window height
-au FileType qf call AdjustWindowHeight(3, 10)
-function! AdjustWindowHeight(minheight, maxheight)
-    if !exists("g:noqfresize")
-        exe max([min([line("$"), a:maxheight]), a:minheight]) . "wincmd _"
-    endif
-endfunction
-
-command Qfres let g:noqfresize=1
-command Qfnores unlet g:noqfresize
+"au FileType qf call AdjustWindowHeight(3, 10)
+"function! AdjustWindowHeight(minheight, maxheight)
+"    if !exists("g:noqfresize")
+"        exe max([min([line("$"), a:maxheight]), a:minheight]) . "wincmd _"
+"    endif
+"endfunction
+"
+"command Qfres let g:noqfresize=1
+"command Qfnores unlet g:noqfresize
 
 " ------------------------------------------------------- }}}
 
