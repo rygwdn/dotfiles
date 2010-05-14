@@ -401,6 +401,21 @@
   dir: supertab
 
 
+
+
+- names: [ZoomWin]
+  authors: [Charles Campbell]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=508
+  description: 'Zoom in/out  of windows (toggle between one window and multi-window)'
+  comment:
+  plugin_type: plugin
+  vim_org_id: 9865
+  file_type: vba.gz
+  dir: zoomwin
+
+
+
 - names: [tlib]
   authors: [Tom Link]
   urls:
