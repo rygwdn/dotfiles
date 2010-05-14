@@ -31,6 +31,14 @@ config.each do |plugin|
     puts "  Unpacking #{name} into #{dir}"
     `git clone #{plugin['repo']} #{dir}`
     FileUtils.rm_rf(File.join(dir, '.git'))
+  elsif plugin.has_key?('bzrrepo')
+    puts "  Unpacking #{name} into #{dir}"
+    `bzr get #{plugin['bzrrepo']} #{dir}`
+    FileUtils.rm_rf(File.join(dir, '.bzr'))
+  elsif plugin.has_key?('svnrepo')
+    puts "  Unpacking #{name} into #{dir}"
+    `svn checkout #{plugin['svnrepo']} #{dir}`
+    FileUtils.rm_rf(File.join(dir, '.svn'))
   elsif plugin.has_key?('vim_org_id')
     puts '  Downloading ' + name
     url = "http://www.vim.org/scripts/download_script.php?src_id=#{plugin['vim_org_id']}"
@@ -52,6 +60,26 @@ config.each do |plugin|
           zip_f.extract(entry, f_path)
         end
       end
+    when 'vba'
+      temp_f = Tempfile.new('vim_plugin')
+      temp_f << open(url).read
+      temp_f.flush
+      dir = File.expand_path(dir)
+      vba = File.expand_path(File.join(bundles_dir, 'vimball'))
+      FileUtils.mkdir_p(dir)
+      `vim -nes -N +'set rtp=#{dir},#{vba}' +'set ft=vim' +'so %' +'q!' #{temp_f.path}`
+    when 'vba.gz'
+      temp_gz_f = Tempfile.new('vim_plugin')
+      temp_gz_f << open(url).read
+      temp_gz_f.flush
+
+      temp_f = Tempfile.new('vim_plugin')
+      `gunzip -c #{temp_gz_f.path} > #{temp_f.path}`
+
+      dir = File.expand_path(dir)
+      vba = File.expand_path(File.join(bundles_dir, 'vimball'))
+      FileUtils.mkdir_p(dir)
+      `vim -nes -N +'set rtp=#{dir},#{vba}' +'set ft=vim' +'so %' +'q!' #{temp_f.path}`
     else
       raise '  Bad file_type: ' + plugin['file_type']
     end

@@ -44,11 +44,26 @@ let mapleader=","               " set <Leader> to , instead of \
 " ----------------------------------------------------------------- }}}
 
 
-" backup settings {{{
+" backup and tempdir settings {{{
 set backup                      " produce *~ backup files
 set backupext=~                 " add ~ to the end of backup files
-set directory=~/.vim/tmp
-set backupdir=~/.vim/tmp
+
+python << EOF
+import os, vim
+
+dirs = ("~/tmp/.vim", "~/.vim/tmp", "/tmp")
+for dir in dirs:
+    p = os.path.realpath(os.path.expanduser(dir))
+    if os.path.isdir(p):
+        vim.command("let g:temp_path='%s'" % p)
+        vim.command("set directory=%s" % p)
+        vim.command("set backupdir=%s" % p)
+        break
+else:
+    vim.command("echo 'Failed to set temp path'")
+EOF
+
+let g:yankring_history_dir = g:temp_path
 " }}}-----------------------------------------------------------------
 
 
@@ -81,12 +96,6 @@ set foldenable
 set foldlevel=99999
 
 set splitright                  " vertical split opens new window on right
-
-" match if/then/else
-runtime macros/matchit.vim
-
-" don't match parens
-let loaded_matchparen=1
 " ------------------------------------------------------------- }}}
 
 
@@ -254,6 +263,8 @@ fun! Wp()
     set spell spelllang=en_us
 endfu
 
+au FileType tex,pdc call Wp()
+
 
 " Latex
 let g:tex_flavor='latex'
@@ -267,7 +278,6 @@ au BufWritePost *.tex call MakeTex()
 " Use a makefile :)
 " Or not... - set to makeprg=make to automake
 au FileType tex set makeprg=
-au FileType tex call Wp()
 
 
 "Mail
@@ -298,7 +308,6 @@ augroup END
 
 set diffopt=filler,iwhite       " ignore all whitespace and sync
 
-"autocmd FileType python set omnifunc=pythoncomplete#Complete
 autocmd FileType javascript set omnifunc=javascriptcomplete#CompleteJS
 autocmd FileType html set omnifunc=htmlcomplete#CompleteTags
 autocmd FileType css set omnifunc=csscomplete#CompleteCSS
@@ -306,7 +315,8 @@ autocmd FileType xml set omnifunc=xmlcomplete#CompleteTags
 autocmd FileType php set omnifunc=phpcomplete#CompletePHP
 autocmd FileType c set omnifunc=ccomplete#Complete
 
-"autocmd FileType python set ft=python.doxygen | delcommand HiLink
+"" Python stuff
+"autocmd FileType python set omnifunc=pythoncomplete#Complete
 autocmd FileType python set ft=python.doxygen
 autocmd FileType python compiler pylint
 
@@ -322,6 +332,9 @@ function! AdjustWindowHeight(minheight, maxheight)
         exe max([min([line("$"), a:maxheight]), a:minheight]) . "wincmd _"
     endif
 endfunction
+
+command Qfres let g:nofreqsize=1
+command Qfnores unlet g:nofreqsize
 
 " ------------------------------------------------------- }}}
 
@@ -343,30 +356,18 @@ endif
 
 " Plugins {{{
 
-"helptags ~/.vim/doc
-
-let g:yankring_history_dir = $HOME."/.vim/tmp/"
 command JCommentWriter silent call JCommentWriter()
-let g:AutoClosePairs = {} 
-"{'(': ')', '[': ']', '"': '"'} 
 
-
-let g:surround_45 = "**\r**"
-
+"" for py-test-switcher
 map <silent> <F3> :SwitchCodeAndTest<CR>
 
-
-" Viki ----------------------------------- {{{
-
-au FileType tex let b:vikiFamily="LaTeX"
-
-" ---------------------------------------- }}}
 
 " Conque shell ----------------------- {{{
 
 command CV ConqueVSplit
 command CC Conque
 command CS ConqueSplit
+command Ipy ConqueVSplit ipython
 
 " ---------------------------------------- }}}
 
@@ -399,9 +400,6 @@ let ropevim_extended_complete=1
 let ropevim_guess_project=1
 "let ropevim_enable_autoimport=0
 
-"let $PYTHONPATH .= ":/home/rwooden/src/rope:/home/rwooden/src/ropemode:/home/rwooden/src/ropevim"
-"source $HOME/src/ropevim/ropevim.vim
-
 " ------------------------------------------------------ }}}
 
 " SuperTab stuff ------------------------------------------ {{{
@@ -410,8 +408,10 @@ let ropevim_guess_project=1
 let g:SuperTabDefaultCompletionType = "context"
 let g:SuperTabLongestHighlight = 1
 
-" ------------------------------------------------------ }}}
 
+au BufWinEnter */sc/ta/*/marks call SuperTabSetDefaultCompletionType("<c-x><c-l>")
+
+" ------------------------------------------------------ }}}
 
 " Eclim stuff ------------------------------------------------ {{{
 let g:EclimDisabled=1
@@ -442,9 +442,6 @@ EOF
     endif
 endfunction
 
-au BufWinEnter */sc/jv/*.java set tabstop=3 shiftwidth=3 sts=3
-au BufEnter */sc/ta/*/marks call SuperTabSetDefaultCompletionType("<c-x><c-l>")
-
 let g:EclimPythonValidate = 1
 "let g:EclimNailgunClient = 'external'
 let g:EclimBrowser = 'firefox'
@@ -453,7 +450,6 @@ command EclimStart silent !eclipse &> /dev/null &
 command PR ProjectRefresh
 
 " ------------------------------------------------------------- }}}
-
 
 " TlistToo stuff ----------------------------------------------- {{{
 let g:Tlist_Auto_Open = 0
@@ -464,30 +460,5 @@ au FileType taglist set sw=2
 au FileType taglist set fdm=indent
 
 " ----------------------------------------------------------------- }}}
-
-
-" BufTabs ------------------------------------------------- {{{
-
-"set laststatus=2                        " always have a status bar, even if only one window!
-"let g:buftabs_in_statusline=1
-"let g:buftabs_only_basename=1
-"let g:buftabs_active_highlight_group="Visual"
-
-" ------------------------------------------------------------ }}}
-
-
-" BlogIt ------------------------------------------------- {{{
-
-let blogit_unformat='pandoc --from=html --to=markdown --email-obfuscation=none'
-let blogit_format='pandoc --from=markdown --to=html --no-wrap --email-obfuscation=none'
-
-command Com Blogit commit
-command Pub Blogit publish
-command Bls Blogit ls
-command Bl Bls
-command Bnew Blogit new
-
-" ------------------------------------------------------------ }}}
-
 
 " }}}
