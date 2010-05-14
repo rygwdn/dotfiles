@@ -48,6 +48,7 @@ let mapleader=","               " set <Leader> to , instead of \
 set backup                      " produce *~ backup files
 set backupext=~                 " add ~ to the end of backup files
 
+if has('python')
 python << EOF
 import os, vim
 
@@ -55,13 +56,19 @@ dirs = ("~/tmp/.vim", "~/.vim/tmp", "/tmp")
 for dir in dirs:
     p = os.path.realpath(os.path.expanduser(dir))
     if os.path.isdir(p):
-        vim.command("let g:temp_path='%s'" % p)
-        vim.command("set directory=%s" % p)
-        vim.command("set backupdir=%s" % p)
-        break
+	vim.command("let g:temp_path='%s'" % p)
+	vim.command("set directory=%s" % p)
+	vim.command("set backupdir=%s" % p)
+	break
 else:
     vim.command("echo 'Failed to set temp path'")
 EOF
+else
+    let g:temp_path = '/tmp'
+    set directory=~/.vim/tmp
+    set backupdir=~/.vim/tmp
+endif
+
 
 let g:yankring_history_dir = g:temp_path
 " }}}-----------------------------------------------------------------
