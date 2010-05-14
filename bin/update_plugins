@@ -67,7 +67,7 @@ config.each do |plugin|
       dir = File.expand_path(dir)
       vba = File.expand_path(File.join(bundles_dir, 'vimball'))
       FileUtils.mkdir_p(dir)
-      `vim -nes -N +'set rtp=#{dir},#{vba}' +'set ft=vba' +'so %' +'q!' #{temp_f.path}`
+      `vim -nes -N +'set rtp=#{dir},#{vba}' +'set ft=vim' +'so %' +'q!' #{temp_f.path}`
     when 'vba.gz'
       temp_gz_f = Tempfile.new('vim_plugin')
       temp_gz_f << open(url).read
@@ -79,7 +79,7 @@ config.each do |plugin|
       dir = File.expand_path(dir)
       vba = File.expand_path(File.join(bundles_dir, 'vimball'))
       FileUtils.mkdir_p(dir)
-      `vim -nes -N +'set rtp=#{dir},#{vba}' +'set ft=vba.gz' +'so %' +'q!' #{temp_f.path}`
+      `vim -nes -N +'set rtp=#{dir},#{vba}' +'set ft=vim' +'so %' +'q!' #{temp_f.path}`
     else
       raise '  Bad file_type: ' + plugin['file_type']
     end
