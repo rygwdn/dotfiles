@@ -325,6 +325,25 @@
   bzrrepo: "lp:ultisnips"
   dir: ultisnips
 
+
+
+- names: [operator-user]
+  authors: [Kana Natsuno]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=2692
+  description: 'Define your own operator easily '
+  comment:
+  plugin_type: plugin
+  repo: git://github.com/kana/vim-operator-user.git
+  dir: operatoruser
+
+
+
+
+
+
+
+
 - names: [Vimball]
   authors: [Charles Campbell]
   urls:
@@ -346,6 +365,27 @@
   file_type: vba.gz
   dir: netrw
 
+- names: [camelcasemotion]
+  authors: [Ingo Karkat]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=1905
+  description: 'Motion through CamelCaseWords and underscore_notation'
+  comment:
+  plugin_type: plugin
+  vim_org_id: 10530
+  file_type: vba.gz
+  dir: camelcasemotion
+
+- names: [operator-camelize]
+  authors: [tyru]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=3046
+  description: 'snake_case -> SnakeCase, CamelCase -> camel_case'
+  comment:
+  plugin_type: plugin
+  vim_org_id: 12793
+  file_type: zip
+  dir: operatorcamelize
 
 
 

@@ -7,3 +7,34 @@ endsnippet
 snippet lin "pylint disable"
 #pylint: disable=${0:E1101}
 endsnippet
+
+snippet class "smart class" !b
+class ${1:MyClass}(${2:object}):
+	"""${3:Docstring for $1}"""
+
+	def __init__( self${4/([^,])?(.*)/(?1:, )/}${4:arg} ):
+		"""
+		TODO: Fill me in
+${4/.+/(?0:\n)/}${4/(\A\s*,\s*\Z)|,?\s*([A-Za-z_][A-Za-z0-9_]*)\s*(=[^,]*)?(,\s*|$)/(?2:		$2 - TODO: describe me here\n)/g}		"""
+${2/object$|(.+)/(?1:		$0.__init__\(self\)\n\n)/}${4/(\A\s*,\s*\Z)|,?\s*([A-Za-z_][A-Za-z0-9_]*)\s*(=[^,]*)?(,\s*|$)/(?2:		self._$2 = $2\n)/g}
+endsnippet
+
+snippet def "smart def" !b
+def ${1:function}(${2/([^,])?(.*)/(?1:)/}${2:arg}):
+    """${3:Docstring for $1}
+${2/.+/(?0:\n)/}${2/(\A\s*,\s*\Z)|,?\s*([A-Za-z_][A-Za-z0-9_]*)\s*(=[^,]*)?(,\s*|$)/    @param $2 TODO: doc\n/g}
+    @returns TODO: doc
+    """
+    ${0:pass}
+
+endsnippet
+
+snippet defs "smart def" !b
+def ${1:function}(self, ${2/([^,])?(.*)/(?1:)/}${2:arg}):
+    """${3:Docstring for $1}
+${2/.+/(?0:\n)/}${2/(\A\s*,\s*\Z)|,?\s*([A-Za-z_][A-Za-z0-9_]*)\s*(=[^,]*)?(,\s*|$)/    @param $2 TODO: doc\n/g}
+    @returns TODO: doc
+    """
+    ${0:pass}
+
+endsnippet

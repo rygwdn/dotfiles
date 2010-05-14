@@ -340,8 +340,8 @@ function! AdjustWindowHeight(minheight, maxheight)
     endif
 endfunction
 
-command Qfres let g:nofreqsize=1
-command Qfnores unlet g:nofreqsize
+command Qfres let g:noqfresize=1
+command Qfnores unlet g:noqfresize
 
 " ------------------------------------------------------- }}}
 
@@ -368,6 +368,27 @@ command JCommentWriter silent call JCommentWriter()
 "" for py-test-switcher
 map <silent> <F3> :SwitchCodeAndTest<CR>
 
+
+" Camel-case stuff -------------------{{{
+
+map <silent> w <Plug>CamelCaseMotion_w
+map <silent> b <Plug>CamelCaseMotion_b
+map <silent> e <Plug>CamelCaseMotion_e
+sunmap w
+sunmap b
+sunmap e
+
+map <Leader>c <Plug>(operator-camelize)
+map <Leader>C <Plug>(operator-decamelize)
+
+" -------------------------------------}}}
+
+
+" snippet stuff -------------------{{{
+
+command UltiReset py UltiSnips_Manager.reset()
+
+" -------------------------------------}}}
 
 " Conque shell ----------------------- {{{
 
