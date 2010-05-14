@@ -407,6 +407,17 @@
   dir: repeat
 
 
+- names: [xmledit]
+  authors: [Devin Weaver]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=301
+  description: ' A filetype plugin to help edit XML, HTML, and SGML documents '
+  comment:
+  plugin_type: plugin
+  repo: git://github.com/sukima/xmledit.git
+  dir: xmledit
+
+
 - names: [candycode]
   authors: [Justin Constantino]
   urls:
