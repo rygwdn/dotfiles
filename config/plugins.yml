@@ -196,15 +196,7 @@
   file_type: zip
   dir: taglist
 
-- names: [dbext.vim]
-  authors: [Peter Bagyinszki]
-  urls:
-    - http://www.vim.org/scripts/script.php?script_id=356
-  description: 'Provides database access to many dbms'
-  plugin_type: plugin
-  vim_org_id: 11341 # 11.01, 2009-09-08, 7.0
-  file_type: zip
-  dir: dbext
+
 
 - names: [jQuery]
   authors: [Bruno Michel]
@@ -313,6 +305,73 @@
   dir: histwin
 
 
+- names: [Conque Shell]
+  authors: [Nico Raffo]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=2771
+  description: 'Run interactive commands inside a Vim buffer'
+  comment:
+  plugin_type: plugin
+  svnrepo: http://conque.googlecode.com/svn/trunk/
+  dir: conque
+
+- names: [UltiSnips]
+  authors: [Holger Rapp]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=2715
+  description: 'The ultimate snippet solution for python enabled Vim'
+  comment:
+  plugin_type: plugin
+  bzrrepo: "lp:ultisnips"
+  dir: ultisnips
+
+- names: [Vimball]
+  authors: [Charles Campbell]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=1502
+  description: 'vim-based archiver: builds, extracts, and previews'
+  comment: this needs to appear before any vba plugins
+  vim_org_id: 11981
+  file_type: tar.gz
+  dir: vimball
+
+- names: [netrw]
+  authors: [Charles Campbell]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=1075
+  description: 'Network oriented reading, writing, and browsing'
+  comment:
+  plugin_type: plugin
+  vim_org_id: 11979
+  file_type: vba.gz
+  dir: netrw
+
+
+
+
+
+- names: [SuperTab continued]
+  authors: [Eric Van Dewoestine]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=1643
+  description: 'Do all your insert-mode completion with Tab'
+  comment:
+  vim_org_id: 11853
+  file_type: vba
+  dir: supertab
+
+
+- names: [tlib]
+  authors: [Tom Link]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=1863
+  description: 'Some utility functions '
+  comment:
+  plugin_type: plugin
+  vim_org_id: 12751
+  file_type: vba
+  dir: tlib
+
 
 - names: [bufkill.vim]
   authors: [John Orr]
@@ -350,17 +409,6 @@
   dir: cmdline-complete
 
 
-
-- names: [Vimball]
-  authors: [Charles Campbell]
-  urls:
-    - http://www.vim.org/scripts/script.php?script_id=1502
-  description: 'vim-based archiver: builds, extracts, and previews'
-  comment:
-  #plugin_type: plugin
-  vim_org_id: 11981
-  file_type: tar.gz
-  dir: vimball
 
 - names: [DoxygenToolkit]
   authors: [Mathias Lorente]
