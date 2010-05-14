@@ -31,6 +31,14 @@ config.each do |plugin|
     puts "  Unpacking #{name} into #{dir}"
     `git clone #{plugin['repo']} #{dir}`
     FileUtils.rm_rf(File.join(dir, '.git'))
+  elsif plugin.has_key?('bzr-repo')
+    puts "  Unpacking #{name} into #{dir}"
+    `bzr clone #{plugin['bzr-repo']} #{dir}`
+    FileUtils.rm_rf(File.join(dir, '.bzr'))
+  elsif plugin.has_key?('svn-repo')
+    puts "  Unpacking #{name} into #{dir}"
+    `svn checkout #{plugin['svn-repo']} #{dir}`
+    FileUtils.rm_rf(File.join(dir, '.svn'))
   elsif plugin.has_key?('vim_org_id')
     puts '  Downloading ' + name
     url = "http://www.vim.org/scripts/download_script.php?src_id=#{plugin['vim_org_id']}"
