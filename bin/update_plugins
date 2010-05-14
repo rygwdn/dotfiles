@@ -60,6 +60,12 @@ config.each do |plugin|
           zip_f.extract(entry, f_path)
         end
       end
+    when 'vba'
+      temp_f = Tempfile.new('vim_plugin')
+      temp_f << open(url).read
+      temp_f.flush
+      `vim -nes +"set rtp=#{dir} | so % | q" #{temp_f.path}`
+      FileUtils.rm_rf(File.join(dir, '.bzr'))
     else
       raise '  Bad file_type: ' + plugin['file_type']
     end
