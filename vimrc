@@ -324,6 +324,8 @@ autocmd FileType c set omnifunc=ccomplete#Complete
 
 "" Python stuff
 "autocmd FileType python set omnifunc=pythoncomplete#Complete
+"Use my rope stuff
+autocmd FileType python set omnifunc=RopeCompleteFunc
 autocmd FileType python set ft=python.doxygen
 autocmd FileType python compiler pylint
 
