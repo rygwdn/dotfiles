@@ -49,16 +49,6 @@
   plugin_type: plugin
   dir: ragtag
 
-#- names: [delimitMate]
-#  authors: [Israel Chauca Fuentes]
-#  urls:
-#    - http://www.vim.org/scripts/script.php?script_id=2754
-#  repo: git://github.com/Raimondi/delimitMate.git
-#  description: 'Provides auto-balancing and some expansions for parens, quotes, etc.'
-#  comment:
-#  plugin_type: plugin
-#  dir: delimitmate
-
 - names: [ack.vim]
   authors: [Miles Sterrett]
   urls:
@@ -91,15 +81,6 @@
   plugin_type: colors
   dir: gardener
 
-#- names: [templates]
-#  authors: [Aristotle Pagaltzis, Hariton Mizgir]
-#  urls:
-#    - http://www.vim.org/scripts/script.php?script_id=1172
-#  repo: git://github.com/hariton/simple-vim-templates.git
-#  description: 'Load filetype templates for new files'
-#  plugin_type: plugin
-#  dir: templates
-
 - names: [fugitive.vim]
   authors: [Tim Pope]
   urls:
@@ -121,16 +102,6 @@
   comment:
   plugin_type: plugin
   dir: git
-
-#- names: [snipMate]
-#  authors: [Michael Sanders]
-#  urls:
-#    - http://www.vim.org/scripts/script.php?script_id=2540
-#  repo: git://github.com/msanders/snipmate.vim.git
-#  description: 'TextMate-style snippets for Vim'
-#  comment:
-#  plugin_type: plugin
-#  dir: snipmate
 
 - names: [FuzzyFinder, fuf]
   authors: [Takeshi Nishida]
@@ -218,16 +189,6 @@
   file_type: vim
   dir: gist
 
-#- names: [showmarks.vim]
-#  authors: [Anthony Kruize]
-#  urls:
-#    - http://www.vim.org/scripts/script.php?script_id=152
-#  description: 'Visually shows the location of marks'
-#  plugin_type: plugin
-#  vim_org_id: 3342 # showmarks.vim 	2.2 	2004-08-16 	6.0
-#  file_type: vim
-#  dir: showmarks
-
 - names: [YankRing]
   authors: [David Fishburn]
   urls:
@@ -249,29 +210,6 @@
   plugin_type: plugin
   repo: git://github.com/michaeljsmith/vim-indent-object.git
   dir: vim-indent-object
-
-
-#- names: [LustyExplorer]
-#  authors: [Stephen Bach]
-#  urls:
-#    - http://www.vim.org/scripts/script.php?script_id=1890
-#  description: 'LustyExplorer is a fast and responsive way to manage files and buffers in Vim.'
-#  comment: Like fuf
-#  plugin_type: plugin
-#  vim_org_id: 12728
-#  file_type: vim
-#  dir: lusty-explorer
-
-#- names: [pylint.vim]
-#  authors: [Oleksandr Tymoshenko]
-#  urls:
-#    - http://www.vim.org/scripts/script.php?script_id=891
-#  description: 'Compiler plugin for PyLint'
-#  comment: requires pylint (sudo pip install pylint)
-#  plugin_type: compiler
-#  vim_org_id: 10365
-#  file_type: vim
-#  dir: pylint
 
 
 - names: [cocoa.vim]
@@ -440,18 +378,6 @@
   dir: bufkill
 
 
-#- names: [genutils]
-#  authors: [Hari Krishna Dara]
-#  urls:
-#    - http://www.vim.org/scripts/script.php?script_id=197
-#  description: 'General utility functions '
-#  comment:
-#  plugin_type: plugin
-#  vim_org_id: 11399
-#  file_type: vim
-#  dir: genutils
-
-
 - names: [CmdlineComplete]
   authors: [Yuheng Xie]
   urls:
@@ -487,17 +413,6 @@
   vim_org_id: 9430
   file_type: vim
   dir: pdc
-
-#- names: [jcommenter.vim]
-#  authors: [Kalle Bjorklid]
-#  urls:
-#    - http://www.vim.org/scripts/script.php?script_id=20
-#  description: 'A script for automatically generating JavaDoc comments '
-#  comment:
-#  plugin_type: plugin
-#  vim_org_id: 1587
-#  file_type: vim
-#  dir: jcommenter
 
 - names: [repeat.vim]
   authors: [Tim Pope]
