@@ -222,6 +222,9 @@ endif
 " 1 height windows
 set winminheight=1
 
+set laststatus=2
+set statusline=%<%f%w\ %h%m%r\ %y\ \ %{fugitive#statusline()}%=%-14.(%l,%c%V%)\ %P
+
 " --------------------------------------- }}}
 
 
