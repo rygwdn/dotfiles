@@ -63,12 +63,12 @@
   authors: [Miles Sterrett]
   urls:
     - http://www.vim.org/scripts/script.php?script_id=2572
-  # repo: git://github.com/mileszs/ack.vim.git
+  repo: git://github.com/mileszs/ack.vim.git
   description: "Plugin for the Perl module / CLI script 'ack'"
   comment:
   plugin_type: plugin
-  vim_org_id: 10433
-  file_type: tar.gz
+  #vim_org_id: 10433
+  #file_type: tar.gz
   dir: ack
 
 - names: [Align]
