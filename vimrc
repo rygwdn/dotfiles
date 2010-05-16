@@ -79,7 +79,7 @@ set mouse=a                     " mouse support in all modes
 set mousehide                   " hide the mouse when typing text
 
 " ,p and shift-insert will paste the X buffer, even on the command line
-nmap <LocalLeader>p i<S-MiddleMouse><ESC>
+nmap <S-Insert> i<S-MiddleMouse><ESC>
 imap <S-Insert> <S-MiddleMouse>
 cmap <S-Insert> <S-MiddleMouse>
 
@@ -327,8 +327,6 @@ autocmd FileType c set omnifunc=ccomplete#Complete
 
 "" Python stuff
 "autocmd FileType python set omnifunc=pythoncomplete#Complete
-"Use my rope stuff
-autocmd FileType python set omnifunc=RopeCompleteFunc
 autocmd FileType python set ft=python.doxygen
 autocmd FileType python compiler pylint
 
@@ -427,10 +425,15 @@ let g:fuf_keyOpenVsplit   = "<C-l>"
 
 " RopeVim -------------------------------- {{{
 
+"Use my rope stuff
+autocmd FileType python set omnifunc=RopeCompleteFunc
+
 let ropevim_codeassist_maxfixes=10
 let ropevim_vim_completion=1
 let ropevim_extended_complete=1
 let ropevim_guess_project=1
+let ropevim_local_prefix=<LocalLeader>r
+let ropevim_global_prefix=<LocalLeader>p
 "let ropevim_enable_autoimport=0
 
 " ------------------------------------------------------ }}}
