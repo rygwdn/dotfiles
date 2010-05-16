@@ -1,0 +1,85 @@
+#!/usr/bin/env zsh
+
+# Just for the next bit!
+setopt ALL_EXPORT
+
+[ -z "$HOME" ] && HOME=$(cd ~ ; pwd)
+[ -z "$HOSTNAME" ] && HOSTNAME=$(hostname)
+
+EMAIL="rygwdn@gmail.com"
+FULLNAME="Ryan Wooden"
+TZ="America/Halifax"
+
+PATH=/usr/local/bin:$PATH
+PATH=$HOME/.cabal/bin:$PATH
+PATH=$PATH:$HOME/bin
+PATH=$PATH:$HOME/Dropbox/bin
+PATH=$PATH:.
+PATH=$PATH:/opt/local/bin
+PATH=$PATH:$NXJ_HOME/bin
+PATH=$PATH:$HOME/.gem/ruby/1.8/bin/
+
+# include junit in java classpath
+CLASSPATH=$CLASSPATH:.:/usr/share/java/junit4.jar
+
+LD_LIBRARY_PATH=$NXJ_HOME/bin
+NXJ_HOME=/home/rwooden/src/lejos_nxj
+
+HISTSIZE=10000              # size of history
+SAVEHIST=10000              # maximum of history events to be save
+LISTMAX=1000                # never ask
+LOGCHECK=60
+HISTFILE=$HOME/.zhistory
+
+NULLCMD='less'               # use cat for > null commands
+REPORTTIME=10                # report time if execution exceeds amount of seconds
+watch=(notme)               # watch login/logout
+
+PAGER='less'
+EDITOR='vim'
+VISUAL='vim'
+VPAGER='vim -R -'
+
+# Set up color vars
+autoload colors zsh/terminfo
+if [[ "$terminfo[colors]" -ge 8 ]]
+then
+    colors
+    for color in RED GREEN YELLOW BLUE MAGENTA CYAN WHITE
+    do
+        eval PR_$color='%{$terminfo[bold]$fg[${(L)color}]%}'
+        eval PR_LIGHT_$color='%{$fg[${(L)color}]%}'
+        (( count = $count + 1 ))
+    done
+    PR_NO_COLOR="%{$terminfo[sgr0]%}"
+fi
+
+# Enable colors in grep
+export GREP_OPTIONS="--color=auto"
+
+# local stuff
+LC_ALL='en_US.UTF-8'
+LANG='en_US.UTF-8'
+LC_CTYPE='C'
+
+# this makes man pages look nicer...
+LESS_TERMCAP_mb=$'\E[01;31m'
+LESS_TERMCAP_md=$'\E[01;31m'
+LESS_TERMCAP_me=$'\E[0m'
+LESS_TERMCAP_se=$'\E[0m'
+LESS_TERMCAP_so=$'\E[01;44;33m'
+LESS_TERMCAP_ue=$'\E[0m'
+LESS_TERMCAP_us=$'\E[01;32m'
+
+# these are the default arguments to exuberant-ctags
+CTAGS="--c++-kinds=+p --fields=+iaS --extra=+q"
+
+# Use distrubute in virtualenv's
+VIRTUALENV_USE_DISTRIBUTE=1
+
+if [[ -n "$SSH_TTY" ]]
+then
+    PULSE_SERVER="tcp:`echo $SSH_CLIENT | sed 's/ .*//'`:4713 ssh"
+fi
+
+unsetopt ALL_EXPORT

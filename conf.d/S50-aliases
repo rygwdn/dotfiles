@@ -1,0 +1,4 @@
+#!/usr/bin/env zsh
+
+[ -e ~/.bash_aliases ] && bash_source ~/.bash_aliases
+[ -e ~/.zsh_aliases ] && source ~/.zsh_aliases

@@ -1,0 +1,15 @@
+#!/usr/bin/env zsh
+
+if [[ -n "$SSH_TTY" ]]
+then
+    screen -ls | sed '1d;N;$!P;$!D;$d;/^$/d'
+elif [[ "$TERM" != "screen" ]]
+then
+    if screen -ls 2>&1 | grep -q 'No Sockets'
+    then
+        screen && exit
+    elif screen -ls 2>&1 | grep -q '(Multi, detached)'
+    then
+        screen -x
+    fi
+fi

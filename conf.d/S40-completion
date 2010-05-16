@@ -1,0 +1,87 @@
+#!/usr/bin/env zsh
+
+autoload -U compinit
+compinit
+
+#[ Generic ]############################################
+#Trying without cache for now
+#zstyle ':completion::complete:*' use-cache on
+#zstyle ':completion::complete:*' cache-path ~/.zsh/cache/$HOST
+zstyle ':completion:*' add-space true
+zstyle ':completion:*' completer _expand _complete _match _prefix _ignored _list # _approximate
+zstyle ':completion:*' menu select=1
+zstyle ':completion:*' file-sort name
+zstyle ':completion:*' list-colors ${(s.:.)ZLS_COLORS}
+zstyle ':completion:*' matcher-list 'r:|[._-]=** r:|=**' 'l:|=** r:|=**'
+zstyle ':completion:*' menu select
+
+# I like error matching, but it's annoying sometimes
+#zstyle ':completion:*:approximate:*' max-errors 'reply=( $(( ($#PREFIX+$#SUFFIX)/2 )) numeric )'
+
+# old
+#zstyle ':completion:*' menu select=1 _complete _ignored _approximate
+#zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
+#zstyle ':completion:*::::' completer _expand _complete _ignored _approximate
+#zstyle -e ':completion:*:approximate:*' max-errors 'reply=( $(( ($#PREFIX+$#SUFFIX)/2 )) numeric )'
+
+#[ Formats ]####################################################################
+zstyle ':completion:*' group 1
+zstyle ':completion:*' format '%B---- %d%b'
+zstyle ':completion:*:corrections' format '%B---- %d (errors %e)%b'
+zstyle ':completion:*:descriptions' format "%B---- %d%b"
+zstyle ':completion:*:messages' format '%B%U---- %d%u%b' 
+zstyle ':completion:*:warnings' format "%B$fg[red]%}---- no match for: $fg[white]%d%b"
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*' list-prompt '%SAt %p: Hit TAB for more, or the character to insert%s'
+zstyle ':completion:*' select-prompt '%SScrolling active: current selection at %p%s'
+
+# insert all expansions for expand completer
+zstyle ':completion:*:expand:*' tag-order all-expansions
+
+# formatting and messages
+zstyle ':completion:*' verbose yes
+zstyle ':completion:*:descriptions' format '%B%d%b'
+zstyle ':completion:*:messages' format '%d'
+zstyle ':completion:*:warnings' format 'No matches for: %d'
+zstyle ':completion:*:corrections' format '%B%d (errors: %e)%b'
+zstyle ':completion:*' group-name ''
+
+# match uppercase from lowercase
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
+
+# offer indexes before parameters in subscripts
+zstyle ':completion:*:*:-subscript-:*' tag-order indexes parameters
+
+
+#[ Kill ]#######################################################################
+zstyle ':completion:*:processes' command 'ps -au$USER -o pid,time,cmd|grep -v "ps -au$USER -o pid,time,cmd"'
+zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#)*=0=01;31'
+zstyle ':completion:*:*:kill:*:processes' command 'ps --forest -A -o pid,user,cmd'
+zstyle ':completion:*:processes-names' command 'ps axho command' 
+
+
+#[ hosts and users ]############################################################
+hosts="`[ -r ~/.ssh/config ] && awk '/^host +[a-z]/ { print $2 }' ~/.ssh/config`"
+hosts="`echo $hosts ; [ -r ~/.ssh/known_hosts ] && awk '{print $1}' ~/.ssh/known_hosts | tr , '\n'`"
+hosts="`echo $hosts ; awk '/^[^#]/ {print $2 $3" "$4" "$5}' /etc/hosts | grep -v ip6- && grep "^#%" /etc/hosts | awk -F% '{print $2}'`"
+hosts="`echo $hosts | sort -u`"
+zstyle ':completion:*' hosts $hosts
+
+users="`echo root ; ls /home | sed 's/ /\n/g'`"
+zstyle ':completion:*' users $users
+
+#[ Ignores ]#########################################
+zstyle '*' single-ignored show
+# ignore completion functions (until the _ignored completer)
+zstyle ':completion:*:functions' ignored-patterns '_*'
+# Filename suffixes to ignore during completion (except after rm command)
+zstyle ':completion:*:*:(^rm):*:*files' ignored-patterns '*?.o' '*?.c~' \
+    '*?.old' '*?.pro'
+# Ignores for vim
+zstyle ':completion:*:*:vi(m|):*:*files' ignored-patterns '*?.(aux|dvi|ps|pdf|bbl|toc|lot|lof|o|zwc|cm?)'
+
+# SSH Completion
+zstyle ':completion:*:scp:*' tag-order files users 'hosts:-host hosts:-domain:domain hosts:-ipaddr"IP\ Address *'
+zstyle ':completion:*:scp:*' group-order files all-files users hosts-domain hosts-host hosts-ipaddr
+zstyle ':completion:*:ssh:*' tag-order users 'hosts:-host hosts:-domain:domain hosts:-ipaddr"IP\ Address *'
+zstyle ':completion:*:ssh:*' group-order hosts-domain hosts-host users hosts-ipaddr

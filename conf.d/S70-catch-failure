@@ -1,0 +1,20 @@
+#!/usr/bin/env zsh
+
+# use the nice "Command not found" feature from ubuntu
+[ -e /etc/zsh_command_not_found ] && source /etc/zsh_command_not_found
+
+# Prints out a failure notice if things break
+catch_failure()
+{
+    pt=$?
+    if [[ "$pt" != 0 ]]
+    then
+        hist=`history -1 | sed -e "s/^ *[0-9]* *//"`
+        failure="`history -1 | sed -e "s/^ *\([0-9]*\) *.*/\1/"`"
+        [[ "$failure" = "$LAST_FAILURE" ]] && return
+        export LAST_FAILURE=$failure
+        echo -e "\033[1;31m'$hist' Failed ($pt)"
+    fi
+}
+
+precmd_functions+='catch_failure'
