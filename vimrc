@@ -146,11 +146,11 @@ map <F12> :!ctags -a --c++-kinds=+p --fields=+iaS --extra=+q %<CR><CR>
 map <F11> :make!<CR>
 
 " Move around windows
-map <c-s-l> l
-map <c-s-h> h
-map <c-s-k> k
-map <c-s-j> j
-map <C-a> 
+nmap <c-l> l
+nmap <c-h> h
+nmap <c-k> k
+nmap <c-j> j
+"map <C-a> 
 
 " Auto close braces
 inoremap { {}O
@@ -329,6 +329,7 @@ autocmd FileType c set omnifunc=ccomplete#Complete
 "autocmd FileType python set omnifunc=pythoncomplete#Complete
 autocmd FileType python set ft=python.doxygen
 autocmd FileType python compiler pylint
+autocmd FileType python set ts=4
 
 " --------------------------------------------------- }}}
 
@@ -368,9 +369,10 @@ endif
 
 command JCommentWriter silent call JCommentWriter()
 
+let g:pylint_cwindow = 0
+
 "" for py-test-switcher
 map <silent> <F3> :SwitchCodeAndTest<CR>
-
 
 " Camel-case stuff -------------------{{{
 
@@ -434,6 +436,8 @@ let ropevim_extended_complete=1
 let ropevim_guess_project=1
 let ropevim_local_prefix="<LocalLeader>r"
 let ropevim_global_prefix="<LocalLeader>p"
+"let ropevim_enable_shortcuts=0
+
 if has('python')
 python << EOF
 import sys, os
@@ -495,12 +499,10 @@ command PR ProjectRefresh
 " ------------------------------------------------------------- }}}
 
 " TlistToo stuff ----------------------------------------------- {{{
-let g:Tlist_Auto_Open = 0
-map <F5> :TlistToo<CR>
-let Tlist_Process_File_Always = 1
-au FileType taglist set nospell
-au FileType taglist set sw=2
-au FileType taglist set fdm=indent
+let Tlist_Auto_Open = 1
+let g:Tlist_Process_File_Always = 1
+let g:Tlist_Exit_OnlyWindow = 1
+let g:Tlist_Show_One_File = 1
 
 " ----------------------------------------------------------------- }}}
 
