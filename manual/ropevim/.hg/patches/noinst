@@ -1,0 +1,24 @@
+diff -r 89c8719f5f11 ropevim.vim
+--- a/ropevim.vim	Tue Apr 27 19:51:44 2010 +0400
++++ b/ropevim.vim	Mon May 17 08:21:42 2010 -0300
+@@ -1,7 +1,19 @@
+ function! LoadRope()
+ python << EOF
++import vim
++import os, sys
++for path in vim.eval("&rtp").split(","):
++    if os.path.isfile(os.path.join(path, "ropevim.py")):
++        sys.path.append(path)
++    for mod in ("rope", "ropemode"):
++        if os.path.isfile(os.path.join(path, mod, mod, "__init__.py")):
++            sys.path.append(os.path.join(path, mod))
++        if os.path.isfile(os.path.join(path, mod, "__init__.py")):
++            sys.path.append(path)
+ import ropevim
+ EOF
+ endfunction
+ 
+-call LoadRope()
++if has('python')
++    call LoadRope()
++endif

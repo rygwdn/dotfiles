@@ -1,0 +1,56 @@
+diff -r 12ca63e0256e ropevim.py
+--- a/ropevim.py	Mon May 17 08:21:42 2010 -0300
++++ b/ropevim.py	Mon May 17 08:22:56 2010 -0300
+@@ -51,19 +51,33 @@
+     def ask_directory(self, prompt, default=None, starting=None):
+         return call('input("%s", ".", "dir")' % prompt)
+ 
++    def _vim_string(self, obj):
++        """ Creates a vim-friendly string from a group of
++        dicts, lists and strings.
++        """
++        if isinstance(obj, list):
++            return u'[' + u",".join([self._vim_string(o) for o in obj]) + u']'
++        elif isinstance(obj, dict):
++            return u'{' + u','.join([
++                u"%s:%s" % (self._vim_string(key), self._vim_string(value))
++                for key, value in obj.iteritems()]) + u'}'
++        else:
++            return u'"%s"' % str(obj).replace(u'"', u'\\"')
++
++
+     def ask_completion(self, prompt, values, starting=None):
+         if self.get('vim_completion') and 'i' in call('mode()'):
+             if not self.get('extended_complete', False):
+-                proposals = u','.join(u"'%s'" % self._completion_text(proposal)
+-                                      for proposal in values)
++                proposals = [self._completion_text(proposal)
++                              for proposal in values]
+             else:
+-                proposals = u','.join(self._extended_completion(proposal)
+-                                      for proposal in values)
++                proposals = [self._extended_completion(proposal)
++                              for proposal in values]
+ 
+             col = int(call('col(".")'))
+             if starting:
+                 col -= len(starting)
+-            command = u'call complete(%s, [%s])' % (col, proposals)
++            command = u'call complete(%s, %s)' % (col, self._vim_string(proposals))
+             vim.command(command.encode(self._get_encoding()))
+             return None
+         return self.ask_values(prompt, values, starting=starting,
+@@ -331,11 +345,8 @@
+         else:
+             type_ = type_.ljust(5)[:5]
+         ci['menu'] = ' '.join((scope, type_, info))
+-        ret =  u'{%s}' % \
+-               u','.join(u'"%s":"%s"' % \
+-                         (key, value.replace('"', '\\"')) \
+-                         for (key, value) in ci.iteritems())
+-        return ret
++        ci['info'] = proposal.get_doc() or " "
++        return ci
+ 
+ 
+ def _vim_name(name):

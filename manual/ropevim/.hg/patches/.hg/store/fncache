@@ -1,0 +1,6 @@
+data/.hgignore.i
+data/series.i
+data/noinst.i
+data/vimstring.i
+data/omnicomplete.i
+data/pathogen.i

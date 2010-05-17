@@ -260,7 +260,7 @@
   description: 'The ultimate snippet solution for python enabled Vim'
   comment:
   plugin_type: plugin
-  bzrrepo: "lp:ultisnips"
+  bzrrepo: "lp:~ryan.wooden/ultisnips/smarter-python"
   dir: ultisnips
 
 

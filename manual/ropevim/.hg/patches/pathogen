@@ -1,0 +1,144 @@
+diff -r 767719259cd4 omnicomp.vim
+--- a/omnicomp.vim	Mon May 17 08:24:01 2010 -0300
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,45 +0,0 @@
+-python << EOF
+-from rope.base.exceptions import BadIdentifierError
+-from ropevim import _env, _interface
+-from ropemode.interface import _CodeAssist
+-
+-class OmniCompleter(object):
+-    def create_code_assist(self):
+-        return _CodeAssist(_interface, _interface.env)
+-
+-    def __call__(self, findstart, base):
+-        try:
+-            if findstart:
+-                self.code_assist = self.create_code_assist()
+-                base_len = self.code_assist.offset - \
+-                           self.code_assist.starting_offset
+-                return int(vim.eval("col('.')")) - base_len - 1
+-            else:
+-                try:
+-                    proposals = self.code_assist._calculate_proposals()
+-                except Exception:
+-                    return []
+-                if vim.eval("complete_check()") != "0":
+-                    return []
+-
+-                ps = [_env._extended_completion(p) for p in proposals]
+-                del self.code_assist
+-
+-                return _env._vim_string(ps)
+-        except BadIdentifierError:
+-            del self.code_assist
+-            if findstart:
+-                return -1
+-            else:
+-                return []
+-
+-ropecompleter = OmniCompleter()
+-EOF
+-
+-function! RopeCompleteFunc(findstart, base)
+-python << EOF
+-findstart = int(vim.eval("a:findstart"))
+-base = vim.eval("a:base")
+-vim.command("return %s" % ropecompleter(findstart, base))
+-EOF
+-endfunction
+diff -r 767719259cd4 plugin/omnicomp.vim
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/plugin/omnicomp.vim	Mon May 17 08:24:35 2010 -0300
+@@ -0,0 +1,45 @@
++python << EOF
++from rope.base.exceptions import BadIdentifierError
++from ropevim import _env, _interface
++from ropemode.interface import _CodeAssist
++
++class OmniCompleter(object):
++    def create_code_assist(self):
++        return _CodeAssist(_interface, _interface.env)
++
++    def __call__(self, findstart, base):
++        try:
++            if findstart:
++                self.code_assist = self.create_code_assist()
++                base_len = self.code_assist.offset - \
++                           self.code_assist.starting_offset
++                return int(vim.eval("col('.')")) - base_len - 1
++            else:
++                try:
++                    proposals = self.code_assist._calculate_proposals()
++                except Exception:
++                    return []
++                if vim.eval("complete_check()") != "0":
++                    return []
++
++                ps = [_env._extended_completion(p) for p in proposals]
++                del self.code_assist
++
++                return _env._vim_string(ps)
++        except BadIdentifierError:
++            del self.code_assist
++            if findstart:
++                return -1
++            else:
++                return []
++
++ropecompleter = OmniCompleter()
++EOF
++
++function! RopeCompleteFunc(findstart, base)
++python << EOF
++findstart = int(vim.eval("a:findstart"))
++base = vim.eval("a:base")
++vim.command("return %s" % ropecompleter(findstart, base))
++EOF
++endfunction
+diff -r 767719259cd4 plugin/ropevim.vim
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/plugin/ropevim.vim	Mon May 17 08:24:35 2010 -0300
+@@ -0,0 +1,19 @@
++function! LoadRope()
++python << EOF
++import vim
++import os, sys
++for path in vim.eval("&rtp").split(","):
++    if os.path.isfile(os.path.join(path, "ropevim.py")):
++        sys.path.append(path)
++    for mod in ("rope", "ropemode"):
++        if os.path.isfile(os.path.join(path, mod, mod, "__init__.py")):
++            sys.path.append(os.path.join(path, mod))
++        if os.path.isfile(os.path.join(path, mod, "__init__.py")):
++            sys.path.append(path)
++import ropevim
++EOF
++endfunction
++
++if has('python')
++    call LoadRope()
++endif
+diff -r 767719259cd4 ropevim.vim
+--- a/ropevim.vim	Mon May 17 08:24:01 2010 -0300
++++ /dev/null	Thu Jan 01 00:00:00 1970 +0000
+@@ -1,19 +0,0 @@
+-function! LoadRope()
+-python << EOF
+-import vim
+-import os, sys
+-for path in vim.eval("&rtp").split(","):
+-    if os.path.isfile(os.path.join(path, "ropevim.py")):
+-        sys.path.append(path)
+-    for mod in ("rope", "ropemode"):
+-        if os.path.isfile(os.path.join(path, mod, mod, "__init__.py")):
+-            sys.path.append(os.path.join(path, mod))
+-        if os.path.isfile(os.path.join(path, mod, "__init__.py")):
+-            sys.path.append(path)
+-import ropevim
+-EOF
+-endfunction
+-
+-if has('python')
+-    call LoadRope()
+-endif
