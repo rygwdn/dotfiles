@@ -390,6 +390,17 @@
   dir: cmdline-complete
 
 
+- names: [matrix]
+  authors: [Don Yang]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=1189
+  description: 'Matrix screensaver for VIM, inspired by Chris Allegrettas cmatrix.'
+  comment:
+  plugin_type: plugin
+  vim_org_id: 8687
+  file_type: vim
+  dir: matrix
+
 
 - names: [DoxygenToolkit]
   authors: [Mathias Lorente]
