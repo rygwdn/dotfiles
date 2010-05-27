@@ -3,6 +3,10 @@
 autoload colors
 colors
 
+__ZSH_STAT=stat
+__ZSH_READLINK=readlink
+which gstat &> /dev/null && __ZSH_STAT=gstat
+which greadlink &> /dev/null && __ZSH_READLINK=greadlink
 
 # ----------------------------------------------------------------------
 # The following implements a caching mechanism for git information.
@@ -34,7 +38,7 @@ new_parse_git_branch() {
             return
     fi
 
-    new_stamp=$(stat --printf='%Y' "$git_dir/HEAD")
+    new_stamp=$($__ZSH_STAT --printf='%Y' "$git_dir/HEAD")
     [[ "$force" == "0" && "$__ZSH_GIT_TS" == "$new_stamp" ]] && return
 
     # rewritten by Thomas Ritz <thomas(at)galaxy-ritz(dot)de>
@@ -69,7 +73,7 @@ new_parse_git_branch() {
         __ZSH_TICGIT_STATE=`ti list | grep -c open`
     fi
 
-    __ZSH_GIT_FULL_DIR=$(readlink -f ${git_dir:h})
+    __ZSH_GIT_FULL_DIR=$($__ZSH_READLINK -f ${git_dir:h})
     __ZSH_GIT_DIR="${__ZSH_GIT_FULL_DIR/$HOME/~}"
     __ZSH_GIT_BRANCH="${branch#refs/heads/}"
 

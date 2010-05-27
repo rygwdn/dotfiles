@@ -3,8 +3,12 @@
 ######## Set/unset  shell options ###############
 # See http://zsh.sunsite.dk/Doc/Release/Options.html
 
-if test -x =dircolors; then
-    eval "`dircolors`"
+if which gdircolors &> /dev/null || which dircolors &> /dev/null; then
+    if which gdircolors &> /dev/null ; then
+        eval "`gdircolors`"
+    elif which dircolors &> /dev/null; then
+        eval "`dircolors`"
+    fi
     export LS_COLORS="*.ogm=01;35:${LS_COLORS}"
     export ZLS_COLORS=$LS_COLORS
 fi
