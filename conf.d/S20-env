@@ -11,6 +11,7 @@ FULLNAME="Ryan Wooden"
 TZ="America/Halifax"
 
 PATH=/usr/local/bin:$PATH
+PATH=$PATH:/var/lib/gems/1.8/bin
 PATH=$HOME/.cabal/bin:$PATH
 PATH=$PATH:$HOME/bin
 PATH=$PATH:$HOME/Dropbox/bin
