@@ -2,6 +2,10 @@
 
 ##################### Fix some keys ################
 
+# for OXS
+bindkey -v "[H" beginning-of-line
+bindkey -v "[F" end-of-line
+
 bindkey -v "[3~" delete-char
 bindkey -v "" backward-delete-char
 bindkey -v "[1~" beginning-of-line
