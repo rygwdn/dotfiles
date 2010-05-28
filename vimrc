@@ -136,9 +136,6 @@ nmap <LocalLeader>cn  :cnext<CR>
 nmap <LocalLeader>cp  :cprevious<CR>
 nmap <LocalLeader>cc  :cc<CR>
 
-" find merge conflict markers
-map <LocalLeader>fc /\v^[<=>]{7}( .*\|$)<CR>
-
 " Don't use Ex mode, use Q for formatting
 map Q gq
 
@@ -410,6 +407,9 @@ let g:fuzzy_matching_limit = 20
 map <leader>f :FufFile<CR>
 map <leader>b :FufBuffer<CR>
 nmap <space> :FufBuffer<CR>
+
+" abbrev for recursive
+let g:fuf_abbrevMap = {"^\*" : ["**/",],}
 
 let g:fuf_keyNextPattern  = "<C-n>"
 let g:fuf_keyPrevPattern  = "<C-p>" 
