@@ -78,7 +78,8 @@ zstyle ':completion:*:functions' ignored-patterns '_*'
 zstyle ':completion:*:*:(^rm):*:*files' ignored-patterns '*?.o' '*?.c~' \
     '*?.old' '*?.pro'
 # Ignores for vim
-zstyle ':completion:*:*:vi(m|):*:*files' ignored-patterns '*?.(aux|dvi|ps|pdf|bbl|toc|lot|lof|o|zwc|cm?)'
+#zstyle ':completion:*:*:vi(m|):*:*files' ignored-patterns '*?.(aux|dvi|ps|pdf|bbl|toc|lot|lof|o|zwc|class|cm?)'
+zstyle ':completion:*:*:vim(m|):*' ignored-patterns '*?.(aux|dvi|ps|pdf|bbl|toc|lot|lof|o|zwc|class|cm?)'
 
 # SSH Completion
 zstyle ':completion:*:scp:*' tag-order files users 'hosts:-host hosts:-domain:domain hosts:-ipaddr"IP\ Address *'
