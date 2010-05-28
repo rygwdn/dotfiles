@@ -126,6 +126,8 @@ for op in open gnome-open; do
     which $op &>/dev/null && echo $op
 done | tail -n 1`
 
+alias here='ack "TODO[: ]*here"'
+
 alias gvo="vo -g"
 
 complete -F _aptitude -o default ap
