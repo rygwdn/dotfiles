@@ -7,22 +7,18 @@ compinit
 #Trying without cache for now
 #zstyle ':completion::complete:*' use-cache on
 #zstyle ':completion::complete:*' cache-path ~/.zsh/cache/$HOST
-zstyle ':completion:*' add-space true
+
+zstyle ':completion:*' add-space true # add space at end of completions
 zstyle ':completion:*' completer _expand _complete _match _prefix _ignored _list # _approximate
 zstyle ':completion:*' menu select=1
 zstyle ':completion:*' file-sort name
 zstyle ':completion:*' list-colors ${(s.:.)ZLS_COLORS}
-zstyle ':completion:*' matcher-list 'r:|[._-]=** r:|=**' 'l:|=** r:|=**'
+# normal, then case insensitive, then partial-word
+zstyle ':completion:*' matcher-list ''  'm:{a-zA-Z}={A-Za-z}' 'l:|=** r:|=**'
 zstyle ':completion:*' menu select
 
 # I like error matching, but it's annoying sometimes
 #zstyle ':completion:*:approximate:*' max-errors 'reply=( $(( ($#PREFIX+$#SUFFIX)/2 )) numeric )'
-
-# old
-#zstyle ':completion:*' menu select=1 _complete _ignored _approximate
-#zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
-#zstyle ':completion:*::::' completer _expand _complete _ignored _approximate
-#zstyle -e ':completion:*:approximate:*' max-errors 'reply=( $(( ($#PREFIX+$#SUFFIX)/2 )) numeric )'
 
 #[ Formats ]####################################################################
 zstyle ':completion:*' group 1
@@ -46,7 +42,7 @@ zstyle ':completion:*:warnings' format 'No matches for: %d'
 zstyle ':completion:*:corrections' format '%B%d (errors: %e)%b'
 zstyle ':completion:*' group-name ''
 
-# match uppercase from lowercase
+# match uppercase from lowercase (or don't)
 #zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
 
 # offer indexes before parameters in subscripts
@@ -75,11 +71,9 @@ zstyle '*' single-ignored show
 # ignore completion functions (until the _ignored completer)
 zstyle ':completion:*:functions' ignored-patterns '_*'
 # Filename suffixes to ignore during completion (except after rm command)
-zstyle ':completion:*:*:(^rm):*:*files' ignored-patterns '*?.o' '*?.c~' \
-    '*?.old' '*?.pro'
+zstyle ':completion:*:*:(^rm):*:*files' ignored-patterns '*?.o' '*?.c~' '*?.old' '*?.pro'
 # Ignores for vim
-#zstyle ':completion:*:*:vi(m|):*:*files' ignored-patterns '*?.(aux|dvi|ps|pdf|bbl|toc|lot|lof|o|zwc|class|cm?)'
-zstyle ':completion:*:*:vim(m|):*' ignored-patterns '*?.(aux|dvi|ps|pdf|bbl|toc|lot|lof|o|zwc|class|cm?)'
+zstyle ':completion:*:*:vim(m|):*:*' ignored-patterns '*?.(aux|dvi|ps|pdf|bbl|toc|lot|lof|o|zwc|class|cm?)'
 
 # SSH Completion
 zstyle ':completion:*:scp:*' tag-order files users 'hosts:-host hosts:-domain:domain hosts:-ipaddr"IP\ Address *'
