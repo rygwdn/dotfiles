@@ -458,6 +458,7 @@ let g:SuperTabDefaultCompletionType = "<c-x><c-o>"
 "let g:SuperTabDefaultCompletionType = "context"
 let g:SuperTabLongestHighlight = 1
 
+au FileType java call SuperTabSetDefaultCompletionType("<c-x><c-u>")
 
 au BufWinEnter */sc/ta/*/marks call SuperTabSetDefaultCompletionType("<c-x><c-l>")
 
@@ -495,6 +496,7 @@ endfunction
 let g:EclimPythonValidate = 1
 "let g:EclimNailgunClient = 'external'
 let g:EclimBrowser = 'firefox'
+let g:EclimEclipseHome = $HOME . '/src/eclipse'
 
 command EclimStart silent !eclipse &> /dev/null &
 command PR ProjectRefresh
