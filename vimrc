@@ -12,12 +12,15 @@ if v:progname =~? "evim"
 endif
 
 
+filetype indent plugin off
+filetype off
 " setup runtime path using the excellent vim-pathogen:
 " http://github.com/tpope/vim-pathogen
 call pathogen#runtime_append_all_bundles()
 call pathogen#runtime_prepend_subdirectories('~/.vim/manual')
 call pathogen#runtime_prepend_subdirectories('~/.vim/pre')
 call pathogen#helptags()
+filetype indent plugin on
 
 " ------------------------------------------- }}}
 
