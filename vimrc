@@ -497,6 +497,7 @@ let g:EclimPythonValidate = 1
 "let g:EclimNailgunClient = 'external'
 let g:EclimBrowser = 'firefox'
 let g:EclimEclipseHome = $HOME . '/src/eclipse'
+let g:EclimTaglistEnabled = 0
 
 command EclimStart silent !eclipse &> /dev/null &
 command PR ProjectRefresh
