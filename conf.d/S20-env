@@ -13,12 +13,12 @@ TZ="America/Halifax"
 PATH=/usr/local/bin:$PATH
 PATH=$PATH:/var/lib/gems/1.8/bin
 PATH=$HOME/.cabal/bin:$PATH
-PATH=$PATH:$HOME/bin
-PATH=$PATH:$HOME/Dropbox/bin
 PATH=$PATH:.
 PATH=$PATH:/opt/local/bin
 PATH=$PATH:$NXJ_HOME/bin
 PATH=$PATH:$HOME/.gem/ruby/1.8/bin/
+PATH=$HOME/Dropbox/bin:$PATH
+PATH=$HOME/bin:$PATH
 
 # include junit in java classpath
 CLASSPATH=$CLASSPATH:.:/usr/share/java/junit4.jar
