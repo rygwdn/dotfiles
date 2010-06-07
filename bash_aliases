@@ -34,6 +34,7 @@ alias upnup='ap update && ap full-upgrade'
 alias ack='ack-grep'
 alias ak='ack -a'
 
+which Vim &> /dev/null && alias vim='Vim'
 alias g='&> /dev/null gvim'
 alias gr='&> /dev/null gvim --remote-silent'
 
