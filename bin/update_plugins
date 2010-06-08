@@ -11,6 +11,22 @@ require 'archive/tar/minitar'
 
 include Archive::Tar
 
+def do_open(url)
+    retries = 10
+    
+    begin
+      return open(url).read
+
+    rescue Timeout::Error
+        retries -= 1
+        if retries > 0
+            sleep 0.42 and retry
+        else
+            raise
+        end
+    end
+end
+
 w_dir = File.expand_path(File.dirname(__FILE__))
 bundles_dir = File.join(w_dir, '../bundle')
 config = YAML.load(File.open(File.join(w_dir, '../config/plugins.yml')))
@@ -18,7 +34,7 @@ config = YAML.load(File.open(File.join(w_dir, '../config/plugins.yml')))
 pathogen_f_path = File.join(w_dir, '../autoload/pathogen.vim')
 unless File.exist?(pathogen_f_path)
   FileUtils.mkdir_p(File.dirname(pathogen_f_path))
-  File.open(pathogen_f_path, 'w') {|f| f << open('http://github.com/tpope/vim-pathogen/raw/master/autoload/pathogen.vim').read}
+  File.open(pathogen_f_path, 'w') {|f| f << do_open('http://github.com/tpope/vim-pathogen/raw/master/autoload/pathogen.vim')}
 end
 
 FileUtils.mkdir_p(bundles_dir) unless File.exist?(bundles_dir)
@@ -29,15 +45,15 @@ config.each do |plugin|
   name, dir = plugin['names'].first, plugin['dir']
   if plugin.has_key?('repo') && plugin['repo'] =~ /^git:\/\/.*\.git$/
     puts "  Unpacking #{name} into #{dir}"
-    `git clone #{plugin['repo']} #{dir}`
+    `git clone -q #{plugin['repo']} #{dir}`
     FileUtils.rm_rf(File.join(dir, '.git'))
   elsif plugin.has_key?('bzrrepo')
     puts "  Unpacking #{name} into #{dir}"
-    `bzr get #{plugin['bzrrepo']} #{dir}`
+    `bzr get -q #{plugin['bzrrepo']} #{dir}`
     FileUtils.rm_rf(File.join(dir, '.bzr'))
   elsif plugin.has_key?('svnrepo')
     puts "  Unpacking #{name} into #{dir}"
-    `svn checkout #{plugin['svnrepo']} #{dir}`
+    `svn checkout -q #{plugin['svnrepo']} #{dir}`
     FileUtils.rm_rf(File.join(dir, '.svn'))
   elsif plugin.has_key?('vim_org_id')
     puts '  Downloading ' + name
@@ -46,12 +62,12 @@ config.each do |plugin|
     when 'vim'
       f_path = File.join(dir, plugin['plugin_type'], dir + '.vim')
       FileUtils.mkdir_p(File.dirname(f_path))
-      File.open(f_path, 'w') {|f| f << open(url).read}
+      File.open(f_path, 'w') {|f| f << do_open(url)}
     when 'tar.gz', 'tgz'
       Minitar.unpack(Zlib::GzipReader.new(open(url)), dir)
     when 'zip'
       temp_f = Tempfile.new('vim_plugin')
-      temp_f << open(url).read
+      temp_f << do_open(url)
       temp_f.flush
       Zip::ZipFile.open(temp_f.path) do |zip_f|
         zip_f.each do |entry|
@@ -62,7 +78,7 @@ config.each do |plugin|
       end
     when 'vba'
       temp_f = Tempfile.new('vim_plugin')
-      temp_f << open(url).read
+      temp_f << do_open(url)
       temp_f.flush
       dir = File.expand_path(dir)
       vba = File.expand_path(File.join(bundles_dir, 'vimball'))
@@ -70,7 +86,7 @@ config.each do |plugin|
       `vim -nes -N +'set rtp=#{dir},#{vba}' +'set ft=vim' +'so %' +'q!' #{temp_f.path}`
     when 'vba.gz'
       temp_gz_f = Tempfile.new('vim_plugin')
-      temp_gz_f << open(url).read
+      temp_gz_f << do_open(url)
       temp_gz_f.flush
 
       temp_f = Tempfile.new('vim_plugin')
