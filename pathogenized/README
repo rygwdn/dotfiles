@@ -1,0 +1,18 @@
+A simple ruby-script based on Tim Popes' Pathogen for easy updating vim-plugins
+
+Prerequisites:
+- ruby, rubygems
+- gems rubyzip and minitar
+
+Install:
+  gem install rubyzip archive-tar-minitar
+  mv ~/.vim ~/.vim.orig
+  git clone git@github.com:kljohann/pathogenized.git ~/.vim
+  cp ./plugins.example.idnt ./plugins.idnt
+
+Using:
+  edit ~/.vim/plugins.idnt
+  run ~/.vim/bin/update_plugins
+
+Notice that you will have to remove the corresponding directory
+in ~/.vim/bundle directory manually when you remove a plugin.

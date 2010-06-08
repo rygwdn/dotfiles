@@ -1,0 +1,109 @@
+  The NERD Commenter by Marty Grenfell
+    A plugin that allows for easy commenting of code for many filetypes
+    http://www.vim.org/scripts/script.php?script_id=1218
+    http://github.com/scrooloose/nerdcommenter.git =>> nerdcommenter
+
+  The NERD tree by Marty Grenfell
+    A tree explorer plugin for navigating the filesystem
+    http://www.vim.org/scripts/script.php?script_id=1658
+    http://github.com/scrooloose/nerdtree.git =>> nerdtree
+
+  ruby.vim by Tim Pope
+    Ruby on Rails: easy file navigation, enhanced syntax highlighting, and more
+    http://vim-ruby.rubyforge.org/
+    http://github.com/vim-ruby/vim-ruby.git =>> ruby
+
+  rails.vim by Tim Pope
+    Ruby on Rails: easy file navigation, enhanced syntax highlighting, and more
+    http://www.vim.org/scripts/script.php?script_id=1567
+    http://github.com/tpope/vim-rails.git =>> rails
+
+  surround.vim by Tim Pope
+    Delete/change/add parentheses/quotes/XML-tags/much more with ease
+    http://www.vim.org/scripts/script.php?script_id=1697
+    http://github.com/tpope/vim-surround.git =>> surround
+
+  repeat.vim by Tim Pope
+    http://www.vim.org/scripts/script.php?script_id=2136
+    http://github.com/tpope/vim-repeat.git =>> ragtag.vim
+
+  delimitMate by Israel Chauca Fuentes
+    Provides auto-balancing and some expansions for parens, quotes, etc.
+    http://www.vim.org/scripts/script.php?script_id=2754
+    http://github.com/Raimondi/delimitMate.git =>> delimitmate
+    auto-balancing and some expansions for parens, quotes, etc.
+
+  ack.vim by Miles Sterrett
+    Plugin for the Perl module / CLI script 'ack'
+    http://www.vim.org/scripts/script.php?script_id=2572
+    #10433.tar.gz =>> ack
+
+  fugitive.vim by Tim Pope
+    Git wrapper
+    http://www.vim.org/scripts/script.php?script_id=2975
+    http://github.com/tpope/vim-fugitive.git =>> fugitive
+
+    vim-git by Tim Pope
+      Git runtime files
+      http://www.vim.org/scripts/script.php?script_id=1654
+      http://github.com/tpope/vim-git.git =>> git
+
+  AutoComplPop by Takeshi Nishida
+    automatically opens popup menu for completions
+    http://www.vim.org/scripts/script.php?script_id=1879
+    #11894.zip =>> auto_compl_pop
+
+  matchit by Benji Fisher
+    extended % matching for HTML, LaTeX, and many other languages
+    http://www.vim.org/scripts/script.php?script_id=39
+    #8196.zip =>> matchit
+
+  bufexplorer by jeff lanzarotta
+    http://www.vim.org/scripts/script.php?script_id=42
+    #12363.zip =>> bufexplorer
+
+  Marks Browser by Viktor Kojouharov
+    http://www.vim.org/scripts/script.php?script_id=1706
+    #6408.vim =>> marksbrowser|plugin
+
+  IndexedSearch by Yakov Lerner
+    shows  'Nth match out of M'  at every search (index of match+total # matches)
+    http://www.vim.org/scripts/script.php?script_id=1682
+    #7062.vim =>> indexed_search|plugin
+
+  Scratch by Yegappan Lakshmanan
+    http://www.vim.org/scripts/script.php?script_id=664
+    #2050.vim =>> scratch|plugin
+
+  taglist.vim by Yegappan Lakshmanan
+    Source code browser (supports C/C++, java, perl, python, tcl, sql, etc)
+    http://www.vim.org/scripts/script.php?script_id=273
+    #7701.zip =>> taglist
+
+  dbext.vim by Peter Bagyinszki
+    Provides database access to many dbms
+    http://www.vim.org/scripts/script.php?script_id=356
+    #11341.zip =>> dbext
+
+  jQuery by Bruno Michel
+    some colorations for jQuery keywords and for CSS selectors
+    http://www.vim.org/scripts/script.php?script_id=2416
+    #12107.vim =>> jquery|syntax
+
+  gist by Yasuhiro Matsumoto
+    http://www.vim.org/scripts/script.php?script_id=2423
+    #12732.vim =>> gist|plugin
+
+  showmarks.vim by Anthony Kruize
+    Visually shows the location of marks
+    http://www.vim.org/scripts/script.php?script_id=152
+    #3342.vim =>> showmarks|plugin
+
+  YankRing by David Fishburn
+    Maintains a history of previous yanks, changes and deletes
+    http://www.vim.org/scripts/script.php?script_id=1234
+    #12258.zip =>> yankring
+
+................................................................................
+vim:encoding=utf-8:tabstop=2:softtabstop=2:shiftwidth=2:ft=indentogram
+vim:nonumber
