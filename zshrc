@@ -14,7 +14,7 @@ else
 fi
 
 setopt extended_glob
-for zshrc_snipplet in ~/.zsh/conf.d/S[0-9][0-9]*[^~][^.zwc]
+for zshrc_snipplet in ~/.zsh/conf.d/S[0-9][0-9]*[^~][^.zwc][^.old]
 do
     source $zshrc_snipplet
 done
