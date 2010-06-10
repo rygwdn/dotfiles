@@ -22,12 +22,9 @@ function workon_cwd {
             cd ..
         done
     ) 
-    echo "env: $ENV_NAME"
     if [[ -n $ENV_NAME ]] && [[ $ENV_NAME != "$CD_VIRTUAL_ENV" ]] && [[ "$VIRTUAL_ENV" != $WORKON_HOME/$ENV_NAME ]]
     then
-        echo "here"
         if [ -e "$WORKON_HOME/$ENV_NAME/bin/activate" ]; then
-            echo "here2"
             workon "$ENV_NAME" && export CD_VIRTUAL_ENV="$ENV_NAME"
         fi
     elif [ $CD_VIRTUAL_ENV ]; then
