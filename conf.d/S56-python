@@ -22,10 +22,13 @@ function workon_cwd {
             cd ..
         done
     ) 
-    if [[ -n $ENV_NAME ]] && [[ $ENV_NAME != "$CD_VIRTUAL_ENV" ]] && [[ "$VIRTUAL_ENV" != $WORKON_HOME/$ENV_NAME ]]
+
+    if [[ -n $ENV_NAME ]]
     then
-        if [ -e "$WORKON_HOME/$ENV_NAME/bin/activate" ]; then
-            workon "$ENV_NAME" && export CD_VIRTUAL_ENV="$ENV_NAME"
+        if  [[ $ENV_NAME != "$CD_VIRTUAL_ENV" ]] && [[ "$VIRTUAL_ENV" != $WORKON_HOME/$ENV_NAME ]]; then
+            if [ -e "$WORKON_HOME/$ENV_NAME/bin/activate" ]; then
+                workon "$ENV_NAME" && export CD_VIRTUAL_ENV="$ENV_NAME"
+            fi
         fi
     elif [ $CD_VIRTUAL_ENV ]; then
         # We've just left the repo, deactivate the environment
