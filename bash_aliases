@@ -34,7 +34,6 @@ alias upnup='ap update && ap full-upgrade'
 alias ack='ack-grep'
 alias ak='ack -a'
 
-which Vim &> /dev/null && alias vim='Vim'
 alias g='&> /dev/null gvim'
 alias gr='&> /dev/null gvim --remote-silent'
 
@@ -74,10 +73,15 @@ alias co='vcs co'
 alias up='vcs up'
 alias st='vcs st'
 alias a='vcs add'
+alias lg='vcs lg'
+alias log='vcs log'
+alias addp='vcs add --patch'
+alias addi='vcs add -i'
 alias dci='git svn dcommit'
 alias rb='git svn rebase'
 alias gd='git diff'
 alias gdc='git diff --cached'
+alias gl='git lg | head -n $(expr $LINES - 2)'
 
 
 # pull examples from shell-fu
