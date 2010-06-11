@@ -1,0 +1,6 @@
+[submodule "zsh"]
+	path = zsh
+	url = git@github.com:rygwdn/zshfiles.git
+[submodule "vim"]
+	path = vim
+	url = git@github.com:rygwdn/vimfiles.git
