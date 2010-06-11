@@ -1,0 +1,31 @@
+[user]
+	name = Ryan Wooden
+	email = rygwdn@gmail.com
+[color]
+	diff = auto
+	status = auto
+	branch = auto
+        ui = auto
+[core]
+	editor = vim
+[merge]
+        tool = vimdiff
+[pack]
+        threads = 4
+[alias]
+        serve = daemon --reuseaddr --verbose  --base-path=. --export-all ./.git
+        st = status
+        ci = commit
+        br = branch
+        co = checkout
+        df = diff
+        up = svn rebase
+        who = shortlog -s --
+
+        log1 = log --pretty=oneline --abbrev-commit --decorate
+        lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
+        lgn = "!f() { git log --graph --pretty=format:'%Cred%H%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --date=relative $@ | git name-rev --stdin --name-only ; } ; f"
+
+        vimdiff = difftool -t vimdiff
+        gvimdiff = difftool -t gvimdiff
+        kompare = difftool -t kompare
