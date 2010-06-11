@@ -1,0 +1,29 @@
+" vim: fdm=marker
+" vim: foldlevel=0
+
+set go+=rbm
+map < :tabmove -1<CR>
+map > :tabmove +1<CR>
+map J <C-n>
+map K <C-p>
+map D :emenu Menu.Delicious.Save a new Bookmark...<CR>
+command lastpasslogin javascript LP.lpOpenLogin()
+command lp lastpasslogin
+
+javascript <<EOM
+LP.scriptDidLP = 0;
+LP.scriptDoLP = function()
+{
+    if (LP.scriptDidLP == 1)
+        return;
+    LP.scriptDidLP = 1;
+    LP.lpOpenLogin();
+}
+EOM
+
+"au LocationChange .* javascript LP.scriptDoLP()
+
+command google open google
+command g google
+
+
