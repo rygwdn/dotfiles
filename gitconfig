@@ -1,5 +1,5 @@
 [user]
-	name = Ryan Wooden
+	name = Ryan W
 	email = rygwdn@gmail.com
 [color]
 	diff = auto
@@ -12,6 +12,10 @@
         tool = vimdiff
 [pack]
         threads = 4
+[giggle]
+	main-window-maximized = false
+	main-window-geometry = 700x550+235+179
+	main-window-view = FileView
 [alias]
         serve = daemon --reuseaddr --verbose  --base-path=. --export-all ./.git
         st = status
