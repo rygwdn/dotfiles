@@ -33,3 +33,5 @@
         vimdiff = difftool -t vimdiff
         gvimdiff = difftool -t gvimdiff
         kompare = difftool -t kompare
+[url "git@github.com:rygwdn"]
+    insteadOf = github:
