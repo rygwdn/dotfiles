@@ -73,8 +73,11 @@ alias ci='vcs ci'
 alias co='vcs co'
 alias up='vcs up'
 alias st='vcs st'
+alias a='vcs add'
 alias dci='git svn dcommit'
 alias rb='git svn rebase'
+alias gd='git diff'
+alias gdc='git diff --cached'
 
 
 # pull examples from shell-fu
