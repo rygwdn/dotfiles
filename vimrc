@@ -12,8 +12,12 @@ if v:progname =~? "evim"
 endif
 
 
-filetype plugin indent on
-filetype plugin indent off
+if !has("gui_running")
+    filetype on
+    filetype indent plugin on
+endif
+
+filetype indent plugin off
 filetype off
 " setup runtime path using the excellent vim-pathogen:
 " http://github.com/tpope/vim-pathogen
