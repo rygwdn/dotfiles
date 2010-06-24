@@ -1,5 +1,56 @@
 
 
+snippet df "Doxygen file comment" b
+/**
+  $0
+  
+  @author Ryan Wooden, 100079872
+  */
+endsnippet
+
+snippet dm "Doxygen method comment" b
+/**
+  $1$0
+  ${2:@param $3
+  }${4:@return $5.
+  }*/
+endsnippet
+
+snippet p "Doxygen @param tag"
+@param $0
+endsnippet
+
+snippet s "Doxygen @see"
+/// @see $0
+endsnippet
+
+snippet uv "UIView"
+UIView
+endsnippet
+
+snippet utv "UITableViewController"
+UITableViewController
+endsnippet
+
+snippet uc "UIViewController"
+UIViewController
+endsnippet
+
+snippet o "NSObject"
+NSObject
+endsnippet
+
+snippet pm "mark"
+#pragma mark $0
+endsnippet
+
+snippet c "cond"
+/// @cond
+endsnippet
+
+snippet cc "endcond"
+/// @endcond
+endsnippet
 
 snippet t "test case" b
 - (void)test$1
