@@ -267,7 +267,7 @@ cabbr wp call Wp()
 fun! Wp()
     set wrap
     set linebreak
-    source ~/.vim/bundles/autocorrect/autocorrect.vim
+    source ~/.vim/bundle/autocorrect/autocorrect.vim
     nnoremap j gj
     nnoremap k gk
     nnoremap 0 g0
