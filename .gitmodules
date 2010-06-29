@@ -1,0 +1,3 @@
+[submodule "manual/zen-coding"]
+	path = manual/zen-coding
+	url = http://github.com/mattn/zencoding-vim.git

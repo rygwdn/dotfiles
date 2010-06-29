@@ -76,7 +76,7 @@ CompilerSet efm=%f:%l:%m,%Z,%+IYour\ code%m,%Z,%-G%.%#
 if g:pylint_onwrite
     augroup python
         au!
-        au BufWritePost * call Pylint(1)
+        au BufWritePost *.py call Pylint(1)
     augroup end
 endif
 
