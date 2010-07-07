@@ -1,0 +1,3 @@
+--langdef=pdc
+--langmap=pdc:.pdc
+--regex-pdc=/^#(#*) *(.+)/\1\2/h,heading/

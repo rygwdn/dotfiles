@@ -1,0 +1,126 @@
+
+
+snippet df "Doxygen file comment" b
+/**
+  $0
+  
+  @author Ryan Wooden, 100079872
+  */
+endsnippet
+
+snippet dm "Doxygen method comment" b
+/**
+  $1$0
+  ${2:@param $3
+  }${4:@return $5.
+  }*/
+endsnippet
+
+snippet p "Doxygen @param tag"
+@param $0
+endsnippet
+
+snippet s "Doxygen @see"
+/// @see $0
+endsnippet
+
+snippet uv "UIView"
+UIView
+endsnippet
+
+snippet utv "UITableViewController"
+UITableViewController
+endsnippet
+
+snippet uc "UIViewController"
+UIViewController
+endsnippet
+
+snippet o "NSObject"
+NSObject
+endsnippet
+
+snippet pm "mark"
+#pragma mark $0
+endsnippet
+
+snippet c "cond"
+/// @cond
+endsnippet
+
+snippet cc "endcond"
+/// @endcond
+endsnippet
+
+snippet t "test case" b
+- (void)test$1
+{
+    $0
+}
+endsnippet
+
+
+snippet stn "Assert Nil"
+STAssertNil(${1:a1}, @"$2");$0
+endsnippet
+
+snippet stnn "Assert NotNil"
+STAssertNotNil(${1:a1}, @"$2");$0
+endsnippet
+
+snippet stt "Assert True"
+STAssertTrue(${1:expression}, @"$2");$0
+endsnippet
+
+snippet stf "Assert False"
+STAssertFalse(${1:expression}, @"$2");$0
+endsnippet
+
+snippet ste "Assert EqualObjects"
+STAssertEqualObjects(${1:a1}, ${2:a2}, @"$3");$0
+endsnippet
+
+snippet ste "Assert Equals"
+STAssertEquals(${1:a1}, ${2:a2}, @"$3");$0
+endsnippet
+
+snippet ste "Assert EqualsWithAccuracy"
+STAssertEqualsWithAccuracy(${1:left}, ${2:right}, ${3:accuracy}, @"$4");$0
+endsnippet
+
+snippet stth "Assert Throws"
+STAssertThrows(${1:expression}, @"$2");$0
+endsnippet
+
+snippet stth "Assert ThrowsSpecific"
+STAssertThrowsSpecific(${1:expression}, ${2:specificException}, @"$3");$0
+endsnippet
+
+snippet stth "Assert ThrowsSpecificNamed"
+STAssertThrowsSpecificNamed(${1:expr}, ${2:specificException}, ${3:aName}, @"$4");$0
+endsnippet
+
+snippet stth "Assert NoThrow"
+STAssertNoThrow(${1:expression}, @"$2");$0
+endsnippet
+
+snippet stth "Assert NoThrowSpecific"
+STAssertNoThrowSpecific(${1:expression}, ${2:specificException}, @"$3");$0
+endsnippet
+
+snippet stth "Assert NoThrowSpecificNamed"
+STAssertNoThrowSpecificNamed(${1:expr}, ${2:specificException}, ${3:aName}, @"$4");$0
+endsnippet
+
+snippet stf "Assert Failure"
+STFail(@"$1");$0
+endsnippet
+
+snippet st "Assert TrueNoThrow"
+STAssertTrueNoThrow(${1:expression}, @"$2");$0
+endsnippet
+
+snippet st "Assert FalseNoThrow"
+STAssertFalseNoThrow(${1:expron}, @"$2");$0
+endsnippet
+

@@ -12,8 +12,12 @@ if v:progname =~? "evim"
 endif
 
 
-filetype plugin indent on
-filetype plugin indent off
+if !has("gui_running")
+    filetype on
+    filetype indent plugin on
+endif
+
+filetype indent plugin off
 filetype off
 " setup runtime path using the excellent vim-pathogen:
 " http://github.com/tpope/vim-pathogen
@@ -270,7 +274,7 @@ cabbr wp call Wp()
 fun! Wp()
     set wrap
     set linebreak
-    source ~/.vim/bundles/autocorrect/autocorrect.vim
+    source ~/.vim/bundle/autocorrect/autocorrect.vim
     nnoremap j gj
     nnoremap k gk
     nnoremap 0 g0
@@ -516,6 +520,9 @@ command EclimStart silent !eclipse &> /dev/null &
 command PR ProjectRefresh
 
 " ------------------------------------------------------------- }}}
+
+" Taglist Stuff
+let tlist_objc_settings = 'objc;P:protocol;i:interface;I:implementation;M:instance method;C:implementation method;Z:protocol method'
 
 " TlistToo stuff ----------------------------------------------- {{{
 let Tlist_Auto_Open = 1
