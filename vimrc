@@ -186,7 +186,14 @@ set wildmode=list:longest,full
 " Ide style completion
 set completeopt=menuone,preview,longest
 " <CR> selects completion
-inoremap <expr> <CR> pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
+"inoremap <expr> <CR> pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
+
+inoremap <expr> <Esc>      pumvisible() ? "\<C-e>" : "\<Esc>"
+inoremap <expr> <CR>       pumvisible() ? "\<C-y>" : "\<CR>"
+inoremap <expr> <Down>     pumvisible() ? "\<C-n>" : "\<Down>"
+inoremap <expr> <Up>       pumvisible() ? "\<C-p>" : "\<Up>"
+inoremap <expr> <PageDown> pumvisible() ? "\<PageDown>\<C-p>\<C-n>" : "\<PageDown>"
+inoremap <expr> <PageUp>   pumvisible() ? "\<PageUp>\<C-p>\<C-n>" : "\<PageUp>"
 
 " used with CTRL-X CTRL-K
 "au BufRead,BufNew *.txt,*.tex,*.pdc set dictionary=/usr/share/dict/words
@@ -462,6 +469,7 @@ endif
 let g:SuperTabDefaultCompletionType = "<c-x><c-o>"
 "let g:SuperTabDefaultCompletionType = "context"
 let g:SuperTabLongestHighlight = 1
+let g:SuperTabLongestEnhanced = 1
 
 au FileType java call SuperTabSetDefaultCompletionType("<c-x><c-u>")
 
