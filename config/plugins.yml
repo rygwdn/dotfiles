@@ -349,17 +349,6 @@
   dir: atp
 
 
-- names: [SuperTab continued]
-  authors: [Eric Van Dewoestine]
-  urls:
-    - http://www.vim.org/scripts/script.php?script_id=1643
-  description: 'Do all your insert-mode completion with Tab'
-  comment:
-  vim_org_id: 11853
-  file_type: vba
-  dir: supertab
-
-
 
 
 - names: [ZoomWin]
@@ -455,6 +444,16 @@
   plugin_type: plugin
   repo: git://github.com/tpope/vim-repeat.git
   dir: repeat
+
+
+- names: [SuperTab continued]
+  authors: [Eric Van Dewoestine]
+  urls:
+    - http://www.vim.org/scripts/script.php?script_id=1643
+  description: 'Do all your insert-mode completion with Tab'
+  comment:
+  repo: git://github.com/ervandew/supertab.git
+  dir: supertab
 
 
 - names: [xmledit]
