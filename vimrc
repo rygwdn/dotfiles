@@ -190,8 +190,8 @@ set wildmode=list:longest,full
 " Ide style completion
 set completeopt=menuone,preview,longest
 " <CR> selects completion
-"inoremap <expr> <CR> pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
 
+"inoremap <expr> <CR>       pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
 inoremap <expr> <Esc>      pumvisible() ? "\<C-e>" : "\<Esc>"
 inoremap <expr> <CR>       pumvisible() ? "\<C-y>" : "\<CR>"
 inoremap <expr> <Down>     pumvisible() ? "\<C-n>" : "\<Down>"
@@ -209,6 +209,19 @@ inoremap <expr> <PageUp>   pumvisible() ? "\<PageUp>\<C-p>\<C-n>" : "\<PageUp>"
 " Close preview window automatically
 "autocmd CursorMovedI * if pumvisible() == 0|pclose|endif
 autocmd InsertLeave * if pumvisible() == 0|pclose|endif
+
+" SuperTab stuff ------------------------------------------ {{{
+
+let g:SuperTabDefaultCompletionType = "<c-x><c-o>"
+"let g:SuperTabDefaultCompletionType = "context"
+let g:SuperTabLongestHighlight = 1
+let g:SuperTabLongestEnhanced = 1
+
+au FileType java call SuperTabSetDefaultCompletionType("<c-x><c-u>")
+
+au BufWinEnter */sc/ta/*/marks call SuperTabSetDefaultCompletionType("<c-x><c-l>")
+
+" ------------------------------------------------------ }}}
 
 " ------------------------------------------------}}}
 
@@ -465,19 +478,6 @@ for path in ("", "/rope", "/ropemode"):
 EOF
 endif
 "let ropevim_enable_autoimport=0
-
-" ------------------------------------------------------ }}}
-
-" SuperTab stuff ------------------------------------------ {{{
-
-let g:SuperTabDefaultCompletionType = "<c-x><c-o>"
-"let g:SuperTabDefaultCompletionType = "context"
-let g:SuperTabLongestHighlight = 1
-let g:SuperTabLongestEnhanced = 1
-
-au FileType java call SuperTabSetDefaultCompletionType("<c-x><c-u>")
-
-au BufWinEnter */sc/ta/*/marks call SuperTabSetDefaultCompletionType("<c-x><c-l>")
 
 " ------------------------------------------------------ }}}
 
