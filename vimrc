@@ -406,6 +406,12 @@ let g:user_zen_expandabbr_key='<S-Space>'
 let g:user_zen_leader_key='<C-e>'
 let g:user_zen_complete_tag=1
 
+" session.vim stuff -------------------{{{
+
+let g:session_autosave = 1
+
+" -------------------------------------}}}
+
 " Camel-case stuff -------------------{{{
 
 map <silent> w <Plug>CamelCaseMotion_w
