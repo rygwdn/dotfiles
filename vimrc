@@ -355,7 +355,7 @@ autocmd FileType c set omnifunc=ccomplete#Complete
 
 "" Python stuff
 "autocmd FileType python set omnifunc=pythoncomplete#Complete
-autocmd FileType python set ft=python.doxygen
+autocmd FileType python runtime syntax/doxygen.vim
 autocmd FileType python compiler pylint
 autocmd FileType python set ts=4
 
