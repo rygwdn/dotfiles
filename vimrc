@@ -127,6 +127,9 @@ nmap <LocalLeader>nh :nohlsearch<cr>
 
 " handy commands & mappings ---------------------------- {{{
 
+" resource vimrc on write
+au BufWritePost .vimrc source $MYVIMRC
+
 " insert mode paste (like esc p i)
 imap  "
 
