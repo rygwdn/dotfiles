@@ -164,9 +164,9 @@ nmap <c-j> j
 inoremap { {}O
 
 " Handy commands
-command W w
-command UP !svn up
-command CI !svn ci --editor-cmd "gvim -f"
+command! W w
+command! UP !svn up
+command! CI !svn ci --editor-cmd "gvim -f"
 
 " Sometimes I hate the defaults for these two in insert!
 "inoremap <c-u> 
@@ -395,7 +395,7 @@ endif
 
 " Plugins {{{
 
-command JCommentWriter silent call JCommentWriter()
+command! JCommentWriter silent call JCommentWriter()
 
 let g:pylint_cwindow = 0
 
@@ -423,16 +423,16 @@ map <Leader>C <Plug>(operator-decamelize)
 
 " snippet stuff -------------------{{{
 
-command UltiReset py UltiSnips_Manager.reset()
+command! UltiReset py UltiSnips_Manager.reset()
 
 " -------------------------------------}}}
 
 " Conque shell ----------------------- {{{
 
-command CV ConqueVSplit
-command CC Conque
-command CS ConqueSplit
-command Ipy ConqueVSplit ipython
+command! CV ConqueVSplit
+command! CC Conque
+command! CS ConqueSplit
+command! Ipy ConqueVSplit ipython
 
 " ---------------------------------------- }}}
 
@@ -519,8 +519,8 @@ let g:EclimBrowser = 'firefox'
 let g:EclimEclipseHome = $HOME . '/src/eclipse'
 let g:EclimTaglistEnabled = 0
 
-command EclimStart silent !eclipse &> /dev/null &
-command PR ProjectRefresh
+command! EclimStart silent !eclipse &> /dev/null &
+command! PR ProjectRefresh
 
 " ------------------------------------------------------------- }}}
 
