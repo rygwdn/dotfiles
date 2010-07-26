@@ -240,8 +240,8 @@ set showcmd		" display incomplete commands
 colorscheme blackboard
 if has("gui_running")
     " window size
-    set lines=40
-    set columns=80
+    "set lines=40
+    "set columns=80
     colorscheme candycode
 else
     set bg=dark
