@@ -1,5 +1,15 @@
 ---
 
+#- names: [session, vim-session]
+#  vim_org_id: 13342
+#  file_type: zip
+#  dir: session
+
+#- names: [easytags]
+#  vim_org_id: 13358
+#  file_type: zip
+#  dir: easytags
+
 #- names: [delimitMate]
 #  authors: [Israel Chauca Fuentes]
 #  urls:
@@ -177,7 +187,6 @@
   vim_org_id: 7701 # 4.5, 2007-09-21, 6.0
   file_type: zip
   dir: taglist
-
 
 
 - names: [jQuery]
