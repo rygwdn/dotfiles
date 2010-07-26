@@ -13,6 +13,11 @@ if [ "$TERM" != "dumb" ]; then
 fi
 
 
+sp(){
+    smplayer "$@" &
+}
+
+
 alias ll='ls -l'
 alias la='ls -A'
 alias l='ls -CF'
@@ -35,7 +40,9 @@ alias ack='ack-grep'
 alias ak='ack -a'
 
 alias g='&> /dev/null gvim'
-alias gr='&> /dev/null gvim --remote-silent'
+alias gr='g --remote-silent'
+alias gs='g --servername'
+alias grs='gr --servername'
 
 alias db2s='sudo su db2inst2 -c bash'
 
