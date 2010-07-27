@@ -49,9 +49,25 @@ alias db2s='sudo su db2inst2 -c bash'
 alias dirs='dirs -v'
 
 # temp hack
-alias wiwi='sudo rmmod iwlagn; sudo modprobe iwlagn'
-
 alias media='sshfs wired:media ~/tmp/mnt ; cd ~/tmp/mnt'
+
+function media()
+{
+    gt=$1
+    [[ -z $gt ]] && gt=wired
+    mount ~/mnt/$gt
+    cd ~/mnt/$gt
+}
+
+function xr()
+{
+    to=-1
+    [[ "$1" == "2" ]] && to=0
+    [[ "$1" == "1" ]] && to=1
+    [[ $to < 0 ]] && echo "failed" && return 1
+    xrandr -s $to && ( kr avant-window-navigator &> /dev/null )
+}
+
 
 function vcs()
 {
