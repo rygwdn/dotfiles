@@ -8,6 +8,7 @@
         ui = auto
 [core]
 	editor = vim
+	excludesfile = ~/.gitignore
 [merge]
         tool = vimdiff
 [pack]
@@ -35,3 +36,5 @@
         kompare = difftool -t kompare
 [url "git@github.com:rygwdn/"]
     insteadOf = github:
+[rerere]
+	enabled = 1
