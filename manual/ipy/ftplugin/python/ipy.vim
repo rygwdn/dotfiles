@@ -1,3 +1,8 @@
+if exists('s:IPY_LOADED')
+    finish
+endif
+
+let s:IPY_LOADED = 1
 
 python << EOF
 import socket
@@ -57,3 +62,4 @@ vmap <leader>ip :python IPYSERVER.run_range()<CR>
 com IPyRunAll 0,$ python IPYSERVER.run_range()
 com IPyRunFile python IPYSERVER.run_file()
 com -nargs=? IPyConnect python IPYSERVER.connect("<args>")
+
