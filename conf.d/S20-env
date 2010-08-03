@@ -37,6 +37,8 @@ REPORTTIME=10                # report time if execution exceeds amount of second
 watch=(notme)               # watch login/logout
 
 PAGER='less'
+# show colors in less
+LESS="-R"
 EDITOR='vim'
 VISUAL='vim'
 VPAGER='vim -R -'
