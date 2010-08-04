@@ -50,6 +50,10 @@ alias dirs='dirs -v'
 
 # temp hack
 alias fu="fusermount -u"
+
+[[ `hostname` != "razz" ]] && alias r='ssh razz'
+
+
 function media()
 {
     gt=$1
