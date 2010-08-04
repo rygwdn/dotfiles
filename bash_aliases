@@ -49,8 +49,7 @@ alias db2s='sudo su db2inst2 -c bash'
 alias dirs='dirs -v'
 
 # temp hack
-alias media='sshfs wired:media ~/tmp/mnt ; cd ~/tmp/mnt'
-
+alias fu="fusermount -u"
 function media()
 {
     gt=$1
