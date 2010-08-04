@@ -542,3 +542,18 @@ let g:Tlist_Show_One_File = 1
 " ----------------------------------------------------------------- }}}
 
 " }}}
+
+
+" Includes
+if has("unix")
+    let s:uname = system("echo -n `uname`")
+    if s:uname == "Darwin"
+        runtime osx.vimrc
+    else
+        runtime linux.vimrc
+    endif
+elseif has("macunix")
+    runtime osx.vimrc
+elseif has("win32")
+    runtime win.vimrc
+endif
