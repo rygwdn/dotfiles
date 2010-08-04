@@ -51,6 +51,9 @@ alias dirs='dirs -v'
 # temp hack
 alias media='sshfs wired:media ~/tmp/mnt ; cd ~/tmp/mnt'
 
+[[ `hostname` != "razz" ]] && alias r='ssh razz'
+
+
 function media()
 {
     gt=$1
