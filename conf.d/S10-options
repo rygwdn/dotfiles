@@ -42,6 +42,7 @@ setopt case_glob            # case sensitive globbing
 setopt equals               # perform = file expansions
 setopt no_rec_exact         # recognize exact match even if ambiguous
 setopt no_rm_star_silent    # ask user before rm foo/*
+setopt nonomatch            # avoid the 'zsh: no matches found...'
 unsetopt auto_param_slash   # add slash for directories
 
 
