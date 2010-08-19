@@ -1,4 +1,4 @@
-if exists('s:IPY_LOADED')
+if exists('s:IPY_LOADED') || !has("python")
     finish
 endif
 
