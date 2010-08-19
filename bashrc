@@ -9,7 +9,7 @@
 
 
 # I choose ZSH!!
-if which zsh &> /dev/null && [[ "$TERM" == "screen" ]] && ! echo $SHELL | grep -q zsh
+if which zsh &> /dev/null && ! echo $SHELL | grep -q zsh
 then
     if zsh
     then
@@ -153,6 +153,7 @@ export PATH=$PATH:.:$HOME/bin
 [ -e /opt/local/bin ] && export PATH=$PATH:/opt/local/bin
 [ -e /usr/local/bin ] && export PATH=/usr/local/bin:$PATH
 [ -e $HOME/.cabal/bin ] && export PATH=$HOME/.cabal/bin:$PATH
+export PATH=/var/lib/gems/1.8/bin:$PATH
 export PATH=$PATH:/usr/local/git/bin
 export PATH=/opt/subversion/bin:$PATH
 
@@ -175,18 +176,4 @@ fi
 if [[ "$TERM" = "screen" ]]
 then
     export PS1='\[\033k\033\\\]'"$PS1"
-fi
-
-if [[ -n "$SSH_TTY" ]]
-then
-    screen -ls | sed '1d;N;$!P;$!D;$d;/^$/d'
-elif [[ "$TERM" != "screen" ]]
-then
-    if screen -ls 2>&1 | grep -q 'No Sockets'
-    then
-        screen && exit
-    elif screen -ls 2>&1 | grep -q '(Multi, detached)'
-    then
-        screen -x
-    fi
 fi

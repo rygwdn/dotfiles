@@ -28,5 +28,3 @@ altscreen on
 
 # message to display when monitor triggers
 activity "%c activity -> %n%f %t"
-
-bind b eval writebuf 'exec /bin/sh -c "echo >> /tmp/screen-exchange; xsel -i -b < /tmp/screen-exchange"'
