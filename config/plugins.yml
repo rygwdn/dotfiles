@@ -20,6 +20,22 @@
 #  plugin_type: plugin
 #  dir: delimitmate
 
+- names: [RST Tables]
+  authors: [Hugo Ruscitti]
+  description: "Simple rst tables"
+  comment:
+  plugin_type: plugin
+  vim_org_id: 12783
+  file_type: vim
+  dir: rst_tables
+
+- names: [cucumber-vim]
+  authors: [Tim Pope]
+  repo: git://github.com/tpope/vim-cucumber.git
+  description: 'Cucumber runtime files'
+  comment:
+  plugin_type: plugin
+  dir: cucumber
 
 - names: ['The NERD tree']
   authors: [Marty Grenfell]
