@@ -49,6 +49,11 @@ set guioptions-=T               " no toolbar
 
 let maplocalleader=','          " all my macros start with ,
 let mapleader=","               " set <Leader> to , instead of \
+
+if v:version >= 703
+    set rnu                     " relative line nums
+endif
+
 " ----------------------------------------------------------------- }}}
 
 
@@ -56,6 +61,7 @@ let mapleader=","               " set <Leader> to , instead of \
 set backup                      " produce *~ backup files
 set backupext=~                 " add ~ to the end of backup files
 
+let g:temp_path = '/tmp' " default
 if has('python')
 python << EOF
 import os, vim
@@ -65,18 +71,19 @@ for dir in dirs:
     p = os.path.realpath(os.path.expanduser(dir))
     if os.path.isdir(p):
 	vim.command("let g:temp_path='%s'" % p)
-	vim.command("set directory=%s" % p)
-	vim.command("set backupdir=%s" % p)
 	break
 else:
-    vim.command("echo 'Failed to set temp path'")
+    print 'Failed to set temp path'
 EOF
-else
-    let g:temp_path = '/tmp'
-    set directory=~/.vim/tmp
-    set backupdir=~/.vim/tmp
 endif
 
+let &directory=g:temp_path
+let &backupdir=g:temp_path
+
+if v:version >= 703
+    set undofile
+    let &undodir=g:temp_path
+endif
 
 let g:yankring_history_dir = g:temp_path
 " }}}-----------------------------------------------------------------
@@ -219,6 +226,7 @@ let g:SuperTabDefaultCompletionType = "<c-x><c-o>"
 "let g:SuperTabDefaultCompletionType = "context"
 let g:SuperTabLongestHighlight = 1
 let g:SuperTabLongestEnhanced = 1
+let g:SuperTabCrMapping = 0
 
 au FileType java call SuperTabSetDefaultCompletionType("<c-x><c-u>")
 
@@ -430,6 +438,7 @@ map <Leader>C <Plug>(operator-decamelize)
 " snippet stuff -------------------{{{
 
 command! UltiReset py UltiSnips_Manager.reset()
+let g:ultisnips_python_style = "doxygen"
 
 " -------------------------------------}}}
 
