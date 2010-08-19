@@ -41,8 +41,7 @@ alias ak='ack -a'
 
 alias g='&> /dev/null gvim'
 alias gr='g --remote-silent'
-alias gs='g --servername'
-alias grs='gr --servername'
+which compdef &> /dev/null && compdef 'compadd $(gs --list)' gs
 
 alias db2s='sudo su db2inst2 -c bash'
 
@@ -104,11 +103,13 @@ alias log='vcs log'
 alias add='vcs add'
 alias addp='vcs add --patch'
 alias addi='vcs add -i'
+
 alias dci='git svn dcommit'
 alias rb='git svn rebase'
 alias gd='git diff'
 alias gdc='git diff --cached'
 alias gl='git lg | head -n $(expr $LINES - 2)'
+alias gk='gitk --all'
 
 
 # pull examples from shell-fu
