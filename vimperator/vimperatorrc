@@ -27,3 +27,15 @@ command google open google
 command g google
 
 
+javascript <<EOM
+if (liberator.has("MacUnix")) {
+    // for Mac
+    liberator.execute("set go+=T")
+    liberator.execute("unmap D")
+    liberator.execute("map D :emenu Delicious.Save a new Bookmark...<CR>")
+} else if (liberator.has("Win32")) {
+    // for Windows
+} else {
+    // other OS (linux)
+}
+EOM
