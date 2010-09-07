@@ -1,0 +1,5 @@
+next/prev tab:
+    :js gBrowser.tabContainer.advanceSelectedTab(1, true)
+    :js gBrowser.tabContainer.advanceSelectedTab(-1, true)
+
+gBrowser.mCurrentTab.tabItem.parent == GroupItem
