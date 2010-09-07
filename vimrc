@@ -243,6 +243,7 @@ set cmdheight=2                 " make command line two lines high
 set ruler		" show the cursor position all the time
 set lazyredraw                  " don't redraw when running macros
 set showcmd		" display incomplete commands
+set display="lastline"  " show as much as possible of the last line instead of @ symbols
 
 "colorscheme default2
 colorscheme blackboard
