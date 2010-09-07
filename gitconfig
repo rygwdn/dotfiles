@@ -34,6 +34,8 @@
         vimdiff = difftool -t vimdiff
         gvimdiff = difftool -t gvimdiff
         kompare = difftool -t kompare
+        vmerge = mergetool -y --tool=vimdiff
+        gmerge = mergetool -y --tool=gvimdiff
 [url "git@github.com:rygwdn/"]
     insteadOf = github:
 [rerere]
