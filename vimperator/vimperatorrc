@@ -1,12 +1,14 @@
 " vim: fdm=marker
 " vim: foldlevel=0
 
-set go+=rbm
 map < :tabmove -1<CR>
 map > :tabmove +1<CR>
-map J <C-n>
-map K <C-p>
-map D :emenu Menu.Delicious.Save a new Bookmark...<CR>
+map J :js gBrowser.tabContainer.advanceSelectedTab(1, true)<CR>
+map K :js gBrowser.tabContainer.advanceSelectedTab(-1, true)<CR>
+map D :emenu Delicious.Save a new Bookmark...<CR>
+js config.guioptions['D'] = ['Delicious Toolbar',['ybToolbar']];
+set go+=rbmD
+
 command lastpasslogin javascript LP.lpOpenLogin()
 command lp lastpasslogin
 
