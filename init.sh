@@ -14,7 +14,7 @@ do
     fi
 done
 
-for file in */*rc
+for file in */*rc */bash_aliases
 do
     bn=`basename $file`
     hf=$HOME/.$bn
