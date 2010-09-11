@@ -4,7 +4,6 @@ for file in *
 do
     hf=$HOME/.$file
     tf=`readlink -f $file`
-    [ "$hf" = "$tf" ] && continue
 
     if [ -e $hf ]
     then
@@ -19,7 +18,6 @@ do
     bn=`basename $file`
     hf=$HOME/.$bn
     tf=`readlink -f $file`
-    [ "$hf" = "$tf" ] && continue
 
     if [ -e $hf ]
     then
