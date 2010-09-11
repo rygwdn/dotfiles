@@ -122,7 +122,7 @@ set splitright                  " vertical split opens new window on right
 
 
 " searching ------------------------------------------ {{{
-set nohlsearch                 " disable search highlight globally
+set hlsearch                   " enable search highlight globally
 set incsearch                  " show matches as soon as possible
 set noshowmatch                " don't show matching brackets when typing
 set showfulltag                " Show full tags when doing search completion
@@ -174,6 +174,8 @@ inoremap { {}O
 command! W w
 command! UP !svn up
 command! CI !svn ci --editor-cmd "gvim -f"
+
+nnoremap <esc> :noh<cr><esc>
 
 " Sometimes I hate the defaults for these two in insert!
 "inoremap <c-u> 
