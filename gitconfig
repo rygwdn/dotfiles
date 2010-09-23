@@ -40,3 +40,5 @@
     insteadOf = github:
 [rerere]
 	enabled = 1
+[branch]
+	autosetupmerge = true
