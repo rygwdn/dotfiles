@@ -18,5 +18,5 @@ altscreen on
 # message to display when monitor triggers
 activity "%c activity -> %n%f %t"
 
-screen -t bananajour 0 /var/lib/gems/1.8/bin/bananajour
-screen -t synergy 1 mucsyn
+#screen -t bananajour 0 /var/lib/gems/1.8/bin/bananajour
+#screen -t synergy 1 mucsyn
