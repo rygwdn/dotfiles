@@ -46,8 +46,18 @@ function getdir
 
 function setPrompts
 {
-    export PS1="${psprepend}${Color}$hostname:${PR_NO_COLOR}`getdir`${ZLE_COLOR}\$${PR_NO_COLOR} "
-    export RPROMPT='${PR_GREEN}${VIRTUALENV_PROMPT}$(get_git_prompt_info)${PR_NO_COLOR}'
+    PS1="${psprepend}${Color}$hostname:"
+    PS1+="${PR_NO_COLOR}`getdir`${ZLE_COLOR}\$${PR_NO_COLOR} "
+    export PS1
+
+    GIT_INFO=$(get_git_prompt_info)
+
+    RPROMPT=""
+    [ -n "$PROJECT" ] && RPROMPT+=' ${PR_RED}(${PR_BLUE}${PROJECT}${PR_RED})'
+    [ -n "${VIRTUALENV_PROMPT}" ] && RPROMPT+=' ${PR_GREEN}${VIRTUALENV_PROMPT}'
+    [ -n "$GIT_INFO" ] && RPROMPT+=" $GIT_INFO"
+    [ -n "${PR_NO_COLOR}" ] && RPROMPT+='${PR_NO_COLOR}'
+    export RPROMPT
 }
 
 precmd_functions+='setPrompts'
