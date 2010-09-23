@@ -1,5 +1,7 @@
 #!/usr/bin/env zsh
 
+setopt TRANSIENT_RPROMPT
+
 # deal with stupid hostnames
 hostname=`hostname`
 hostname=`echo "$hostname" | sed 's/\.acadiau\.ca//'`
