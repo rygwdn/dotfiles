@@ -19,7 +19,13 @@ function title()
 
 function zsh-title()
 {
-    title "`[ -n "$SSH_TTY" ] && echo $hostname-`zsh" "$PWD"
+    TITLE=""
+    PRE=""
+    [ -n "$SSH_TTY" ] && PRE+="${hostname} - "
+    [ -n "$PROJECT" ] && TITLE+="$PROJECT"
+    [ -z "$TITLE" ] && TITLE="zsh"
+    TITLE=${PRE}${TITLE}
+    title "$TITLE"
 }
 
 precmd_functions+='zsh-title'
