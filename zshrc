@@ -13,10 +13,14 @@ else
     compinit -d $zsh_cache
 fi
 
-setopt extended_glob
-for zshrc_snipplet in ~/.zsh/conf.d/S[0-9][0-9]*[^~][^.zwc][^.old]
+find ~/.zsh/conf.d -type f \
+    -not -iname '*.zwc' -and \
+    -not -iname '*~' -and \
+    -not -iname '*.old' \
+    | sort \
+    | while read snipplet
 do
-    source $zshrc_snipplet
+    source $snipplet
 done
 
 
