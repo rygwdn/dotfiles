@@ -3,13 +3,13 @@
 setopt prompt_subst
 
 # handle vi NORMAL/INSERT mode change
-ZLE_VIMODE="#"
-ZLE_COLOR=$PR_NO_COLOR
+export ZLE_VIMODE="#"
+export ZLE_COLOR=$PR_NO_COLOR
 
 function zle-line-init zle-keymap-select 
 {
-    ZLE_VIMODE="${${KEYMAP/vicmd/N}/(main|viins)/I}"
-    ZLE_COLOR="${${KEYMAP/vicmd/$PR_BLUE}/(main|viins)/$PR_GREEN}"
+    export ZLE_VIMODE="${${KEYMAP/vicmd/N}/(main|viins)/I}"
+    export ZLE_COLOR="${${KEYMAP/vicmd/$PR_BLUE}/(main|viins)/$PR_GREEN}"
     setPrompts
     zle reset-prompt
 }
