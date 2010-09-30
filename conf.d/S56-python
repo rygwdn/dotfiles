@@ -16,11 +16,12 @@ export PIP_DOWNLOAD_CACHE="$HOME/.pip_download_cache"
 # directory name of the project. Virtual environment name can be overridden
 # by placing a .venv file in the project root with a virtualenv name in it
 function workon_cwd {
+    [ -n "$DISABLE_CHPWD" ] && return
+
     ENV_NAME=$(
-        chpwd_functions=
         while [[ `pwd` != "/" ]]; do
             [ -e .venv ] && cat .venv && break
-            cd ..
+            cd -q ..
         done
     ) 
 
