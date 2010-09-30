@@ -13,12 +13,11 @@ else
     compinit -d $zsh_cache
 fi
 
-find ~/.zsh/conf.d -type f \
+for snipplet in `find ~/.zsh/conf.d -type f \
     -not -iname '*.zwc' -and \
     -not -iname '*~' -and \
     -not -iname '*.old' \
-    | sort \
-    | while read snipplet
+    | sort`
 do
     source $snipplet
 done
