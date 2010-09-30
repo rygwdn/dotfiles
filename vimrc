@@ -12,11 +12,6 @@ if v:progname =~? "evim"
 endif
 
 
-if !has("gui_running")
-    filetype on
-    filetype indent plugin on
-endif
-
 filetype indent plugin off
 filetype off
 " setup runtime path using the excellent vim-pathogen:
@@ -25,10 +20,25 @@ call pathogen#runtime_append_all_bundles()
 call pathogen#runtime_prepend_subdirectories('~/.vim/manual')
 call pathogen#runtime_prepend_subdirectories('~/.vim/pre')
 call pathogen#helptags()
-filetype indent plugin on
+
+if !has("gui_running")
+    filetype on
+    filetype indent plugin on
+endif
+
 
 " ------------------------------------------- }}}
 
+" mark ---------------------------------------- {{{
+
+let g:cur_marks="marking.otl"
+au BufWinEnter */sc/ta* source ~/projects/vim/marking-help/fuz.vim
+au BufWinEnter */sc/ta* set completeopt-=longest
+au BufWinEnter */sc/ta* set completefunc=CompleteMarks
+au BufWinEnter */sc/ta* set omnifunc=CompleteMarks
+
+
+" ------------------------------------------- }}}
 
 " Operational settings -------------------------------------- {{{
 set nocompatible    "Vim rocks! this must be first to avoid side effects.
@@ -203,8 +213,8 @@ set wildmode=list:longest,full
 set completeopt=menuone,preview,longest
 " <CR> selects completion
 
-"inoremap <expr> <CR>       pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
-inoremap <expr> <Esc>      pumvisible() ? "\<C-e>" : "\<Esc>"
+""" "inoremap <expr> <CR>       pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
+""" inoremap <expr> <Esc>      pumvisible() ? "\<C-e>" : "\<Esc>"
 inoremap <expr> <CR>       pumvisible() ? "\<C-y>" : "\<CR>"
 inoremap <expr> <Down>     pumvisible() ? "\<C-n>" : "\<Down>"
 inoremap <expr> <Up>       pumvisible() ? "\<C-p>" : "\<Up>"
