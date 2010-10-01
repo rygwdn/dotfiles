@@ -21,7 +21,7 @@ function zsh-title()
 {
     TITLE=""
     PRE=""
-    [ -n "$SSH_TTY" ] && PRE+="${hostname} - "
+    [ -n "$SSH_TTY" ] && PRE+="${ZHOST} - "
     [ -n "$PROJECT" ] && TITLE+="$PROJECT"
     [ -z "$TITLE" ] && TITLE="zsh"
     TITLE=${PRE}${TITLE}

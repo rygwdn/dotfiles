@@ -2,30 +2,26 @@
 
 setopt TRANSIENT_RPROMPT
 
-# deal with stupid hostnames
-hostname=`hostname`
-hostname=`echo "$hostname" | sed 's/\.acadiau\.ca//'`
-
 # get host and set color
-if [ `id -u` -eq 0 ]; then
+case "$ZHOST" in
+    razz )
+        Color=$PR_LIGHT_CYAN
+        ;;
+    jazz )
+        Color=$PR_GREEN
+        ;;
+    acadia|cherokee|linode )
+        Color=$PR_LIGHT_YELLOW
+        ;;
+    * )
+        # red for unknown host
+        Color=$PR_LIGHT_RED
+        ;;
+esac
+
+if [[ `id -u` -eq 0 ]] && \
+    [[ "$ZHOST" != "cherokee" ]]; then
     Color=$PR_RED  # red text for root
-else
-    case "$hostname" in
-        razz )
-            Color=$PR_LIGHT_CYAN
-            ;;
-        jazz )
-            Color=$PR_GREEN
-            ;;
-        dyna174* )
-            # Acadia computers
-            Color=$PR_LIGHT_YELLOW
-            ;;
-        * )
-            # red for unknown host
-            Color=$PR_LIGHT_RED
-            ;;
-    esac
 fi
 
 [ -n "$SSH_TTY" ] && psprepend="${PR_RED}ssh-${PR_NO_COLOR}"
@@ -51,7 +47,7 @@ function getdir
 
 function setPrompts
 {
-    PS1="${psprepend}${Color}$hostname:"
+    PS1="${psprepend}${Color}$ZHOST:"
     PS1+="${PR_NO_COLOR}`getdir`${ZLE_COLOR}\$${PR_NO_COLOR} "
     export PS1
 

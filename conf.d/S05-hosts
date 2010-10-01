@@ -1,0 +1,20 @@
+#!/usr/bin/env zsh
+
+ZHOST=`hostname`
+
+# deal with stupid hostnames
+if [[ "$ZHOST" == "razz" ]]; then
+    :
+elif [[ "$ZHOST" == "jazz" ]]; then
+    :
+elif [[ $ZHOST == "cherokee" ]]; then
+    :
+elif [[ $ZHOST =~ "linode" ]]; then
+    ZHOST="linode"
+elif [[ $ZHOST =~ "acadiau\.ca" ]]; then
+    ZHOST="acadia"
+else
+    ZHOST="other"
+fi
+
+export ZHOST
