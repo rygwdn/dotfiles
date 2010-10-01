@@ -47,9 +47,11 @@ alias db2s='sudo su db2inst2 -c bash'
 
 alias dirs='dirs -v'
 
+
 # temp hack
 alias fu="fusermount -u"
 
+[[ `hostname` == "cherokee" ]] && alias screen='\screen -e x'
 [[ `hostname` != "razz" ]] && alias r='ssh razz'
 
 
