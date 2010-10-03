@@ -130,6 +130,10 @@ set updatecount=100             " write swap file to disk every 100 chars
 set foldenable
 set foldlevel=99999
 
+if v:version >= 703
+    set colorcolumn=80
+endif
+
 set splitright                  " vertical split opens new window on right
 " ------------------------------------------------------------- }}}
 
@@ -137,23 +141,28 @@ set splitright                  " vertical split opens new window on right
 " searching ------------------------------------------ {{{
 set hlsearch                   " enable search highlight globally
 set incsearch                  " show matches as soon as possible
-set noshowmatch                " don't show matching brackets when typing
+set showmatch                " don't show matching brackets when typing
 set showfulltag                " Show full tags when doing search completion
+set ignorecase smartcase       " case-insensitive if lower case
+set gdefault                   " use ///g by default, now it switches it off
 
 " disable last one highlight
-nmap <LocalLeader>nh :nohlsearch<cr>
+nmap <LocalLeader><space> :noh<cr>
+nnoremap <esc> :noh<cr><esc>
+
+" very magic searching
+nnoremap / /\v
+vnoremap / /\v
+
 " ---------------------------------------------------- }}}
 
 
 " handy commands & mappings ---------------------------- {{{
 
-" resource vimrc on write
-au BufWritePost .vimrc source $MYVIMRC
-
 " insert mode paste (like esc p i)
 imap  "
 
-map Y y$
+nmap Y y$
 
 map <F4> :FSHere<CR>
 
@@ -167,11 +176,8 @@ nmap <LocalLeader>cn  :cnext<CR>
 nmap <LocalLeader>cp  :cprevious<CR>
 nmap <LocalLeader>cc  :cc<CR>
 
-" Don't use Ex mode, use Q for formatting
+" use Q for formatting
 map Q gq
-
-map <F12> :!ctags -a --c++-kinds=+p --fields=+iaS --extra=+q %<CR><CR>
-map <F11> :make!<CR>
 
 " Move around windows
 nmap <c-l> l
@@ -185,14 +191,14 @@ inoremap { {}O
 
 " Handy commands
 command! W w
-command! UP !svn up
-command! CI !svn ci --editor-cmd "gvim -f"
-
-nnoremap <esc> :noh<cr><esc>
 
 " Sometimes I hate the defaults for these two in insert!
 "inoremap <c-u> 
 "inoremap <c-w> 
+
+" Allow tab to jump between pairs
+nnoremap <tab> %
+vnoremap <tab> %
 
 " --------------------------------------------- }}}
 
