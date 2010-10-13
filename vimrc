@@ -40,6 +40,8 @@ au BufWinEnter */sc/ta*.txt YRToggle(0)
 au BufWinEnter */sc/ta*.txt set colorcolumn=88
 au BufWinEnter */sc/ta*.txt set list
 au BufWinEnter */sc/ta*.txt set listchars=eol:$,tab:>-
+"au BufWinEnter */sc/ta*.txt set acd
+au BufWinEnter */sc/ta*.txt set indentexpr=
 
 " ------------------------------------------- }}}
 
@@ -141,7 +143,7 @@ set splitright                  " vertical split opens new window on right
 " searching ------------------------------------------ {{{
 set hlsearch                   " enable search highlight globally
 set incsearch                  " show matches as soon as possible
-set showmatch                " don't show matching brackets when typing
+set noshowmatch                " don't show matching brackets when typing
 set showfulltag                " Show full tags when doing search completion
 set ignorecase smartcase       " case-insensitive if lower case
 set gdefault                   " use ///g by default, now it switches it off
