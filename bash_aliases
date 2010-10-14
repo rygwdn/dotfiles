@@ -159,10 +159,18 @@ function rr ()
 }
 
 # better gnome open command
-alias o=`
-for op in open gnome-open; do
-    which $op &>/dev/null && echo $op
-done | tail -n 1`
+function o()
+{
+    op_prg=`for op in open gnome-open
+    do
+        which $op &>/dev/null && echo $op
+    done | tail -n 1`
+
+    for file in "$@"
+    do
+        $op_prg $file
+    done
+}
 
 alias here='ack "TODO[: ]*here"'
 
