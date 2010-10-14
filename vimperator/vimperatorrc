@@ -6,35 +6,25 @@ map > :tabmove +1<CR>
 map J :js gBrowser.tabContainer.advanceSelectedTab(1, true)<CR>
 map K :js gBrowser.tabContainer.advanceSelectedTab(-1, true)<CR>
 map D :emenu Delicious.Save a new Bookmark...<CR>
-js config.guioptions['D'] = ['Delicious Toolbar',['ybToolbar']];
-set go+=rbmD
+"js config.guioptions['D'] = ['Delicious Toolbar',['ybToolbar']];
+"set go+=rbmDTB
+"set go+=rbmDT
+"set go+=rbmT
 
 command lastpasslogin javascript LP.lpOpenLogin()
 command lp lastpasslogin
-
-javascript <<EOM
-LP.scriptDidLP = 0;
-LP.scriptDoLP = function()
-{
-    if (LP.scriptDidLP == 1)
-        return;
-    LP.scriptDidLP = 1;
-    LP.lpOpenLogin();
-}
-EOM
 
 "au LocationChange .* javascript LP.scriptDoLP()
 
 command google open google
 command g google
 
-
 javascript <<EOM
 if (liberator.has("MacUnix")) {
     // for Mac
-    liberator.execute("set go+=T")
-    liberator.execute("unmap D")
-    liberator.execute("map D :emenu Delicious.Save a new Bookmark...<CR>")
+    //liberator.execute("set go+=T")
+    //liberator.execute("unmap D")
+    //liberator.execute("map D :emenu Delicious.Save a new Bookmark...<CR>")
 } else if (liberator.has("Win32")) {
     // for Windows
 } else {
