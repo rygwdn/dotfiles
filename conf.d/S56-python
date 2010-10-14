@@ -12,27 +12,33 @@ export PIP_RESPECT_VIRTUALENV=true
 export PIP_DOWNLOAD_CACHE="$HOME/.pip_download_cache"
 
 
-# Automatically activate Git projects' virtual environments based on the
-# directory name of the project. Virtual environment name can be overridden
-# by placing a .venv file in the project root with a virtualenv name in it
+# Reads a .venv file in the project root with a virtualenv name in it
 function workon_cwd {
-    [ -n "$DISABLE_CHPWD" ] && return
-
-    ENV_NAME=$(
-        while [[ `pwd` != "/" ]]; do
-            [ -e .venv ] && cat .venv && break
-            cd -q ..
-        done
-    ) 
+    ENV_DIR=$(
+            dir=`pwd`
+            while [[ $dir != '/' && -n $dir ]]
+            do
+                [[ -e $dir/.venv ]] && echo $dir && break
+                dir=`dirname $dir`
+            done
+        )
+    ENV_NAME=$([[ -n $ENV_DIR ]] && cat $ENV_DIR/.venv) 
 
     if [[ -n $ENV_NAME ]]
     then
-        if  [[ $ENV_NAME != "$CD_VIRTUAL_ENV" ]] && [[ "$VIRTUAL_ENV" != $WORKON_HOME/$ENV_NAME ]]; then
-            if [ -e "$WORKON_HOME/$ENV_NAME/bin/activate" ]; then
+        if  [[ $ENV_NAME != "$CD_VIRTUAL_ENV" ]] && \
+            [[ "$VIRTUAL_ENV" != $WORKON_HOME/$ENV_NAME ]]
+        then
+            if [[ -e "$WORKON_HOME/$ENV_NAME/bin/activate" ]]
+            then
                 workon "$ENV_NAME" && export CD_VIRTUAL_ENV="$ENV_NAME"
+            elif [[ -e "$ENV_DIR/$ENV_NAME/bin/activate" ]]
+            then
+                source "$ENV_DIR/$ENV_NAME/bin/activate" && export CD_VIRTUAL_ENV="$ENV_NAME"
             fi
         fi
-    elif [ $CD_VIRTUAL_ENV ]; then
+    elif [ $CD_VIRTUAL_ENV ]
+    then
         # We've just left the repo, deactivate the environment
         # Note: this only happens if the virtualenv was activated automatically
         deactivate && unset CD_VIRTUAL_ENV
