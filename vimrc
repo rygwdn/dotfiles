@@ -340,10 +340,10 @@ au FileType tex,pdc call Wp()
 let g:tex_flavor='latex'
 
 " Automatically make on write
-function! MakeTex()
-    silent make!
-endfunction
-au BufWritePost *.tex call MakeTex()
+"function! MakeTex()
+"    silent make!
+"endfunction
+"au BufWritePost *.tex call MakeTex()
 
 " Use a makefile :)
 " Or not... - set to makeprg=make to automake
