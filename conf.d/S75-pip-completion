@@ -1,3 +1,4 @@
+#!/usr/bin/env zsh
 
 # pip zsh completion start
 function _pip_completion {
