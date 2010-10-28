@@ -4,28 +4,76 @@
 # Decide whether to set a screen title
 function title()
 {
+    TITLE=$1
+    REST=$2
+
+    PRE=""
+    [ -n "$SSH_TTY" ] && PRE+="${ZHOST} - "
+    [ -n "$PROJECT" ] && TITLE+="$PROJECT"
+
+    TITLE=${PRE}${TITLE}
+    [ -z "$REST" ] && REST=$PWD
+
     if [[ $TERM == "screen" ]]
     then
         # Use these two for GNU Screen:
-        print -nR $'\033k'$1$'\033'\\
-        print -nR $'\033]0;'$2$'\a'
+        print -nR $'\033k'$TITLE$'\033'\\
+        print -nR $'\033]0;'$REST$'\a'
 
     elif [[ $TERM == "xterm" || $TERM == "rxvt" ]]
     then
         # Use this one instead for XTerms:
-        print -nR $'\033]0;'$*$'\a'
+        print -nR $'\033]0;'$PRE$*$'\a'
     fi
 }
 
 function zsh-title()
 {
-    TITLE=""
-    PRE=""
-    [ -n "$SSH_TTY" ] && PRE+="${ZHOST} - "
-    [ -n "$PROJECT" ] && TITLE+="$PROJECT"
-    [ -z "$TITLE" ] && TITLE="zsh"
-    TITLE=${PRE}${TITLE}
-    title "$TITLE"
+    emulate -L zsh
+    local -a cmd
+    cmd=(${(z)1})
+
+    # Construct a command that will output the desired job number.
+    case $cmd[1] in
+        "fg")
+            if (( $#cmd == 1 )); then
+                # No arguments, must find the current job
+                cmd=(builtin jobs -l %+)
+            else
+                # Replace the command name, ignore extra args.
+                cmd=(builtin jobs -l ${(Q)cmd[2]})
+            fi
+            ;;
+        %*)
+            cmd=(builtin jobs -l ${(Q)cmd[1]})
+            ;; # Same as "else" above
+        "exec")
+            shift cmd;& # If the command is 'exec', drop that, because
+            # we'd rather just see the command that is being
+            # exec'd. Note the ;& to fall through.
+
+        "")
+            title "zsh" "$PWD"           # Not resuming a job
+            return
+            ;;                     # so we're all done
+
+        *)
+            title $cmd[1]:t "$cmd[2,-1]" # Not resuming a job
+            return
+            ;;                     # so we're all done
+    esac
+
+    local -A jt
+    jt=(${(kv)jobtexts})       # Copy jobtexts for subshell
+
+    # Run the command, read its output, and look up the jobtext.
+    # Could parse $rest here, but $jobtexts (via $jt) is easier.
+    $cmd >>(
+        read num rest
+        cmd=(${(z)${(e):-\$jt$num}})
+        title $cmd[1]:t "$cmd[2,-1]"
+        ) 2>/dev/null
 }
 
 precmd_functions+='zsh-title'
+preexec_functions+='zsh-title'
