@@ -38,6 +38,7 @@ alias qmv='\qmv -f destination-only'
 alias upnup='ap update && ap full-upgrade'
 alias ack='ack-grep'
 alias ak='ack -a'
+alias td='toodledo'
 
 alias g='&> /dev/null gvim'
 alias gr='g --remote-silent'
