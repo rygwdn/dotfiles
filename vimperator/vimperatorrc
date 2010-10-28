@@ -5,15 +5,29 @@ map < :tabmove -1<CR>
 map > :tabmove +1<CR>
 map J :js gBrowser.tabContainer.advanceSelectedTab(1, true)<CR>
 map K :js gBrowser.tabContainer.advanceSelectedTab(-1, true)<CR>
-map D :emenu Delicious.Save a new Bookmark...<CR>
+"map D :emenu Delicious.Save a new Bookmark...<CR>
 js config.guioptions['D'] = ['Delicious Toolbar',['ybToolbar']];
-set go+=Trm
+set go=TrmD
 
 command lastpasslogin javascript LP.lpOpenLogin()
 command lp lastpasslogin
 
 command google open google
 command g google
+
+command pbadd open javascript:q=location.href;if(document.getSelection){d=document.getSelection();}else{d='';};p=document.title;void(open('http://pinboard.in/add?url='+encodeURIComponent(q)+'&description='+encodeURIComponent(d)+'&title='+encodeURIComponent(p),'Pinboard',%20'toolbar=no,width=700,height=350'));
+
+command pbadds open javascript:if(document.getSelection){s=document.getSelection();}else{s='';};document.location='http://pinboard.in/add?next=same&url='+encodeURIComponent(location.href)+'&description='+encodeURIComponent(s)+'&title='+encodeURIComponent(document.title);
+
+command pb open http://pinboard.in/u:rygwdn
+
+command later open javascript:q=location.href;p=document.title;void(t=open('http://pinboard.in/add?later=yes&noui=yes&jump=close&url='+encodeURIComponent(q)+'&title='+encodeURIComponent(p),'Pinboard','toolbar=no,width=100,height=100'));t.blur();
+
+command unread open http://pinboard.in/oldest/
+
+map D :pbadd<CR>
+map U :unread<CR>
+map <C-l> :later<CR>
 
 javascript <<EOM
 if (liberator.has("MacUnix")) {
