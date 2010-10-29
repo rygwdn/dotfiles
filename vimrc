@@ -141,7 +141,7 @@ set splitright                  " vertical split opens new window on right
 
 
 " searching ------------------------------------------ {{{
-set hlsearch                   " enable search highlight globally
+set nohlsearch                   " enable search highlight globally
 set incsearch                  " show matches as soon as possible
 set noshowmatch                " don't show matching brackets when typing
 set showfulltag                " Show full tags when doing search completion
@@ -150,7 +150,7 @@ set gdefault                   " use ///g by default, now it switches it off
 
 " disable last one highlight
 nmap <LocalLeader><space> :noh<cr>
-nnoremap <esc> :noh<cr><esc>
+"nnoremap <esc> :noh<cr><esc>
 
 " very magic searching
 nnoremap / /\v
