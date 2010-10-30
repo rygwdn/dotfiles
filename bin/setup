@@ -1,8 +1,0 @@
-#!/bin/bash
-
-read -p "install as root (y/N)? " asroot
-[[ "y" = $asroot || "Y" = $asroot ]] && asroot=sudo || asroot=
-
-$asroot ruby gem install  rubyzip archive-tar-minitar
-$asroot easy_install pip
-$asroot pip install -U pylint
