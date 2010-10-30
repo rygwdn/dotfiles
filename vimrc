@@ -5,6 +5,7 @@
 " | Version 1.0            |
 " --------------------------
 
+
 " init ---------------------------------------- {{{
 " When started as "evim", evim.vim will already have done these settings.
 if v:progname =~? "evim"
@@ -29,6 +30,7 @@ endif
 
 " ------------------------------------------- }}}
 
+
 " mark ---------------------------------------- {{{
 
 let g:cur_marks="marking.otl"
@@ -44,6 +46,7 @@ au BufWinEnter */sc/ta*.txt set listchars=eol:$,tab:>-
 au BufWinEnter */sc/ta*.txt set indentexpr=
 
 " ------------------------------------------- }}}
+
 
 " Operational settings -------------------------------------- {{{
 set nocompatible    "Vim rocks! this must be first to avoid side effects.
@@ -281,6 +284,9 @@ endif
 
 " 1 height windows
 set winminheight=1
+
+au WinLeave * set nocursorline nocursorcolumn
+au WinEnter * set cursorline cursorcolumn
 
 set laststatus=2
 set statusline=%<%f%w\ %h%m%r\ %y\ \ %{fugitive#statusline()}%=%-14.(%l,%c%V%)\ %P
@@ -577,7 +583,7 @@ let g:Tlist_Show_One_File = 0
 " }}}
 
 
-" Includes
+"  Includes ------------------------------- {{{
 if has("unix")
     let s:uname = system("echo -n `uname`")
     if s:uname == "Darwin"
@@ -590,3 +596,4 @@ elseif has("macunix")
 elseif has("win32")
     runtime win.vimrc
 endif
+" ---------------------------------------------- }}}
