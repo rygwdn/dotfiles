@@ -1,5 +1,4 @@
 yankring_history*.txt
-autoload/pathogen.vim
 bundle
 tmp
 *.pyc
