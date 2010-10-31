@@ -1,0 +1,67 @@
+" Colorschemes
+"Bundle "git://github.com/hariton/gardener.git"
+Bundle "http://github.com/vim-scripts/candycode.vim.git"
+Bundle "http://github.com/vim-scripts/blackboard.vim.git"
+Bundle "http://github.com/nanotech/jellybeans.vim.git"
+
+" Programming
+Bundle "git://github.com/tpope/vim-ragtag.git"
+Bundle "http://github.com/vim-scripts/DoxygenToolkit.vim.git"
+
+" Filetypes
+Bundle "git://github.com/vim-ruby/vim-ruby.git"
+Bundle "git://github.com/tpope/vim-rails.git"
+Bundle "http://github.com/vim-scripts/jQuery.git"
+Bundle "git://github.com/tpope/vim-cucumber.git"
+Bundle "git://github.com/msanders/cocoa.vim.git"
+Bundle "http://github.com/vim-scripts/AutomaticTexPlugin.git"
+Bundle "http://github.com/vim-scripts/pdc.vim.git"
+Bundle "git://github.com/sukima/xmledit.git"
+Bundle "http://github.com/Rip-Rip/clang_complete.git"
+
+" Git stuff
+Bundle "git://github.com/tpope/vim-fugitive.git"
+Bundle "git://github.com/tpope/vim-git.git"
+
+" Search
+Bundle "git://github.com/mileszs/ack.vim.git"
+Bundle "http://github.com/gmarik/vim-visual-star-search.git"
+Bundle "http://github.com/vim-scripts/IndexedSearch.git"
+
+" Open files
+Bundle "http://github.com/vim-scripts/FuzzyFinder.git"
+Bundle "git://github.com/scrooloose/nerdtree.git"
+
+" Movement
+Bundle "http://github.com/vim-scripts/matchit.zip.git"
+Bundle "git://github.com/kana/vim-operator-user.git"
+Bundle "http://github.com/vim-scripts/camelcasemotion.git"
+
+" Navigation
+Bundle "http://github.com/vim-scripts/Marks-Browser.git"
+Bundle "http://github.com/vim-scripts/taglist.vim.git"
+
+" Operations
+Bundle "http://github.com/vim-scripts/operator-camelize.git"
+Bundle "git://github.com/tpope/vim-repeat.git"
+Bundle "git://github.com/tpope/vim-surround.git"
+Bundle "git://github.com/michaeljsmith/vim-indent-object.git"
+
+" Utility
+"Bundle "git://github.com/chrisbra/histwin.vim.git"
+Bundle "http://github.com/sjl/gundo.vim.git"
+Bundle "http://github.com/vim-scripts/ZoomWin.git"
+Bundle "http://github.com/vim-scripts/YankRing.vim.git"
+Bundle "git://github.com/tsaleh/vim-align.git"
+Bundle "git://github.com/panozzaj/vim-autocorrect.git"
+Bundle "http://github.com/vim-scripts/Conque-Shell.git"
+Bundle "http://github.com/vim-scripts/netrw.vim.git"
+Bundle "http://github.com/vim-scripts/tlib.git"
+Bundle "http://github.com/vim-scripts/bufkill.vim.git"
+Bundle "http://github.com/vim-scripts/CmdlineCompl.vim.git"
+Bundle "git://github.com/ervandew/supertab.git"
+Bundle "http://github.com/vim-scripts/L9.git"
+
+" Snippets
+"Bundle "http://github.com/gmarik/snipmate.vim.git"
+"Bundle "http://github.com/vim-scripts/UltiSnips.git"

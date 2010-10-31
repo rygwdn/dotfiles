@@ -12,6 +12,8 @@ if v:progname =~? "evim"
     finish
 endif
 
+runtime vundle
+call vundle#rc()
 
 filetype indent plugin off
 filetype off
