@@ -1,8 +1,8 @@
 " Colorschemes
 "Bundle "git://github.com/hariton/gardener.git"
+"Bundle "http://github.com/nanotech/jellybeans.vim.git"
 Bundle "http://github.com/vim-scripts/candycode.vim.git"
 Bundle "http://github.com/vim-scripts/blackboard.vim.git"
-Bundle "http://github.com/nanotech/jellybeans.vim.git"
 
 " Programming
 Bundle "git://github.com/tpope/vim-ragtag.git"
