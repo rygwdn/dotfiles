@@ -7,6 +7,7 @@ Bundle "http://github.com/vim-scripts/blackboard.vim.git"
 " Programming
 Bundle "git://github.com/tpope/vim-ragtag.git"
 Bundle "http://github.com/vim-scripts/DoxygenToolkit.vim.git"
+Bundle "http://github.com/vim-scripts/FSwitch.git"
 
 " Filetypes
 Bundle "git://github.com/vim-ruby/vim-ruby.git"
@@ -18,6 +19,7 @@ Bundle "http://github.com/vim-scripts/AutomaticTexPlugin.git"
 Bundle "http://github.com/vim-scripts/pdc.vim.git"
 Bundle "git://github.com/sukima/xmledit.git"
 Bundle "http://github.com/Rip-Rip/clang_complete.git"
+Bundle "http://github.com/Raimondi/vimoutliner.git"
 
 " Git stuff
 Bundle "git://github.com/tpope/vim-fugitive.git"
@@ -61,6 +63,7 @@ Bundle "http://github.com/vim-scripts/bufkill.vim.git"
 Bundle "http://github.com/vim-scripts/CmdlineCompl.vim.git"
 Bundle "git://github.com/ervandew/supertab.git"
 Bundle "http://github.com/vim-scripts/L9.git"
+Bundle "http://github.com/vim-scripts/session.vim--Odding.git"
 
 " Snippets
 "Bundle "http://github.com/gmarik/snipmate.vim.git"
