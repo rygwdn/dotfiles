@@ -23,11 +23,8 @@ call pathogen#runtime_append_all_bundles()
 call pathogen#runtime_prepend_subdirectories('~/.vim/manual')
 call pathogen#runtime_prepend_subdirectories('~/.vim/pre')
 call pathogen#helptags()
-
-if !has("gui_running")
-    filetype on
-    filetype indent plugin on
-endif
+filetype on
+filetype indent plugin on
 
 
 " ------------------------------------------- }}}
@@ -287,6 +284,7 @@ endif
 " 1 height windows
 set winminheight=1
 
+set cursorline cursorcolumn
 au WinLeave * set nocursorline nocursorcolumn
 au WinEnter * set cursorline cursorcolumn
 
@@ -330,7 +328,7 @@ cabbr wp call Wp()
 fun! Wp()
     set wrap
     set linebreak
-    source ~/.vim/bundle/autocorrect/autocorrect.vim
+    runtime autocorrect.vim
     nnoremap j gj
     nnoremap k gk
     nnoremap 0 g0
