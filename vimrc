@@ -349,11 +349,19 @@ let g:tex_flavor='latex'
 "function! MakeTex()
 "    silent make!
 "endfunction
-"au BufWritePost *.tex call MakeTex()
+au BufWritePost *.tex Rubber
 
 " Use a makefile :)
 " Or not... - set to makeprg=make to automake
 au FileType tex set makeprg=
+
+function! LatexEvinceSearch()
+    execute "!cd " . LatexBox_GetTexRoot() . '; evince_dbus.py "`basename ' . LatexBox_GetOutputFile(). '`" ' . line('.') . ' "%:p"'
+endfun
+command LatexEvinceSearch call LatexEvinceSearch()
+
+au FileType tex map <Leader>ls :silent LatexEvinceSearch<CR>
+au FileType tex imap <buffer> ]] <Plug>LatexCloseCurEnv
 
 
 "Mail
