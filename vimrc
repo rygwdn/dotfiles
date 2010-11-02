@@ -41,6 +41,7 @@ au BufWinEnter */sc/ta*.txt YRToggle(0)
 au BufWinEnter */sc/ta*.txt set colorcolumn=88
 au BufWinEnter */sc/ta*.txt set list
 au BufWinEnter */sc/ta*.txt set listchars=eol:$,tab:>-
+au BufWinEnter */sc/ta*.txt set ts=8
 "au BufWinEnter */sc/ta*.txt set acd
 au BufWinEnter */sc/ta*.txt set indentexpr=
 
@@ -125,7 +126,7 @@ map <MouseMiddle> <esc>"*p
 " global editing settings -----------------------------------------{{{
 set expandtab                   " use spaces, not tabs
 set smarttab                    " make <tab> and <backspace> smarter
-set tabstop=8                   " tabstops of 8
+set tabstop=4                   " tabstops of 4
 set shiftwidth=4                " indents of 4
 set softtabstop=4               " act like ts=4
 set backspace=eol,start,indent  " allow backspacing over indent, eol, & start
