@@ -40,5 +40,3 @@ bindkey -v "^h" run-help
 autoload -U    edit-command-line
 zle -N         edit-command-line
 bindkey -a 'v' edit-command-line
-
-

@@ -37,7 +37,7 @@ setopt auto_menu            # show menu for completion
 setopt auto_remove_slash    # remove slash on dirs if word separator added
 setopt bad_pattern          # warn on bad file patterns
 setopt case_glob            # case sensitive globbing
-#setopt correct              # try to correct command line
+setopt correct              # try to correct command line
 #setopt no_correct_all       # don't coorect args
 setopt equals               # perform = file expansions
 setopt no_rec_exact         # recognize exact match even if ambiguous
@@ -52,6 +52,7 @@ unsetopt auto_param_slash   # add slash for directories
 # history
 setopt append_history       # append to history, dont truncate it
 setopt bang_hist            # yeah ! expansion
+setopt hist_verify          # expand !, but don't call immediately
 setopt hist_allow_clobber   # add | to redirections in history
 setopt hist_find_no_dups    # don't show dups even if not contiguous
 setopt hist_ignore_all_dups # ignore all -- even non contiguous -- dups
