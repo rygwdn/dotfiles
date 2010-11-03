@@ -248,15 +248,19 @@ autocmd InsertLeave * if pumvisible() == 0|pclose|endif
 
 " SuperTab stuff ------------------------------------------ {{{
 
-let g:SuperTabDefaultCompletionType = "<c-x><c-o>"
-"let g:SuperTabDefaultCompletionType = "context"
+"let g:SuperTabDefaultCompletionType = "<c-x><c-o>"
+let g:SuperTabDefaultCompletionType = "context"
+let g:SuperTabCompletionContexts = ['s:ContextText', 's:ContextDiscover']
+let g:SuperTabContextTextOmniPrecedence = ['&omnifunc', '&completefunc']
+let g:SuperTabContextDiscoverDiscovery =
+    \ ["&completefunc:<c-x><c-u>", "&omnifunc:<c-x><c-o>"]
+
 let g:SuperTabLongestHighlight = 1
 let g:SuperTabLongestEnhanced = 1
 let g:SuperTabCrMapping = 0
 
-au FileType java call SuperTabSetDefaultCompletionType("<c-x><c-u>")
-
-au BufWinEnter */sc/ta/*/marks call SuperTabSetDefaultCompletionType("<c-x><c-l>")
+"au FileType java call SuperTabSetDefaultCompletionType("<c-x><c-u>")
+"au BufWinEnter */sc/ta/*/marks call SuperTabSetDefaultCompletionType("<c-x><c-l>")
 
 " ------------------------------------------------------ }}}
 
@@ -552,8 +556,6 @@ augroup java
     autocmd FileType java let b:jcommenter_file_author='Ryan Wooden, 100079872'
 augroup END
 
-" Only enable eclim for filtypes listed here!
-autocmd FileType java call EnableEclim()
 function! EnableEclim()
     if exists("g:EclimDisabled")
         unlet g:EclimDisabled
@@ -567,14 +569,17 @@ EOF
     endif
 endfunction
 
-let g:EclimPythonValidate = 1
 "let g:EclimNailgunClient = 'external'
+let g:EclimPythonValidate = 1
 let g:EclimBrowser = 'firefox'
 let g:EclimEclipseHome = $HOME . '/src/eclipse'
 let g:EclimTaglistEnabled = 0
 
 command! EclimStart silent !eclipse &> /dev/null &
 command! PR ProjectRefresh
+command! EclimEnable call EnableEclim()
+" Only enable eclim for filtypes listed here!
+"autocmd FileType java EnableEclim
 
 " ------------------------------------------------------------- }}}
 
