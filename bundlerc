@@ -5,6 +5,8 @@ Bundle "http://github.com/vim-scripts/candycode.vim.git"
 Bundle "http://github.com/vim-scripts/blackboard.vim.git"
 
 " Programming
+"Bundle "https://github.com/VictorDenisov/javacomplete.git"
+"Bundle "https://github.com/vim-scripts/Vim-JDE.git"
 Bundle "git://github.com/tpope/vim-ragtag.git"
 Bundle "http://github.com/vim-scripts/DoxygenToolkit.vim.git"
 Bundle "http://github.com/vim-scripts/FSwitch.git"
