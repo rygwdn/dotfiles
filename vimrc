@@ -29,7 +29,12 @@ Bundle "blackboard.vim"
 Bundle "git://github.com/tpope/vim-ragtag.git"
 Bundle "DoxygenToolkit.vim"
 Bundle "FSwitch"
-Bundle "UltiSnips"
+"Bundle "UltiSnips"
+Bundle "git://github.com/rygwdn/ultisnips.git"
+Bundle "git://github.com/rygwdn/vim-ipython.git"
+Bundle "git://github.com/rygwdn/vim-pylint.git"
+Bundle "git://github.com/rygwdn/latexbox-rubber.git"
+
 
 " Filetypes
 Bundle "LaTeX-Box"
