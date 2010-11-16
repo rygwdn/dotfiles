@@ -7,7 +7,7 @@ map J :js gBrowser.tabContainer.advanceSelectedTab(1, true)<CR>
 map K :js gBrowser.tabContainer.advanceSelectedTab(-1, true)<CR>
 "map D :emenu Delicious.Save a new Bookmark...<CR>
 js config.guioptions['D'] = ['Delicious Toolbar',['ybToolbar']];
-set go=TrmD
+set go=Trm
 
 command! lastpasslogin javascript LP.lpOpenLogin()
 command! lp lastpasslogin
@@ -21,13 +21,22 @@ command! pb open http://pinboard.in/u:rygwdn
 command! later open javascript:q=location.href;p=document.title;void(t=open('http://pinboard.in/add?later=yes&noui=yes&jump=close&url='+encodeURIComponent(q)+'&title='+encodeURIComponent(p),'Pinboard','toolbar=no,width=100,height=100'));t.blur();
 command! unread open http://pinboard.in/oldest/
 
+command! clip evernote
+command! ev evernote
+command! evernote open javascript:(function(){EN_CLIP_HOST='http://www.evernote.com';try{var%20x=document.createElement('SCRIPT');x.type='text/javascript';x.src=EN_CLIP_HOST+'/public/bookmarkClipper.js?'+(new%20Date().getTime()/100000);document.getElementsByTagName('head')[0].appendChild(x);}catch(e){location.href=EN_CLIP_HOST+'/clip.action?url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title);}})();
+map C :clip<CR>
+
 command! delic open http://www.delicious.com/home
-command! dadd open javascript:(function(){location.href='http://www.delicious.com/save?url='+encodeURIComponent(window.location.href)+'&title='+encodeURIComponent(document.title)+'&v=5&jump=yes'})()
+command! dadd open javascript:(function(){f='http://www.delicious.com/save?url='+encodeURIComponent(window.location.href)+'&title='+encodeURIComponent(document.title)+'&v=5&'+'&notes='+encodeURIComponent(document.getSelection());a=function(){window.open(f+'&jump=doclose','deliciousuiv5','location=yes,links=yes,scrollbars=yes,toolbar=yes,')};a();})();
+
 
 map S :dadd<CR>
 map D :pbadd<CR>
 map U :unread<CR>
-map <C-l> :later<CR>
+map <C-S-l> :later<CR>
+map <C-S-s> :stumble<CR>
+map <C-Up> :thumbup<CR>
+map <C-Down> :thumbdown<CR>
 
 javascript <<EOM
 if (liberator.has("MacUnix")) {
