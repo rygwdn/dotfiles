@@ -23,6 +23,8 @@ Bundle "http://github.com/vim-scripts/pdc.vim.git"
 Bundle "git://github.com/sukima/xmledit.git"
 Bundle "http://github.com/Rip-Rip/clang_complete.git"
 Bundle "http://github.com/Raimondi/vimoutliner.git"
+Bundle "http://github.com/nvie/vim-rst-tables.git"
+Bundle "https://github.com/ingydotnet/yaml-vim.git"
 
 " Git stuff
 Bundle "git://github.com/tpope/vim-fugitive.git"
@@ -70,4 +72,4 @@ Bundle "http://github.com/vim-scripts/session.vim--Odding.git"
 
 " Snippets
 "Bundle "http://github.com/gmarik/snipmate.vim.git"
-"Bundle "http://github.com/vim-scripts/UltiSnips.git"
+Bundle "http://github.com/vim-scripts/UltiSnips.git"
