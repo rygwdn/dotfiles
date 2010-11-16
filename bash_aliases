@@ -38,7 +38,11 @@ alias qmv='\qmv -f destination-only'
 alias upnup='ap update && ap full-upgrade'
 alias ack='ack-grep'
 alias ak='ack -a'
+alias chx='chmod +x'
+
 alias td='toodledo'
+
+alias cherokee="ssh linode-cherokee -C 'killall cherokee-admin; cherokee-admin -b'"
 
 alias g='&> /dev/null gvim'
 alias gr='g --remote-silent'
