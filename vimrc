@@ -11,9 +11,85 @@
 if v:progname =~? "evim"
     finish
 endif
+" ------------------------------------------- }}}
+
+" Load bundles ---------------------------------------- {{{
 
 runtime vundle
 call vundle#rc()
+
+" Deps
+Bundle 'L9'
+
+" Colorschemes
+Bundle "candycode.vim"
+Bundle "blackboard.vim"
+
+" Programming
+Bundle "git://github.com/tpope/vim-ragtag.git"
+Bundle "DoxygenToolkit.vim"
+Bundle "FSwitch"
+Bundle "UltiSnips"
+
+" Filetypes
+Bundle "LaTeX-Box"
+Bundle "jQuery"
+Bundle "pdc.vim"
+Bundle "git://github.com/tpope/vim-rails.git"
+Bundle "git://github.com/tpope/vim-cucumber.git"
+Bundle "git://github.com/vim-ruby/vim-ruby.git"
+Bundle "git://github.com/msanders/cocoa.vim.git"
+Bundle "git://github.com/sukima/xmledit.git"
+Bundle "git://github.com/Rip-Rip/clang_complete.git"
+Bundle "git://github.com/Raimondi/vimoutliner.git"
+Bundle "git://github.com/nvie/vim-rst-tables.git"
+Bundle "git://github.com/ingydotnet/yaml-vim.git"
+
+" Git stuff
+Bundle "git://github.com/tpope/vim-fugitive.git"
+Bundle "git://github.com/tpope/vim-git.git"
+
+" Search
+Bundle "IndexedSearch"
+Bundle "git://github.com/mileszs/ack.vim.git"
+Bundle "git://github.com/gmarik/vim-visual-star-search.git"
+
+" Open files
+Bundle "FuzzyFinder"
+Bundle "git://github.com/scrooloose/nerdtree.git"
+
+" Movement
+Bundle "matchit.zip"
+Bundle "camelcasemotion"
+Bundle "git://github.com/kana/vim-operator-user.git"
+
+" Navigation
+Bundle "Marks-Browser"
+Bundle "taglist.vim"
+
+" Operations
+Bundle "operator-camelize"
+Bundle "git://github.com/tpope/vim-repeat.git"
+Bundle "git://github.com/tpope/vim-surround.git"
+Bundle "git://github.com/michaeljsmith/vim-indent-object.git"
+
+" Utility
+Bundle "ZoomWin"
+Bundle "YankRing.vim"
+Bundle "Conque-Shell"
+Bundle "netrw.vim"
+Bundle "tlib"
+Bundle "bufkill.vim"
+Bundle "CmdlineCompl.vim"
+Bundle "session.vim--Odding"
+Bundle "git://github.com/sjl/gundo.vim.git"
+Bundle "git://github.com/tsaleh/vim-align.git"
+Bundle "git://github.com/panozzaj/vim-autocorrect.git"
+Bundle "git://github.com/ervandew/supertab.git"
+
+" ---------------------------------------- }}}}
+
+" Run pathogen ---------------------------------------- {{{
 
 filetype indent plugin off
 filetype off
@@ -28,7 +104,6 @@ filetype indent plugin on
 
 
 " ------------------------------------------- }}}
-
 
 " mark ---------------------------------------- {{{
 
@@ -46,7 +121,6 @@ au BufWinEnter */sc/ta*.txt set ts=8
 au BufWinEnter */sc/ta*.txt set indentexpr=
 
 " ------------------------------------------- }}}
-
 
 " Operational settings -------------------------------------- {{{
 set nocompatible    "Vim rocks! this must be first to avoid side effects.
@@ -73,7 +147,6 @@ if v:version >= 703
 endif
 
 " ----------------------------------------------------------------- }}}
-
 
 " backup and tempdir settings {{{
 set backup                      " produce *~ backup files
@@ -106,7 +179,6 @@ endif
 let g:yankring_history_dir = g:temp_path
 " }}}-----------------------------------------------------------------
 
-
 " mouse settings ---------------------------------------- {{{
 set mouse=a                     " mouse support in all modes
 set mousehide                   " hide the mouse when typing text
@@ -121,7 +193,6 @@ cmap <S-Insert> <S-MiddleMouse>
 map <MouseMiddle> <esc>"*p
 
 " -------------------------------------------------------- }}}
-
 
 " global editing settings -----------------------------------------{{{
 set expandtab                   " use spaces, not tabs
@@ -142,7 +213,6 @@ endif
 set splitright                  " vertical split opens new window on right
 " ------------------------------------------------------------- }}}
 
-
 " searching ------------------------------------------ {{{
 set nohlsearch                   " enable search highlight globally
 set incsearch                  " show matches as soon as possible
@@ -160,7 +230,6 @@ nnoremap / /\v
 vnoremap / /\v
 
 " ---------------------------------------------------- }}}
-
 
 " handy commands & mappings ---------------------------- {{{
 
@@ -207,7 +276,6 @@ vnoremap <tab> %
 
 " --------------------------------------------- }}}
 
-
 " command completion --------------------------- {{{
 
 " Use the cool tab complete menu
@@ -219,7 +287,6 @@ set suffixes+=.in,.a
 set wildmode=list:longest,full
 
 " -------------------------------------- }}}
-
 
 " insert completion ----------------------------- {{{
 
@@ -266,7 +333,6 @@ let g:SuperTabCrMapping = 0
 
 " ------------------------------------------------}}}
 
-
 " visual stuff -------------------------- {{{
 
 set cmdheight=2                 " make command line two lines high
@@ -275,8 +341,11 @@ set lazyredraw                  " don't redraw when running macros
 set showcmd		" display incomplete commands
 
 "colorscheme default2
-colorscheme blackboard
-if has("gui_running")
+if stridx(&rtp, "blackboard") != -1
+    colorscheme blackboard
+endif
+
+if has("gui_running") && stridx(&rtp, "candycode") != -1
     " window size
     "set lines=40
     "set columns=80
@@ -296,7 +365,6 @@ set laststatus=2
 set statusline=%<%f%w\ %h%m%r\ %y\ \ %{fugitive#statusline()}%=%-14.(%l,%c%V%)\ %P
 
 " --------------------------------------- }}}
-
 
 " file type stuff ------------------- {{{
 
@@ -363,7 +431,7 @@ au FileType tex set makeprg=
 function! LatexEvinceSearch()
     execute "!cd " . LatexBox_GetTexRoot() . '; evince_dbus.py "`basename ' . LatexBox_GetOutputFile(). '`" ' . line('.') . ' "%:p"'
 endfun
-command LatexEvinceSearch call LatexEvinceSearch()
+command! LatexEvinceSearch call LatexEvinceSearch()
 
 au FileType tex map <Leader>ls :silent LatexEvinceSearch<CR>
 au FileType tex imap <buffer> ]] <Plug>LatexCloseCurEnv
@@ -409,7 +477,6 @@ autocmd FileType python set ts=4
 
 " --------------------------------------------------- }}}
 
-
 " quickfix window tweaks -------------------------------- {{{
 
 " 	adjust window height
@@ -425,7 +492,6 @@ autocmd FileType python set ts=4
 
 " ------------------------------------------------------- }}}
 
-
 " screen stuff ------------------------------- {{{
 
 autocmd BufEnter * let &titlestring = "vim[" . expand("%:t") . "]"
@@ -439,7 +505,6 @@ if &term == "screen" || &term == "xterm"
 endif
 
 " ---------------------------------------------- }}}
-
 
 " Plugins {{{
 
@@ -593,7 +658,6 @@ let g:Tlist_Show_One_File = 0
 " ----------------------------------------------------------------- }}}
 
 " }}}
-
 
 "  Includes ------------------------------- {{{
 if has("unix")
