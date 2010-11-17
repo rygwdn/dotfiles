@@ -81,7 +81,6 @@ Bundle "git://github.com/michaeljsmith/vim-indent-object.git"
 " Utility
 Bundle "ZoomWin"
 Bundle "YankRing.vim"
-Bundle "Conque-Shell"
 Bundle "netrw.vim"
 Bundle "tlib"
 Bundle "bufkill.vim"
@@ -91,6 +90,7 @@ Bundle "git://github.com/sjl/gundo.vim.git"
 Bundle "git://github.com/tsaleh/vim-align.git"
 Bundle "git://github.com/panozzaj/vim-autocorrect.git"
 Bundle "git://github.com/ervandew/supertab.git"
+Bundle "git://github.com/rygwdn/vim-conque.git"
 
 " ---------------------------------------- }}}}
 
