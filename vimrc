@@ -327,7 +327,7 @@ let g:SuperTabContextTextOmniPrecedence = ['&omnifunc', '&completefunc']
 let g:SuperTabContextDiscoverDiscovery =
     \ ["&completefunc:<c-x><c-u>", "&omnifunc:<c-x><c-o>"]
 
-let g:SuperTabLongestHighlight = 1
+"let g:SuperTabLongestHighlight = 1
 let g:SuperTabLongestEnhanced = 1
 let g:SuperTabCrMapping = 0
 
@@ -549,6 +549,7 @@ map <Leader>C <Plug>(operator-decamelize)
 
 command! UltiReset py UltiSnips_Manager.reset()
 let g:ultisnips_python_style = "doxygen"
+let g:ultisnips_java_brace_style = "nl"
 
 " -------------------------------------}}}
 
