@@ -34,6 +34,7 @@ Bundle "git://github.com/rygwdn/ultisnips.git"
 Bundle "git://github.com/rygwdn/vim-ipython.git"
 Bundle "git://github.com/rygwdn/vim-pylint.git"
 Bundle "git://github.com/rygwdn/latexbox-rubber.git"
+Bundle "pyflakes.vim"
 
 
 " Filetypes
@@ -121,7 +122,6 @@ au BufWinEnter */sc/ta*.txt YRToggle(0)
 au BufWinEnter */sc/ta*.txt set colorcolumn=88
 au BufWinEnter */sc/ta*.txt set list
 au BufWinEnter */sc/ta*.txt set listchars=eol:$,tab:>-
-au BufWinEnter */sc/ta*.txt set ts=8
 "au BufWinEnter */sc/ta*.txt set acd
 au BufWinEnter */sc/ta*.txt set indentexpr=
 
@@ -202,7 +202,7 @@ map <MouseMiddle> <esc>"*p
 " global editing settings -----------------------------------------{{{
 set expandtab                   " use spaces, not tabs
 set smarttab                    " make <tab> and <backspace> smarter
-set tabstop=4                   " tabstops of 4
+set tabstop=8                   " tabstops of 8
 set shiftwidth=4                " indents of 4
 set softtabstop=4               " act like ts=4
 set backspace=eol,start,indent  " allow backspacing over indent, eol, & start
@@ -457,7 +457,7 @@ autocmd Syntax * syn match ExtraWhitespace /\s\+$\| \+\ze\t/ containedin=ALL
 au FileType otl map <M-S-j> <M-S-Down>
 au FileType otl map <M-S-k> <M-S-Up>
 let otl_map_tabs = 1
-au FileType otl set tw=100 ts=3 sw=3 fo-=t foldlevel=10
+au FileType otl set tw=100 ts=3 sts=3 sw=3 fo-=t foldlevel=10
 let no_otl_insert_maps = 1
 
 augroup html
@@ -478,7 +478,6 @@ autocmd FileType c set omnifunc=ccomplete#Complete
 "autocmd FileType python set omnifunc=pythoncomplete#Complete
 autocmd FileType python runtime syntax/doxygen.vim
 autocmd FileType python compiler pylint
-autocmd FileType python set ts=4
 
 " --------------------------------------------------- }}}
 
