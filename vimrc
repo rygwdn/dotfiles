@@ -34,7 +34,6 @@ Bundle "git://github.com/rygwdn/ultisnips.git"
 Bundle "git://github.com/rygwdn/vim-ipython.git"
 Bundle "git://github.com/rygwdn/vim-pylint.git"
 Bundle "git://github.com/rygwdn/latexbox-rubber.git"
-Bundle "pyflakes.vim"
 
 
 " Filetypes
