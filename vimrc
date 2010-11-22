@@ -79,6 +79,7 @@ Bundle "git://github.com/tpope/vim-surround.git"
 Bundle "git://github.com/michaeljsmith/vim-indent-object.git"
 
 " Utility
+Bundle "VOoM"
 Bundle "ZoomWin"
 Bundle "YankRing.vim"
 Bundle "netrw.vim"
@@ -91,6 +92,7 @@ Bundle "git://github.com/tsaleh/vim-align.git"
 Bundle "git://github.com/panozzaj/vim-autocorrect.git"
 Bundle "git://github.com/ervandew/supertab.git"
 Bundle "git://github.com/rygwdn/vim-conque.git"
+Bundle "https://github.com/gregsexton/VimCalc.git"
 
 " ---------------------------------------- }}}}
 
@@ -120,7 +122,8 @@ au BufWinEnter */sc/ta*.txt set omnifunc=CompleteMarks
 au BufWinEnter */sc/ta*.txt YRToggle(0)
 au BufWinEnter */sc/ta*.txt set colorcolumn=88
 au BufWinEnter */sc/ta*.txt set list
-au BufWinEnter */sc/ta*.txt set listchars=eol:$,tab:>-
+au BufWinEnter */sc/ta*.txt set listchars=tab:>-
+au BufWinEnter */sc/ta*.txt runtime syntax/c.vim
 "au BufWinEnter */sc/ta*.txt set acd
 au BufWinEnter */sc/ta*.txt set indentexpr=
 
@@ -215,6 +218,14 @@ if v:version >= 703
 endif
 
 set splitright                  " vertical split opens new window on right
+
+" When editing a file, always jump to the last known cursor position.
+" Don't do it when the position is invalid or when inside an event handler
+" (happens when dropping a file on gvim).
+autocmd BufReadPost *
+            \ if line("'\"") > 0 && line("'\"") <= line("$") |
+            \   exe "normal g`\"" |
+            \ endif
 " ------------------------------------------------------------- }}}
 
 " searching ------------------------------------------ {{{
@@ -337,7 +348,7 @@ let g:SuperTabCrMapping = 0
 
 " ------------------------------------------------}}}
 
-" visual stuff -------------------------- {{{
+" visual/gui stuff -------------------------- {{{
 
 set cmdheight=2                 " make command line two lines high
 set ruler		" show the cursor position all the time
@@ -349,25 +360,28 @@ if stridx(&rtp, "blackboard") != -1
     colorscheme blackboard
 endif
 
+" 1 height windows
+set winminheight=1
+
+set laststatus=2
+set statusline=%<%f%w\ %h%m%r\ %y\ \ %{fugitive#statusline()}%=%-14.(%l,%c%V%)\ %P
+
+
 if has("gui_running") && stridx(&rtp, "candycode") != -1
     " window size
     "set lines=40
     "set columns=80
     colorscheme candycode
+    set guifont="Inconsolata Medium 12"
+
+    set cursorline cursorcolumn
+    au WinLeave * set nocursorline nocursorcolumn
+    au WinEnter * set cursorline cursorcolumn
+
+    set go-=TLr " Toolbar, scrollbars
 else
     set bg=dark
 endif
-
-" 1 height windows
-set winminheight=1
-
-set cursorline cursorcolumn
-au WinLeave * set nocursorline nocursorcolumn
-au WinEnter * set cursorline cursorcolumn
-
-set laststatus=2
-set statusline=%<%f%w\ %h%m%r\ %y\ \ %{fugitive#statusline()}%=%-14.(%l,%c%V%)\ %P
-
 " --------------------------------------- }}}
 
 " file type stuff ------------------- {{{
@@ -479,6 +493,120 @@ autocmd FileType python runtime syntax/doxygen.vim
 autocmd FileType python compiler pylint
 
 " --------------------------------------------------- }}}
+
+" Testing stuff -------------------------------- {{{
+" From http://bitbucket.org/garybernhardt/dotfiles/src/88b1b6356f54/.vimrc
+
+function! RunTests(target, args)
+    silent ! echo
+    exec 'silent ! echo -e "\033[1;36mRunning tests in ' . a:target . '\033[0m"'
+    silent w
+    exec "make " . a:target . " " . a:args
+endfunction
+
+function! ClassToFilename(class_name)
+    let understored_class_name = substitute(a:class_name, '\(.\)\(\u\)', '\1_\U\2', 'g')
+    let file_name = substitute(understored_class_name, '\(\u\)', '\L\1', 'g')
+    return file_name
+endfunction
+
+function! ModuleTestPath()
+    let file_path = @%
+    let components = split(file_path, '/')
+    let path_without_extension = substitute(file_path, '\.py$', '', '')
+    let test_path = 'tests/unit/' . path_without_extension
+    return test_path
+endfunction
+
+function! NameOfCurrentClass()
+    let save_cursor = getpos(".")
+    normal $<cr>
+    call PythonDec('class', -1)
+    let line = getline('.')
+    call setpos('.', save_cursor)
+    let match_result = matchlist(line, ' *class \+\(\w\+\)')
+    let class_name = ClassToFilename(match_result[1])
+    return class_name
+endfunction
+
+function! TestFileForCurrentClass()
+    let class_name = NameOfCurrentClass()
+    let test_file_name = ModuleTestPath() . '/test_' . class_name . '.py'
+    return test_file_name
+endfunction
+
+function! TestModuleForCurrentFile()
+    let test_path = ModuleTestPath()
+    let test_module = substitute(test_path, '/', '.', 'g')
+    return test_module
+endfunction
+
+function! RunTestsForFile(args)
+    if @% =~ 'test_'
+        call RunTests('%', a:args)
+    else
+        let test_file_name = TestModuleForCurrentFile()
+        call RunTests(test_file_name, a:args)
+    endif
+endfunction
+
+function! RunAllTests(args)
+    silent ! echo
+    silent ! echo -e "\033[1;36mRunning all unit tests\033[0m"
+    silent w
+    exec "make!" . a:args
+endfunction
+
+function! JumpToError()
+    if getqflist() != []
+        for error in getqflist()
+            if error['valid']
+                break
+            endif
+        endfor
+        let error_message = substitute(error['text'], '^ *', '', 'g')
+        silent cc!
+        exec ":sbuffer " . error['bufnr']
+        call RedBar()
+        echo error_message
+    else
+        call GreenBar()
+        echo "All tests passed"
+    endif
+endfunction
+
+function! RedBar()
+    hi RedBar ctermfg=white ctermbg=red guibg=red
+    echohl RedBar
+    echon repeat(" ",&columns - 1)
+    echohl
+endfunction
+
+function! GreenBar()
+    hi GreenBar ctermfg=white ctermbg=green guibg=green
+    echohl GreenBar
+    echon repeat(" ",&columns - 1)
+    echohl
+endfunction
+
+function! JumpToTestsForClass()
+    exec 'e ' . TestFileForCurrentClass()
+endfunction
+
+let mapleader=","
+" nnoremap <leader>m :call RunTestsForFile('--machine-out')<cr>:redraw<cr>:call JumpToError()<cr>
+" nnoremap <leader>M :call RunTestsForFile('')<cr>
+" nnoremap <leader>a :call RunAllTests('--machine-out')<cr>:redraw<cr>:call JumpToError()<cr>
+" nnoremap <leader>A :call RunAllTests('')<cr>
+
+" nnoremap <leader>a :call RunAllTests('')<cr>:redraw<cr>:call JumpToError()<cr>
+" nnoremap <leader>A :call RunAllTests('')<cr>
+
+nnoremap <leader>t :call RunAllTests('')<cr>:redraw<cr>:call JumpToError()<cr>
+nnoremap <leader>T :call RunAllTests('')<cr>
+
+
+" ------------------------------------------------------- }}}
 
 " quickfix window tweaks -------------------------------- {{{
 
