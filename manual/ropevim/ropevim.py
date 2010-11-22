@@ -278,7 +278,7 @@ class VimUtils(ropemode.environment.Environment):
                     (_vim_name(name), _vim_name(name)))
         if key is not None:
             key = prekey + key.replace(' ', '')
-            vim.command('map %s :call %s()<cr>' % (key, _vim_name(name)))
+            vim.command('map %s :%s<cr>' % (key, _vim_name(name)))
 
     def _add_function(self, name, callback, prefix=False):
         globals()[name] = callback
