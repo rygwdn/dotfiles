@@ -29,6 +29,8 @@ map C :clip<CR>
 command! delic open http://www.delicious.com/home
 command! dadd open javascript:(function(){f='http://www.delicious.com/save?url='+encodeURIComponent(window.location.href)+'&title='+encodeURIComponent(document.title)+'&v=5&'+'&notes='+encodeURIComponent(document.getSelection());a=function(){window.open(f+'&jump=doclose','deliciousuiv5','location=yes,links=yes,scrollbars=yes,toolbar=yes,')};a();})();
 
+command! sub subscribe
+command! subscribe open javascript:var%20b=document.body;var%20GR________bookmarklet_domain='http://www.google.com';if(b&&!document.xmlVersion){void(z=document.createElement('script'));void(z.src='http://www.google.com/reader/ui/subscribe-bookmarklet.js');void(b.appendChild(z));}else{location='http://www.google.com/reader/view/feed/'+encodeURIComponent(location.href)}
 
 map S :dadd<CR>
 map D :pbadd<CR>
