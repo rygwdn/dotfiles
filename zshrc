@@ -14,6 +14,7 @@ else
 fi
 
 for snipplet in `find ~/.zsh/conf.d -type f \
+    -name 'S*' -and \
     -not -iname '*.zwc' -and \
     -not -iname '*~' -and \
     -not -iname '*.old' \
