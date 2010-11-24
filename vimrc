@@ -13,88 +13,14 @@ if v:progname =~? "evim"
 endif
 " ------------------------------------------- }}}
 
-" Load bundles ---------------------------------------- {{{
+" Bundles {{{
 
 runtime vundle
 call vundle#rc()
 
-" Deps
-Bundle 'L9'
+source ~/.vim/bundles.vim
 
-" Colorschemes
-Bundle "candycode.vim"
-Bundle "blackboard.vim"
-
-" Programming
-Bundle "git://github.com/tpope/vim-ragtag.git"
-Bundle "DoxygenToolkit.vim"
-Bundle "FSwitch"
-"Bundle "UltiSnips"
-Bundle "git://github.com/rygwdn/vim-ipython.git"
-Bundle "git://github.com/rygwdn/vim-pylint.git"
-Bundle "git://github.com/rygwdn/latexbox-rubber.git"
-
-
-" Filetypes
-Bundle "LaTeX-Box"
-Bundle "jQuery"
-Bundle "pdc.vim"
-Bundle "git://github.com/tpope/vim-rails.git"
-Bundle "git://github.com/tpope/vim-cucumber.git"
-Bundle "git://github.com/vim-ruby/vim-ruby.git"
-Bundle "git://github.com/msanders/cocoa.vim.git"
-Bundle "git://github.com/sukima/xmledit.git"
-Bundle "git://github.com/Rip-Rip/clang_complete.git"
-Bundle "git://github.com/Raimondi/vimoutliner.git"
-Bundle "git://github.com/nvie/vim-rst-tables.git"
-Bundle "git://github.com/ingydotnet/yaml-vim.git"
-
-" Git stuff
-Bundle "git://github.com/tpope/vim-fugitive.git"
-Bundle "git://github.com/tpope/vim-git.git"
-
-" Search
-Bundle "IndexedSearch"
-Bundle "git://github.com/mileszs/ack.vim.git"
-Bundle "git://github.com/gmarik/vim-visual-star-search.git"
-
-" Open files
-Bundle "git://github.com/scrooloose/nerdtree.git"
-
-" Movement
-Bundle "matchit.zip"
-Bundle "git://github.com/kana/vim-operator-user.git"
-Bundle "camelcasemotion"
-
-" Navigation
-Bundle "Marks-Browser"
-Bundle "taglist.vim"
-Bundle "FuzzyFinder"
-
-" Operations
-Bundle "git://github.com/tpope/vim-repeat.git"
-Bundle "git://github.com/tpope/vim-surround.git"
-Bundle "git://github.com/michaeljsmith/vim-indent-object.git"
-Bundle "operator-camelize"
-
-" Utility
-Bundle "VOoM"
-Bundle "ZoomWin"
-Bundle "YankRing.vim"
-Bundle "netrw.vim"
-Bundle "tlib"
-Bundle "bufkill.vim"
-Bundle "CmdlineCompl.vim"
-Bundle "git://github.com/sjl/gundo.vim.git"
-Bundle "git://github.com/tsaleh/vim-align.git"
-Bundle "git://github.com/panozzaj/vim-autocorrect.git"
-Bundle "git://github.com/ervandew/supertab.git"
-Bundle "https://github.com/gregsexton/VimCalc.git"
-Bundle "git://github.com/rygwdn/vim-conque.git"
-Bundle "git://github.com/rygwdn/ultisnips.git"
-Bundle "session.vim--Odding"
-
-" ---------------------------------------- }}}}
+" }}}
 
 " Run pathogen ---------------------------------------- {{{
 
@@ -108,24 +34,6 @@ call pathogen#runtime_prepend_subdirectories('~/.vim/pre')
 call pathogen#helptags()
 filetype on
 filetype indent plugin on
-
-
-" ------------------------------------------- }}}
-
-" mark ---------------------------------------- {{{
-
-let g:cur_marks="marking.otl"
-au BufWinEnter */sc/ta*.txt source ~/projects/vim/marking-help/fuz.vim
-au BufWinEnter */sc/ta*.txt set completeopt-=longest
-au BufWinEnter */sc/ta*.txt set completefunc=CompleteMarks
-au BufWinEnter */sc/ta*.txt set omnifunc=CompleteMarks
-au BufWinEnter */sc/ta*.txt YRToggle(0)
-au BufWinEnter */sc/ta*.txt set colorcolumn=88
-au BufWinEnter */sc/ta*.txt set list
-au BufWinEnter */sc/ta*.txt set listchars=tab:>-
-au BufWinEnter */sc/ta*.txt runtime syntax/c.vim
-"au BufWinEnter */sc/ta*.txt set acd
-au BufWinEnter */sc/ta*.txt set indentexpr=
 
 " ------------------------------------------- }}}
 
@@ -328,24 +236,6 @@ inoremap <expr> <PageUp>   pumvisible() ? "\<PageUp>\<C-p>\<C-n>" : "\<PageUp>"
 "autocmd CursorMovedI * if pumvisible() == 0|pclose|endif
 autocmd InsertLeave * if pumvisible() == 0|pclose|endif
 
-" SuperTab stuff ------------------------------------------ {{{
-
-"let g:SuperTabDefaultCompletionType = "<c-x><c-o>"
-let g:SuperTabDefaultCompletionType = "context"
-let g:SuperTabCompletionContexts = ['s:ContextText', 's:ContextDiscover']
-let g:SuperTabContextTextOmniPrecedence = ['&omnifunc', '&completefunc']
-let g:SuperTabContextDiscoverDiscovery =
-    \ ["&completefunc:<c-x><c-u>", "&omnifunc:<c-x><c-o>"]
-
-"let g:SuperTabLongestHighlight = 1
-let g:SuperTabLongestEnhanced = 1
-let g:SuperTabCrMapping = 0
-
-"au FileType java call SuperTabSetDefaultCompletionType("<c-x><c-u>")
-"au BufWinEnter */sc/ta/*/marks call SuperTabSetDefaultCompletionType("<c-x><c-l>")
-
-" ------------------------------------------------------ }}}
-
 " ------------------------------------------------}}}
 
 " visual/gui stuff -------------------------- {{{
@@ -364,14 +254,16 @@ endif
 set winminheight=1
 
 set laststatus=2
-set statusline=%<%f%w\ %h%m%r\ %y\ \ %{fugitive#statusline()}%=%-14.(%l,%c%V%)\ %P
 
 
-if has("gui_running") && stridx(&rtp, "candycode") != -1
+if has("gui_running")
     " window size
     "set lines=40
     "set columns=80
-    colorscheme candycode
+    if stridx(&rtp, "candycode") != -1
+        colorscheme candycode
+    endif
+
     set guifont="Inconsolata Medium 12"
 
     set cursorline cursorcolumn
@@ -386,65 +278,27 @@ endif
 
 " file type stuff ------------------- {{{
 
-" Enable file type detection.
-" Use the default filetype settings, so that mail gets 'tw' set to 72,
-" 'cindent' is on in C files, etc.
-" Also load indent files, to automatically do language-dependent indenting.
-filetype indent on
-filetype plugin on
-"set autoindent smartindent      " turn on auto/smart indenting
+set diffopt=filler,iwhite       " ignore all whitespace and sync
 
-"" C, C++ stuff
+" detection {{{
+au BufNewFile,BufRead *.m set ft=objc
+let filetype_m='objc'
+au BufNewFile,BufRead *.pl set ft=prolog
+" }}}
+
+"" C, C++ stuff {{{
 " make 'make' not spew junk
-let g:load_doxygen_syntax=1
-let g:DoxygenToolkit_authorName="Ryan Wooden (100079872)"
 au filetype c,cpp set makeprg=make\ -s\ -i
 au filetype c,cpp set spell
-au filetype c,cpp map <leader>d :Dox<CR>
+" }}}
 
-" recognize objective C files
-au BufNewFile,BufRead *.m set ft=objc
-au FileType objc set syntax=objc.doxygen
-let filetype_m='objc'
-
-" Rec prolog files
-au BufNewFile,BufRead *.pl set ft=prolog
-
-" help files, make return jump to tag
+" help files, make return jump to tag {{{
 autocmd FileType help nmap <buffer> <Return> <C-]>
+" }}}
 
-" Word processing (latex, some? plain text)
-cabbr wp call Wp()
-fun! Wp()
-    set wrap
-    set linebreak
-    runtime autocorrect.vim
-    nnoremap j gj
-    nnoremap k gk
-    nnoremap 0 g0
-    nnoremap $ g$
-    nnoremap <Home> g0
-    nnoremap <End> g$
-    set nonumber nornu
-    set spell spelllang=en_us
-    set display+=lastline
-endfu
-
-au FileType tex,pdc call Wp()
-
-
-" Latex
+" Latex {{{
 let g:tex_flavor='latex'
-
-" Automatically make on write
-"function! MakeTex()
-"    silent make!
-"endfunction
-au BufWritePost *.tex Rubber
-
-" Use a makefile :)
-" Or not... - set to makeprg=make to automake
-au FileType tex set makeprg=
+"au BufWritePost *.tex Rubber
 
 function! LatexEvinceSearch()
     execute "!cd " . LatexBox_GetTexRoot() . '; evince_dbus.py "`basename ' . LatexBox_GetOutputFile(). '`" ' . line('.') . ' "%:p"'
@@ -454,47 +308,48 @@ command! LatexEvinceSearch call LatexEvinceSearch()
 au FileType tex map <Leader>ls :silent LatexEvinceSearch<CR>
 au FileType tex imap <buffer> ]] <Plug>LatexCloseCurEnv
 
+" }}}
 
-"Mail
+" Mail {{{
 au FileType mail set tw=0 spell colorcolumn=73
-au FileType mail call Wp()
+" }}}
 
-
-
-" Highlight whitespace at end of line
-au BufWinEnter *.c,*.java,*.cpp,*.h,*.m highlight ExtraWhitespace ctermbg=darkgreen guibg=darkgreen
-autocmd Syntax * syn match ExtraWhitespace /\s\+$\| \+\ze\t/ containedin=ALL
-
-
+" VimOutliner {{{
 "autocmd BufEnter *.otl set ft=vo_base
 au FileType otl map <M-S-j> <M-S-Down>
 au FileType otl map <M-S-k> <M-S-Up>
 let otl_map_tabs = 1
 au FileType otl set tw=100 ts=3 sts=3 sw=3 fo-=t foldlevel=10
 let no_otl_insert_maps = 1
+" }}}
 
+" html {{{
 augroup html
     let xml_use_xhtml = 1
     au BufWinEnter *.html,*.php imap <S-CR> <br /><Right><CR>
 augroup END
+" }}}
 
-set diffopt=filler,iwhite       " ignore all whitespace and sync
-
+" omnicomplete {{{
 autocmd FileType javascript set omnifunc=javascriptcomplete#CompleteJS
 autocmd FileType html set omnifunc=htmlcomplete#CompleteTags
 autocmd FileType css set omnifunc=csscomplete#CompleteCSS
 autocmd FileType xml set omnifunc=xmlcomplete#CompleteTags
 autocmd FileType php set omnifunc=phpcomplete#CompletePHP
 autocmd FileType c set omnifunc=ccomplete#Complete
+" }}}
 
-"" Python stuff
-"autocmd FileType python set omnifunc=pythoncomplete#Complete
-autocmd FileType python runtime syntax/doxygen.vim
+"" Python stuff {{{
 autocmd FileType python compiler pylint
+" }}}
 
 " --------------------------------------------------- }}}
 
 " Plugins {{{
+
+for src in split(glob("~/.vim/conf.d/*.vim"), "\n")
+    execute "source " . src
+endfor
 
 let g:pylint_cwindow = 0
 let g:session_autosave = 1
@@ -502,10 +357,6 @@ let g:session_autosave = 1
 " }}}
 
 "  Includes ------------------------------- {{{
-
-for src in split(glob("~/.vim/conf.d/*.vim"), "\n")
-    execute "source " . src
-endfor
 
 if has("unix")
     let s:uname = system("echo -n `uname`")

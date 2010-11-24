@@ -1,4 +1,3 @@
-
 " Taglist Stuff
 let tlist_objc_settings = 'objc;P:protocol;i:interface;I:implementation;M:instance method;C:implementation method;Z:protocol method'
 
