@@ -30,7 +30,6 @@ Bundle "git://github.com/tpope/vim-ragtag.git"
 Bundle "DoxygenToolkit.vim"
 Bundle "FSwitch"
 "Bundle "UltiSnips"
-Bundle "git://github.com/rygwdn/ultisnips.git"
 Bundle "git://github.com/rygwdn/vim-ipython.git"
 Bundle "git://github.com/rygwdn/vim-pylint.git"
 Bundle "git://github.com/rygwdn/latexbox-rubber.git"
@@ -60,23 +59,23 @@ Bundle "git://github.com/mileszs/ack.vim.git"
 Bundle "git://github.com/gmarik/vim-visual-star-search.git"
 
 " Open files
-Bundle "FuzzyFinder"
 Bundle "git://github.com/scrooloose/nerdtree.git"
 
 " Movement
 Bundle "matchit.zip"
-Bundle "camelcasemotion"
 Bundle "git://github.com/kana/vim-operator-user.git"
+Bundle "camelcasemotion"
 
 " Navigation
 Bundle "Marks-Browser"
 Bundle "taglist.vim"
+Bundle "FuzzyFinder"
 
 " Operations
-Bundle "operator-camelize"
 Bundle "git://github.com/tpope/vim-repeat.git"
 Bundle "git://github.com/tpope/vim-surround.git"
 Bundle "git://github.com/michaeljsmith/vim-indent-object.git"
+Bundle "operator-camelize"
 
 " Utility
 Bundle "VOoM"
@@ -86,13 +85,14 @@ Bundle "netrw.vim"
 Bundle "tlib"
 Bundle "bufkill.vim"
 Bundle "CmdlineCompl.vim"
-Bundle "session.vim--Odding"
 Bundle "git://github.com/sjl/gundo.vim.git"
 Bundle "git://github.com/tsaleh/vim-align.git"
 Bundle "git://github.com/panozzaj/vim-autocorrect.git"
 Bundle "git://github.com/ervandew/supertab.git"
-Bundle "git://github.com/rygwdn/vim-conque.git"
 Bundle "https://github.com/gregsexton/VimCalc.git"
+Bundle "git://github.com/rygwdn/vim-conque.git"
+Bundle "git://github.com/rygwdn/ultisnips.git"
+Bundle "session.vim--Odding"
 
 " ---------------------------------------- }}}}
 
@@ -494,304 +494,19 @@ autocmd FileType python compiler pylint
 
 " --------------------------------------------------- }}}
 
-" Testing stuff -------------------------------- {{{
-" From http://bitbucket.org/garybernhardt/dotfiles/src/88b1b6356f54/.vimrc
-
-function! RunTests(target, args)
-    silent ! echo
-    exec 'silent ! echo -e "\033[1;36mRunning tests in ' . a:target . '\033[0m"'
-    silent w
-    exec "make " . a:target . " " . a:args
-endfunction
-
-function! ClassToFilename(class_name)
-    let understored_class_name = substitute(a:class_name, '\(.\)\(\u\)', '\1_\U\2', 'g')
-    let file_name = substitute(understored_class_name, '\(\u\)', '\L\1', 'g')
-    return file_name
-endfunction
-
-function! ModuleTestPath()
-    let file_path = @%
-    let components = split(file_path, '/')
-    let path_without_extension = substitute(file_path, '\.py$', '', '')
-    let test_path = 'tests/unit/' . path_without_extension
-    return test_path
-endfunction
-
-function! NameOfCurrentClass()
-    let save_cursor = getpos(".")
-    normal $<cr>
-    call PythonDec('class', -1)
-    let line = getline('.')
-    call setpos('.', save_cursor)
-    let match_result = matchlist(line, ' *class \+\(\w\+\)')
-    let class_name = ClassToFilename(match_result[1])
-    return class_name
-endfunction
-
-function! TestFileForCurrentClass()
-    let class_name = NameOfCurrentClass()
-    let test_file_name = ModuleTestPath() . '/test_' . class_name . '.py'
-    return test_file_name
-endfunction
-
-function! TestModuleForCurrentFile()
-    let test_path = ModuleTestPath()
-    let test_module = substitute(test_path, '/', '.', 'g')
-    return test_module
-endfunction
-
-function! RunTestsForFile(args)
-    if @% =~ 'test_'
-        call RunTests('%', a:args)
-    else
-        let test_file_name = TestModuleForCurrentFile()
-        call RunTests(test_file_name, a:args)
-    endif
-endfunction
-
-function! RunAllTests(args)
-    silent ! echo
-    silent ! echo -e "\033[1;36mRunning all unit tests\033[0m"
-    silent w
-    exec "make!" . a:args
-endfunction
-
-function! JumpToError()
-    if getqflist() != []
-        for error in getqflist()
-            if error['valid']
-                break
-            endif
-        endfor
-        let error_message = substitute(error['text'], '^ *', '', 'g')
-        silent cc!
-        exec ":sbuffer " . error['bufnr']
-        call RedBar()
-        echo error_message
-    else
-        call GreenBar()
-        echo "All tests passed"
-    endif
-endfunction
-
-function! RedBar()
-    hi RedBar ctermfg=white ctermbg=red guibg=red
-    echohl RedBar
-    echon repeat(" ",&columns - 1)
-    echohl
-endfunction
-
-function! GreenBar()
-    hi GreenBar ctermfg=white ctermbg=green guibg=green
-    echohl GreenBar
-    echon repeat(" ",&columns - 1)
-    echohl
-endfunction
-
-function! JumpToTestsForClass()
-    exec 'e ' . TestFileForCurrentClass()
-endfunction
-
-let mapleader=","
-" nnoremap <leader>m :call RunTestsForFile('--machine-out')<cr>:redraw<cr>:call JumpToError()<cr>
-" nnoremap <leader>M :call RunTestsForFile('')<cr>
-" nnoremap <leader>a :call RunAllTests('--machine-out')<cr>:redraw<cr>:call JumpToError()<cr>
-" nnoremap <leader>A :call RunAllTests('')<cr>
-
-" nnoremap <leader>a :call RunAllTests('')<cr>:redraw<cr>:call JumpToError()<cr>
-" nnoremap <leader>A :call RunAllTests('')<cr>
-
-nnoremap <leader>t :call RunAllTests('')<cr>:redraw<cr>:call JumpToError()<cr>
-nnoremap <leader>T :call RunAllTests('')<cr>
-
-
-" ------------------------------------------------------- }}}
-
-" quickfix window tweaks -------------------------------- {{{
-
-" 	adjust window height
-"au FileType qf call AdjustWindowHeight(3, 10)
-"function! AdjustWindowHeight(minheight, maxheight)
-"    if !exists("g:noqfresize")
-"        exe max([min([line("$"), a:maxheight]), a:minheight]) . "wincmd _"
-"    endif
-"endfunction
-"
-"command Qfres let g:noqfresize=1
-"command Qfnores unlet g:noqfresize
-
-" ------------------------------------------------------- }}}
-
-" screen stuff ------------------------------- {{{
-
-autocmd BufEnter * let &titlestring = "vim[" . expand("%:t") . "]"
-if &term == "screen"
-    set t_ts=k
-    set t_fs=\
-endif
-
-if &term == "screen" || &term == "xterm"
-    set title
-endif
-
-" ---------------------------------------------- }}}
-
 " Plugins {{{
 
-command! JCommentWriter silent call JCommentWriter()
-
 let g:pylint_cwindow = 0
-
-"" for py-test-switcher
-map <silent> <F3> :SwitchCodeAndTest<CR>
-
-let g:user_zen_expandabbr_key='<S-Space>'
-let g:user_zen_leader_key='<C-e>'
-let g:user_zen_complete_tag=1
-
-" session.vim stuff -------------------{{{
-
 let g:session_autosave = 1
-
-" -------------------------------------}}}
-
-" Camel-case stuff -------------------{{{
-
-map <silent> w <Plug>CamelCaseMotion_w
-map <silent> b <Plug>CamelCaseMotion_b
-map <silent> e <Plug>CamelCaseMotion_e
-sunmap w
-sunmap b
-sunmap e
-
-map <Leader>c <Plug>(operator-camelize)
-map <Leader>C <Plug>(operator-decamelize)
-
-" -------------------------------------}}}
-
-
-" snippet stuff -------------------{{{
-
-command! UltiReset py UltiSnips_Manager.reset()
-let g:ultisnips_python_style = "doxygen"
-let g:ultisnips_java_brace_style = "nl"
-
-" -------------------------------------}}}
-
-" Conque shell ----------------------- {{{
-
-command! CV ConqueVSplit
-command! CC Conque
-command! CS ConqueSplit
-command! Ipy ConqueVSplit ipython
-
-" ---------------------------------------- }}}
-
-" fuzzy finder stuff ----------------------- {{{
-
-let g:fuzzy_matching_limit = 20
-map <leader>ff :FufFile<CR>
-map <leader>fr :FufCoverageFile<CR>
-map <leader>b :FufBuffer<CR>
-nmap <space> :FufBuffer<CR>
-
-" abbrev for recursive
-let g:fuf_abbrevMap = {"^\*" : ["**/",],}
-
-let g:fuf_keyNextPattern  = "<C-n>"
-let g:fuf_keyPrevPattern  = "<C-p>" 
-
-let g:fuf_keyNextMode     = "<C-u>"
-let g:fuf_keyPrevMode     = "<C-i>"
-
-let g:fuf_keyOpen         = "<CR> "
-let g:fuf_keyOpenSplit    = "<C-j>"
-let g:fuf_keyOpenTabpage  = "<C-t>"
-let g:fuf_keyOpenVsplit   = "<C-l>"
-
-
-" ---------------------------------------- }}}
-
-" RopeVim -------------------------------- {{{
-
-"Use my rope stuff
-autocmd FileType python set omnifunc=RopeCompleteFunc
-
-let ropevim_codeassist_maxfixes=10
-let ropevim_vim_completion=1
-let ropevim_extended_complete=1
-let ropevim_guess_project=1
-let ropevim_local_prefix="<LocalLeader>r"
-let ropevim_global_prefix="<LocalLeader>p"
-"let ropevim_enable_shortcuts=0
-
-if has('python')
-python << EOF
-import sys, os
-for path in ("", "/rope", "/ropemode"):
-    sys.path.append(os.path.expanduser('~/.vim/manual/ropevim' + path)) # XXX
-EOF
-endif
-"let ropevim_enable_autoimport=0
-
-" ------------------------------------------------------ }}}
-
-" Eclim stuff ------------------------------------------------ {{{
-let g:EclimDisabled=1
-augroup java
-    autocmd FileType java set makeprg=javac\ %
-    autocmd FileType java :nnoremap <silent> <buffer> <leader>i :JavaImport<cr>
-    autocmd FileType java :nnoremap <silent> <buffer> <leader>d :JavaDocSearch -x declarations<cr>
-    autocmd FileType java :nnoremap <silent> <buffer> <leader>s :JavaSearchContext<cr>
-    autocmd FileType java :nnoremap <silent> <buffer> <leader>c :JavaCorrect<cr>
-    autocmd FileType java :nnoremap <silent> <buffer> <leader>v :Validate<cr>
-    autocmd FileType java :nnoremap <silent> <buffer> <leader>jc :call JCommentWriter()<cr>
-    autocmd FileType java let b:jcommenter_class_author='Ryan Wooden, 100079872'
-    autocmd FileType java let b:jcommenter_file_author='Ryan Wooden, 100079872'
-augroup END
-
-function! EnableEclim()
-    if exists("g:EclimDisabled")
-        unlet g:EclimDisabled
-        runtime! plugin/eclim.vim
-        " HACK!!!!!
-python << EOF
-import vim
-ft = vim.eval("&ft")
-vim.command("set ft=%s" % ft)
-EOF
-    endif
-endfunction
-
-"let g:EclimNailgunClient = 'external'
-let g:EclimPythonValidate = 1
-let g:EclimBrowser = 'firefox'
-let g:EclimEclipseHome = $HOME . '/src/eclipse'
-let g:EclimTaglistEnabled = 0
-
-command! EclimStart silent !eclipse &> /dev/null &
-command! PR ProjectRefresh
-command! EclimEnable call EnableEclim()
-" Only enable eclim for filtypes listed here!
-"autocmd FileType java EnableEclim
-
-" ------------------------------------------------------------- }}}
-
-" Taglist Stuff
-let tlist_objc_settings = 'objc;P:protocol;i:interface;I:implementation;M:instance method;C:implementation method;Z:protocol method'
-
-" TlistToo stuff ----------------------------------------------- {{{
-let Tlist_Auto_Open = 0
-let g:Tlist_Process_File_Always = 1
-let g:Tlist_Exit_OnlyWindow = 1
-let g:Tlist_Show_One_File = 0
-
-" ----------------------------------------------------------------- }}}
 
 " }}}
 
 "  Includes ------------------------------- {{{
+
+for src in split(glob("~/.vim/conf.d/*.vim"), "\n")
+    execute "source " . src
+endfor
+
 if has("unix")
     let s:uname = system("echo -n `uname`")
     if s:uname == "Darwin"
