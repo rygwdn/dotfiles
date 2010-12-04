@@ -57,14 +57,11 @@ zstyle ':completion:*:processes-names' command 'ps axho command'
 
 
 #[ hosts and users ]############################################################
-hosts="`[ -r ~/.ssh/config ] && awk '/^host +[a-z]/ { print $2 }' ~/.ssh/config`"
-hosts="`echo $hosts ; [ -r ~/.ssh/known_hosts ] && awk '{print $1}' ~/.ssh/known_hosts | tr , '\n'`"
-hosts="`echo $hosts ; awk '/^[^#]/ {print $2 $3" "$4" "$5}' /etc/hosts | grep -v ip6- && grep "^#%" /etc/hosts | awk -F% '{print $2}'`"
-hosts="`echo $hosts | sort -u`"
-zstyle ':completion:*' hosts $hosts
 
-users="`echo root ; ls /home | sed 's/ /\n/g'`"
-zstyle ':completion:*' users $users
+[[ -f ~/.ssh/known_hosts ]] && hosts=(`awk '{print $1}' ~/.ssh/known_hosts | tr ',' '\n' `)
+[[ -f ~/.ssh/config ]] && hosts=($hosts `grep '^[Hh]ost' ~/.ssh/config | sed 's/[Hh]ost\ //' | egrep -v '^\*$'`)
+[[ -f /var/lib/misc/ssh_known_hosts ]] && hosts=($hosts `awk -F "[, ]" '{print $1}' /var/lib/misc/ssh_known_hosts | sort -u`)
+[[ -n "$hosts" ]] && zstyle ':completion:*:hosts' hosts $hosts
 
 #[ Ignores ]#########################################
 zstyle '*' single-ignored show
@@ -73,10 +70,4 @@ zstyle ':completion:*:functions' ignored-patterns '_*'
 # Filename suffixes to ignore during completion (except after rm command)
 zstyle ':completion:*:*:(^rm):*:*files' ignored-patterns '*?.o' '*?.c~' '*?.old' '*?.pro'
 # Ignores for vim
-zstyle ':completion:*:*:vim(m|):*:*' ignored-patterns '*?.(aux|dvi|ps|pdf|bbl|toc|lot|lof|o|zwc|class|cm?)'
-
-# SSH Completion
-zstyle ':completion:*:scp:*' tag-order files users 'hosts:-host hosts:-domain:domain hosts:-ipaddr"IP\ Address *'
-zstyle ':completion:*:scp:*' group-order files all-files users hosts-domain hosts-host hosts-ipaddr
-zstyle ':completion:*:ssh:*' tag-order users 'hosts:-host hosts:-domain:domain hosts:-ipaddr"IP\ Address *'
-zstyle ':completion:*:ssh:*' group-order hosts-domain hosts-host users hosts-ipaddr
+zstyle ':completion:*:*:vim(m|):*:*' ignored-patterns '*?.(aux|dvi|ps|pdf|bbl|toc|lot|lof|o|zwc|class|pyc|cm?)'
