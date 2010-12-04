@@ -19,8 +19,7 @@ case "$ZHOST" in
         ;;
 esac
 
-if [[ `id -u` -eq 0 ]] && \
-    [[ "$ZHOST" != "cherokee" ]]; then
+if [[ `id -u` -eq 0 ]]; then
     Color=$PR_RED  # red text for root
 fi
 
