@@ -71,3 +71,5 @@ zstyle ':completion:*:functions' ignored-patterns '_*'
 zstyle ':completion:*:*:(^rm):*:*files' ignored-patterns '*?.o' '*?.c~' '*?.old' '*?.pro'
 # Ignores for vim
 zstyle ':completion:*:*:vim(m|):*:*' ignored-patterns '*?.(aux|dvi|ps|pdf|bbl|toc|lot|lof|o|zwc|class|pyc|cm?)'
+# Suggested for git
+zstyle ':completion::*:git-{name-rev,add,rm}:*' ignore-line true
