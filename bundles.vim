@@ -59,13 +59,15 @@ Bundle "netrw.vim"
 Bundle "tlib"
 Bundle "bufkill.vim"
 Bundle "CmdlineCompl.vim"
-Bundle "git://github.com/sjl/gundo.vim.git"
 Bundle "git://github.com/tsaleh/vim-align.git"
 Bundle "git://github.com/panozzaj/vim-autocorrect.git"
 Bundle "https://github.com/gregsexton/VimCalc.git"
 Bundle "session.vim--Odding"
 Bundle "git://github.com/rygwdn/vim-conque.git"
 Bundle "git://github.com/ervandew/supertab.git"
+if v:version >= 703
+    Bundle "git://github.com/sjl/gundo.vim.git"
+endif
 
 " Camelcase stuff
 Bundle "camelcasemotion"
