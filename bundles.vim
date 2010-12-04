@@ -75,6 +75,7 @@ Bundle "operator-camelize"
 " Git stuff
 Bundle "git://github.com/tpope/vim-fugitive.git"
 Bundle "git://github.com/tpope/vim-git.git"
+Bundle "gitolite.vim"
 
 " Snippets
 "Bundle "UltiSnips"
