@@ -8,6 +8,8 @@ au BufWinEnter */sc/ta*.txt YRToggle(0)
 au BufWinEnter */sc/ta*.txt set colorcolumn=88
 au BufWinEnter */sc/ta*.txt set list
 au BufWinEnter */sc/ta*.txt set listchars=tab:>-
+au BufWinEnter */sc/ta*.txt set ft=
 au BufWinEnter */sc/ta*.txt runtime syntax/c.vim
+au BufWinEnter */sc/ta*.txt hi Error guifg=#ffffff guibg=#000000
 "au BufWinEnter */sc/ta*.txt set acd
 au BufWinEnter */sc/ta*.txt set indentexpr=
