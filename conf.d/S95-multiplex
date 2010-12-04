@@ -14,7 +14,7 @@ then
 elif which screen &> /dev/null
 then
     go=true
-    list="screen -ls | sed '1d;N;$!P;$!D;$d;/^$/d'"
+    list='screen -ls | sed "1d;N;$!P;$!D;$d;/^$/d"'
     sess=`screen -ls 2>&1 | grep "$SESS"`
     isattached='Multi.*detached'
     attach="screen -x $SESS"
