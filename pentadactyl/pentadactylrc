@@ -3,11 +3,13 @@
 
 map < :tabmove -1<CR>
 map > :tabmove +1<CR>
-map J :js gBrowser.tabContainer.advanceSelectedTab(1, true)<CR>
-map K :js gBrowser.tabContainer.advanceSelectedTab(-1, true)<CR>
+map J gt
+map K gT
+"map J :js gBrowser.tabContainer.advanceSelectedTab(1, true)<CR>
+"map K :js gBrowser.tabContainer.advanceSelectedTab(-1, true)<CR>
 "map D :emenu Delicious.Save a new Bookmark...<CR>
 js config.guioptions['D'] = ['Delicious Toolbar',['ybToolbar']];
-set go=Trm
+set go+=Trm
 
 command! lastpasslogin javascript LP.lpOpenLogin()
 command! lp lastpasslogin
@@ -33,7 +35,7 @@ command! sub subscribe
 command! subscribe open javascript:var%20b=document.body;var%20GR________bookmarklet_domain='http://www.google.com';if(b&&!document.xmlVersion){void(z=document.createElement('script'));void(z.src='http://www.google.com/reader/ui/subscribe-bookmarklet.js');void(b.appendChild(z));}else{location='http://www.google.com/reader/view/feed/'+encodeURIComponent(location.href)}
 
 command! ril open javascript:(function(){ISRIL_H='06c5';ISRIL_SCRIPT=document.createElement('SCRIPT');ISRIL_SCRIPT.type='text/javascript';ISRIL_SCRIPT.src='http://readitlaterlist.com/b/r.js';document.getElementsByTagName('head')[0].appendChild(ISRIL_SCRIPT)})();
-command! rild
+command! rild rildone
 command! rildone open javascript:try%20{window.open('https://readitlaterlist.com/bl?r=1&u='+encodeURIComponent(document.location.href)+'&h=06c5','ril','toolbar=0,resizable=0,status=1,width=225,height=140');}catch(e)%20{%20}void(0);
 command! rill rillist
 command! rillist open javascript:try%20{window.open('http://readitlaterlist.com/unread?bl=1','rillist','scrollbars=1,toolbar=0,status=1,width=380,height=400');}catch(e)%20{%20}void(0);
@@ -45,13 +47,3 @@ map <C-S-l> :later<CR>
 map <C-S-s> :stumble<CR>
 map <C-Up> :thumbup<CR>
 map <C-Down> :thumbdown<CR>
-
-javascript <<EOM
-if (liberator.has("MacUnix")) {
-    // for Mac
-} else if (liberator.has("Win32")) {
-    // for Windows
-} else {
-    // other OS (linux)
-}
-EOM
