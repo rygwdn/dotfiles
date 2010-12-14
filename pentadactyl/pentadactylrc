@@ -47,3 +47,11 @@ map <C-S-l> :later<CR>
 map <C-S-s> :stumble<CR>
 map <C-Up> :thumbup<CR>
 map <C-Down> :thumbdown<CR>
+
+set pk+='.*\.google\.com/reader/.*':jky<Space>
+:map <silent> <A-p> :flashtoggle<CR>
+
+"set tabclose=left,opener,previous,right
+"set tabopen=external:end,link:right,orphan:right
+
+set visualbell
