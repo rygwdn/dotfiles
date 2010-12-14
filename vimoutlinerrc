@@ -14,7 +14,7 @@ let g:vo_modules_load .= "checkbox"
 let g:vo_modules_load .= ":hoist"
 let g:vo_modules_load .= ":tags"
 let g:vo_modules_load .= ":math"
-let g:vo_modules_load .= ":smart_paste"
+"let g:vo_modules_load .= ":smart_paste"
 
 "User Preferences ***************************************************
 "let maplocalleader = ",,"		" this is prepended to VO key mappings
