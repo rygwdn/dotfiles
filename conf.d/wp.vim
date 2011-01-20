@@ -15,6 +15,6 @@ fun! Wp()
     set display+=lastline
 endfu
 
-command Wp call Wp()
+command! Wp call Wp()
 
 au FileType tex,pdc,mail Wp
