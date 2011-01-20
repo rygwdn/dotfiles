@@ -1,6 +1,10 @@
 " Deps
 Bundle 'L9'
 
+" Snippets
+"Bundle "UltiSnips"
+Bundle "git://github.com/rygwdn/ultisnips.git"
+
 " Colorschemes
 Bundle "candycode.vim"
 Bundle "blackboard.vim"
@@ -12,6 +16,17 @@ Bundle "FSwitch"
 Bundle "git://github.com/rygwdn/vim-ipython.git"
 Bundle "git://github.com/rygwdn/vim-pylint.git"
 Bundle "git://github.com/rygwdn/latexbox-rubber.git"
+
+if has("python")
+    Bundle "git://github.com/rygwdn/rope-omni.git"
+python << EOF
+import vim
+try:
+    import ropevim
+except ImportError:
+    vim.command('''au VimEnter * echomsg "can't import ropevim"''')
+EOF
+endif
 
 
 " Filetypes
@@ -78,7 +93,3 @@ Bundle "operator-camelize"
 Bundle "git://github.com/tpope/vim-fugitive.git"
 Bundle "git://github.com/tpope/vim-git.git"
 Bundle "gitolite.vim"
-
-" Snippets
-"Bundle "UltiSnips"
-Bundle "git://github.com/rygwdn/ultisnips.git"
