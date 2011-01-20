@@ -15,10 +15,10 @@ endif
 
 " Bundles {{{
 
-runtime vundle
+set rtp+=~/.vim/lib/vundle
 call vundle#rc()
 
-source ~/.vim/bundles.vim
+runtime bundles.vim
 
 " }}}
 
