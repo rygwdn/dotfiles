@@ -605,6 +605,27 @@ function! eclim#project#util#ProjectTab(project)
   call eclim#project#tree#ProjectTree(a:project)
 endfunction " }}}
 
+" TreeTab(title, dir) {{{
+" Like ProjectTab, but opens for an arbitrary directory.
+function! eclim#project#util#TreeTab(title, dir)
+  let dir = fnamemodify(a:dir, ':p')
+  let dir = substitute(dir, '/$', '', '')
+  if !isdirectory(dir)
+    call eclim#util#EchoError('Directory does not exist: ' . dir)
+    return
+  endif
+
+  if winnr('$') > 1 || expand('%') != '' ||
+   \ &modified || line('$') != 1 || getline(1) != ''
+    tablast | tabnew
+    if dir == expand('~')
+      tabmove 0
+    endif
+  endif
+  call eclim#common#util#Tcd(dir)
+  call eclim#project#tree#ProjectTreeOpen([dir], [dir], a:title)
+endfunction " }}}
+
 " Todo() {{{
 " Show the todo tags of the curent file in the location list.
 function! eclim#project#util#Todo()
@@ -766,6 +787,10 @@ function! eclim#project#util#GetProject(file)
   endif
 
   let projects = eclim#project#util#GetProjects()
+
+  " sort projects depth wise by path to properly support nested projects.
+  call sort(projects, 's:ProjectSortPathDepth')
+
   for project in projects
     if dir =~ '^' . project.path . pattern
       return project
@@ -779,6 +804,11 @@ function! eclim#project#util#GetProject(file)
     endfor
   endfor
   return {}
+endfunction " }}}
+
+" s:ProjectSortPathDepth(p1, p2) {{{
+function! s:ProjectSortPathDepth(p1, p2)
+  return len(a:p2.path) - len(a:p1.path)
 endfunction " }}}
 
 " GetProjectDirs() {{{
@@ -1013,7 +1043,7 @@ function! eclim#project#util#CommandCompleteProjectCreate(argLead, cmdLine, curs
     endif
 
     if cmdLine !~ '[^\\]\s$'
-      call filter(aliases, 'v:val =~ "^' . argLead . '"')
+      call filter(aliases, 'v:val =~ "^' . escape(escape(argLead, '~.\'), '\') . '"')
     endif
 
     return aliases
@@ -1109,9 +1139,11 @@ function! eclim#project#util#CommandCompleteAbsoluteOrProjectRelative(
     \ argLead, cmdLine, cursorPos)
   let cmdLine = strpart(a:cmdLine, 0, a:cursorPos)
   let args = eclim#util#ParseCmdLine(cmdLine)
-  let argLead = cmdLine =~ '\s$' ? '' : args[len(args) - 1]
-  if argLead =~ '^\(/\|[a-zA-Z]:\)'
-    return eclim#util#CommandCompleteDir(a:argLead, a:cmdLine, a:cursorPos)
+  if len(args) > 0
+    let argLead = cmdLine =~ '\s$' ? '' : args[len(args) - 1]
+    if argLead =~ '^\(/\|[a-zA-Z]:\)'
+      return eclim#util#CommandCompleteDir(a:argLead, a:cmdLine, a:cursorPos)
+    endif
   endif
   return eclim#project#util#CommandCompleteProjectRelative(
     \ a:argLead, a:cmdLine, a:cursorPos)

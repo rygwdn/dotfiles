@@ -40,10 +40,10 @@ if !exists('g:VerticalToolWindowWidth')
 endif
 " }}}
 
-" VerticalToolWindowOpen(name, weight) {{{
+" VerticalToolWindowOpen(name, weight, [tablocal]) {{{
 " Handles opening windows in the vertical tool window on the left (taglist,
 " project tree, etc.)
-function! eclim#display#window#VerticalToolWindowOpen(name, weight)
+function! eclim#display#window#VerticalToolWindowOpen(name, weight, ...)
   let taglist_window = exists('g:TagList_title') ? bufwinnr(g:TagList_title) : -1
   if exists('g:Tlist_Use_Horiz_Window') && g:Tlist_Use_Horiz_Window
     let taglist_window = -1
@@ -81,7 +81,17 @@ function! eclim#display#window#VerticalToolWindowOpen(name, weight)
 
   let escaped = substitute(
     \ a:name, '\(.\{-}\)\[\(.\{-}\)\]\(.\{-}\)', '\1[[]\2[]]\3', 'g')
-  let bufnum = bufnr(escaped)
+  if a:0 && a:1
+    let bufnum = -1
+    for bnr in tabpagebuflist()
+      if bufname(bnr) == a:name
+        let bufnum = bnr
+        break
+      endif
+    endfor
+  else
+    let bufnum = bufnr(escaped)
+  endif
   let name = bufnum == -1 ? a:name : '+buffer' . bufnum
   silent call eclim#util#ExecWithoutAutocmds(wincmd . ' split ' . name)
 
@@ -230,13 +240,25 @@ function! s:PreventCloseOnBufferDelete()
     endif
   endfor
 
-  if winnr('$') == numtoolwindows
+  let index = 1
+  let numtempwindows = 0
+  let tempbuffers = []
+  while index <= winnr('$')
+    let buf = winbufnr(index)
+    if buf != -1 && getbufvar(buf, 'eclim_temp_window') != ''
+      call add(tempbuffers, buf)
+    endif
+    let index += 1
+  endwhile
+
+  if winnr('$') == (numtoolwindows + len(tempbuffers))
     let toolbuf = bufnr('%')
     if g:VerticalToolWindowSide == 'right'
       vertical topleft new
     else
       vertical botright new
     endif
+    setlocal noreadonly modifiable
     let winnum = winnr()
     exec 'let bufnr = ' . expand('<abuf>')
 
@@ -280,6 +302,30 @@ function! s:PreventCloseOnBufferDelete()
 
     exec bufwinnr(toolbuf) . 'winc w'
     exec 'vertical resize ' . g:VerticalToolWindowWidth
+
+    " fix the position of the temp windows
+    if len(tempbuffers) > 0
+      for buf in tempbuffers
+        " open the buffer in the temp window position
+        botright 10new
+        exec 'buffer ' . buf
+        setlocal winfixheight
+
+        " close the old window
+        let winnr = winnr()
+        let index = 1
+        while index <= winnr('$')
+          if winbufnr(index) == buf && index != winnr
+            exec index . 'winc w'
+            close
+            winc p
+            break
+          endif
+          let index += 1
+        endwhile
+      endfor
+    endif
+
     exec winnum . 'winc w'
   endif
 endfunction " }}}

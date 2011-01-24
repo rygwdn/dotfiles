@@ -87,7 +87,8 @@ function! eclim#ExecuteEclim(command, ...)
     let result = substitute(result, "\<c-m>$", '', '')
   endif
 
-  call eclim#util#Echo(' ')
+  " an echo during startup causes an annoying issue with vim.
+  "call eclim#util#Echo(' ')
 
   " check for errors
   let error = ''
@@ -113,7 +114,12 @@ function! eclim#ExecuteEclim(command, ...)
       else
         let error = error . "\n" .
           \ 'while executing command (port: ' . port . '): ' . command
-        call eclim#util#EchoError(error)
+        " if we are not in an autocmd, echo the error, otherwise just log it.
+        if expand('<amatch>') == ''
+          call eclim#util#EchoError(error)
+        else
+          call eclim#util#EchoDebug(error)
+        endif
       endif
     endif
     return
