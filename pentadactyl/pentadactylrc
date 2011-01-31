@@ -1,6 +1,8 @@
 " vim: fdm=marker
 " vim: foldlevel=0
 
+set mapleader=","
+
 map < :tabmove -1<CR>
 map > :tabmove +1<CR>
 map J gt
@@ -17,11 +19,11 @@ command! lp lastpasslogin
 command! google open google
 command! g google
 
-command! pbadd open javascript:q=location.href;if(document.getSelection){d=document.getSelection();}else{d='';};p=document.title;void(open('http://pinboard.in/add?url='+encodeURIComponent(q)+'&description='+encodeURIComponent(d)+'&title='+encodeURIComponent(p),'Pinboard',%20'toolbar=no,width=700,height=350'));
-command! pbadds open javascript:if(document.getSelection){s=document.getSelection();}else{s='';};document.location='http://pinboard.in/add?next=same&url='+encodeURIComponent(location.href)+'&description='+encodeURIComponent(s)+'&title='+encodeURIComponent(document.title);
-command! pb open http://pinboard.in/u:rygwdn
-command! later open javascript:q=location.href;p=document.title;void(t=open('http://pinboard.in/add?later=yes&noui=yes&jump=close&url='+encodeURIComponent(q)+'&title='+encodeURIComponent(p),'Pinboard','toolbar=no,width=100,height=100'));t.blur();
-command! unread open http://pinboard.in/oldest/
+command! pbadd open javascript:q=location.href;if(document.getSelection){d=document.getSelection();}else{d='';};p=document.title;void(open('https://pinboard.in/add?url='+encodeURIComponent(q)+'&description='+encodeURIComponent(d)+'&title='+encodeURIComponent(p),'Pinboard',%20'toolbar=no,width=700,height=350'));
+command! pbadds open javascript:if(document.getSelection){s=document.getSelection();}else{s='';};document.location='https://pinboard.in/add?next=same&url='+encodeURIComponent(location.href)+'&description='+encodeURIComponent(s)+'&title='+encodeURIComponent(document.title);
+command! pb open https://pinboard.in/u:rygwdn
+command! later open javascript:q=location.href;p=document.title;void(t=open('https://pinboard.in/add?later=yes&noui=yes&jump=close&url='+encodeURIComponent(q)+'&title='+encodeURIComponent(p),'Pinboard','toolbar=no,width=100,height=100'));t.blur();
+command! unread open https://pinboard.in/oldest/
 
 command! clip evernote
 command! ev evernote
@@ -48,10 +50,48 @@ map <C-S-s> :stumble<CR>
 map <C-Up> :thumbup<CR>
 map <C-Down> :thumbdown<CR>
 
-set pk+='.*\.google\.com/reader/.*':jky<Space>
-:map <silent> <A-p> :flashtoggle<CR>
+set visualbell
+
+loadplugins
 
 "set tabclose=left,opener,previous,right
 "set tabopen=external:end,link:right,orphan:right
+set fbw+=alpha.glitch.com
 
-set visualbell
+command! gonew -nargs=1 js var args=<q-args>.split(","); var search = args[0].replace('"', "", 'g'); var open = args[1]; var matches = completion.runCompleter("buffer", search); if (matches.length > 0) { tabs.select(matches[0].id, false); } else { dactyl.execute("tabopen " + open); }
+
+map <silent> <A-p> :flashtoggle<CR>
+
+set passkeys+='.*\.google\.com/reader/.*':jkyr<Space><S-Space>
+
+
+" Gmail stuff
+autocmd LocationChange !'mail\.google\.com' :set strictfocus
+autocmd LocationChange 'mail\.google\.com'  :set nostrictfocus
+autocmd LocationChange !'mail\.google\.com' :set editor="gvim -f"
+autocmd LocationChange 'mail\.google\.com'  :set editor="gvim -f -c 'set ft=mail'"
+
+set passkeys+='https://mail\.google\.com':xsem!#rRaAvN[]{}z.IU=-gidac/?lujkonp<Esc>
+command! gm gonew gmail,https://mail.google.com/mail/?shva=1#inbox
+map <Leader>m :gm<CR>
+" end gmail stuff
+
+
+map <Leader>t :gonew toodledo,td<CR>
+map <Leader>c :gonew "google calendar",gc<CR>
+map <Leader>r :gonew "google reader",gr<CR>
+map <Leader>d :gonew reddit,rd<CR>
+
+map <C-/> <C-^>
+map ^ <C-^>
+
+"bmark -title=Acorn             -keyword=ac   http://acorn.acadiau.ca/my/
+"bmark -title="Search PyPI"     -keyword=pypi http://pypi.python.org/pypi?%3Aaction=search&term=%s
+"bmark -title="Search PPA"      -keyword=ppa  https://launchpad.net/ubuntu/+ppas?name_filter=alsa?name_filter=%s
+"bmark -title="Gmail"           -keyword=gm   https://mail.google.com/mail/?shva=1#inbox
+"bmark -title="Google Calendar" -keyword=gc   https://www.google.com/calendar/render?gsessionid=tytkp42YyR2FoRo4F9zAGQ
+"bmark -title="Google Reader"   -keyword=gr   http://www.google.com/reader/view/
+"bmark -title="reddit"          -keyword=rd   http://www.reddit.com/
+"bmark -title="Toodledo"        -keyword=td   http://www.toodledo.com/
+"bmark -title="Java6 API"       -keyword=j6   http://download.oracle.com/javase/6/docs/api/
+"bmark -title="Facebook"        -keyword=fb   https://facebook.com
