@@ -8,13 +8,13 @@ var INFO =
         xmlns={NS}>
     <author email="maglione.k@gmail.com">Kris Maglione</author>
     <license href="http://opensource.org/licenses/mit-license.php">MIT</license>
-    <project name="Pentadactyl" minVersion="1.0"/>
+    <project name="Pentadactyl" min-version="1.0"/>
     <p>
         Ths plugin allows you to switch the browser's reported user-agent to a
         number of preset values.
     </p>
     <item>
-        <tags>:useragent :ua</tags>
+        <tags>:ua :useragent</tags>
         <spec>:useragent <oa>name</oa> <oa>useragent</oa></spec>
         <description>
             <p>
@@ -127,7 +127,7 @@ commands.addUserCommand(["useragent", "ua"],
     "Define a new useragent.",
     function (args) {
         if (args.length < 2)
-            commandline.commandOutput(template.tabular(["Name", "User-Agent"], ["padding-right: 1em; min-width: 8em;"],
+            commandline.commandOutput(template.tabular(["Name", "User-Agent"], ["padding-right: 1em; min-width: 8em;", "white-space: normal;"],
                 [[ua.name,
                   <>
                     {ua.useragent}
@@ -194,6 +194,6 @@ commands.addUserCommand(["deluseragent", "delua"],
         delete useragents[args[0]];
     }, {
         argCount: "1"
-    });
+    }, true);
 
 /* vim:se sts=4 sw=4 et: */

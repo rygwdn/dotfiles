@@ -2,13 +2,13 @@
 XML.ignoreWhitespace = false;
 XML.prettyPrinting = false;
 var INFO =
-<plugin name="flashblock" version="1.0.1"
+<plugin name="flashblock" version="1.0.2"
         href="http://dactyl.sf.net/pentadactyl/plugins#flashblock-plugin"
         summary="Flash Blocker"
         xmlns={NS}>
     <author email="maglione.k@gmail.com">Kris Maglione</author>
     <license href="http://opensource.org/licenses/mit-license.php">MIT</license>
-    <project name="Pentadactyl" minVersion="1.0"/>
+    <project name="Pentadactyl" min-version="1.0"/>
     <p>
         This plugin provides the same features as the ever popular FlashBlock
         Firefox add-on. Place holders are substituted for flash animations and
@@ -88,27 +88,27 @@ options.add(["fbwhitelist", "fbw"],
     "Sites which may run flash animations without prompting",
     "stringlist", "",
     {
+        completer: function (context) completion.visibleHosts(context),
         domains: function (values) values,
         privateData: true,
-        setter: reload
+        setter: reload,
+        validator: function () true
     });
-commands.addUserCommand(["flashplay", "flp"],
-    "Play all flash animations on the current page",
-    function () { postMessage(content, "flashblockPlay") },
-    { argCount: "0" });
-commands.addUserCommand(["flashstop", "fls"],
-    "Stop all flash animations on the current page",
-    function () { postMessage(content, "flashblockStop") },
-    { argCount: "0" });
+
+["Play", "Stop"].forEach(function (action)
+    commands.addUserCommand(["flash" + action, "fl" + action[0]].map(String.toLowerCase),
+        action + " all flash animations on the current page",
+        function () { postMessage(content, "flashblock" + action) },
+        { argCount: "0" }, true));
 commands.addUserCommand(["flashtoggle", "flt"],
     "Toggle playing of flash animations on the current page",
     function () {
-        if (buffer.evaluateXPath("//pseudoembed").snapshotLength)
+        if (util.evaluateXPath("//pseudoembed", buffer.focusedFrame.document).snapshotLength)
             commands.get("flashplay").action();
         else
             commands.get("flashstop").action();
     },
-    { argCount: "0" });
+    { argCount: "0" }, true);
 
 mappings.addUserMap([modes.NORMAL], ["<Leader>fbwhitelist"],
     "Add the current site to the flash whitelist",
@@ -135,24 +135,21 @@ function reload(values) {
     return values;
 }
 
-function matchHost(host, base) {
-    let idx = host.lastIndexOf(base);
-    return idx > -1 && idx + base.length == host.length && (idx == 0 || host[idx-1] == ".");
-}
 function removeHost(host) {
     let len = whitelist.value.length;
-    whitelist.value = whitelist.value.filter(function (h) !matchHost(host, h));
+    let uri = util.makeURI(host);
+    whitelist.value = whitelist.value.filter(function (f) !Styles.matchFilter(f, uri));
     return whitelist.value.length != len;
 }
 function checkLoadFlash(e) {
-    let host = e.target.location.host.toLowerCase();
-    if(!enabled.value || whitelist.value.some(function (h) matchHost(host, h)))
+    let uri = e.target.documentURIObject;
+    if(!enabled.value || whitelist.value.some(function (f) Styles.matchFilter(f, uri)))
         e.preventDefault();
     e.stopPropagation();
 }
 
 if (!plugins.checkLoadFlash)
-    window.addEventListener("flashblockCheckLoad", function (e) plugins.checkLoadFlash(e), true, true);
+    events.addSessionListener(window, "flashblockCheckLoad", function (e) plugins.checkLoadFlash(e), true, true);
 plugins.checkLoadFlash = checkLoadFlash;
 
 XML.ignoreWhitespace = true;
@@ -169,17 +166,8 @@ var data = {
             <implementation>
               <constructor>
                 <![CDATA[
-                    function myObj(obj) {
-                        return {
-                            __noSuchMethod__: function(id, args) {
-                                this[id] = Components.lookupMethod(obj, id);
-                                return this[id].apply(obj, args);
-                            }
-                        }
-                    };
-                    var myDocument = myObj(document);
-                    var myWindow = myObj(window);
-                    var myArray = myObj(Array);
+                    var myDocument = XPCNativeWrapper(document);
+                    var myWindow = XPCNativeWrapper(window);
 
                     function copyAttribs(to, from) {
                         Array.map(from.attributes, function(attrib) {
@@ -236,7 +224,7 @@ var data = {
                                         this.style[dimen] = parseInt(this.embed[dimen]) + "px";
                             }, this);
 
-                            let style = window.getComputedStyle(parent, "");
+                            let style = myWindow.getComputedStyle(parent, "");
                             if (style.getPropertyValue("text-align") == "center") {
                                 this.style.marginRight = "auto";
                                 this.style.marginLeft = "auto";
@@ -275,8 +263,8 @@ var data = {
                     myWindow.addEventListener("message", checkReplace, false);
 
                     if(this.src == this.ownerDocument.location)
-                        window.location = 'chrome-data:application/xhtml+xml,' + encodeURIComponent('<?xml version="1.0" encoding="UTF-8"?>' +
-                                          '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">' +
+                        myWindow.location = 'chrome-data:application/xhtml+xml,' + encodeURIComponent('<?xml version="1.0" encoding="UTF-8"?>' +
+                                            '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">' +
                             <html xmlns="http://www.w3.org/1999/xhtml">
                                 <head><title></title></head>
                                 <body>{new XML(parent.innerHTML)}</body>
@@ -488,7 +476,7 @@ var CSS = <![CDATA[ /* <css> */
      */
 ]]>.toString().replace(/\{(\w+)\}/g, function($0, $1) String(data[$1]).replace(/\s+/g, ""));
 
-styles.addSheet(true, "flashblock", "*", CSS);
+styles.system.add("flashblock", "*", CSS);
 data = null;
 CSS = null;
 

@@ -8,7 +8,7 @@ var INFO =
         xmlns={NS}>
     <author email="maglione.k@gmail.com">Kris Maglione</author>
     <license href="http://people.freebsd.org/~phk/">BEER-WARE</license>
-    <project name="Pentadactyl" minVersion="1.0"/>
+    <project name="Pentadactyl" min-version="1.0"/>
     <p>
         This plugin provides advanced completion functions for
         DOM functions, eval, and some other special functions.
@@ -39,6 +39,7 @@ let NAMESPACES = [
     [NS.uri, "Dactyl"],
     ["http://www.w3.org/2005/Atom", "RSS"],
     ["http://www.w3.org/2000/svg", "SVG"],
+    ["http://www.mozilla.org/xbl", "XBL"],
     ["http://www.w3.org/1999/xhtml", "XHTML 1.0"],
     ["http://www.w3.org/2002/06/xhtml2", "XHTML 2.0"],
     ["http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul", "XUL"]

@@ -8,7 +8,7 @@ var INFO =
         xmlns={NS}>
     <author email="maglione.k@gmail.com">Kris Maglione</author>
     <license href="http://opensource.org/licenses/mit-license.php">MIT</license>
-    <project name="Pentadactyl" minVersion="1.0"/>
+    <project name="Pentadactyl" min-version="1.0"/>
     <p>
         This plugin provides various browser consistency improvements, including:
     </p>
@@ -18,39 +18,6 @@ var INFO =
     </ul>
 </plugin>;
 
-// Nuances gleaned from browser.jar/content/browser/browser.js
-function parseForm(submit) {
-    function encode(name, value) {
-        if (post)
-            return name + "=" + value;
-        return encodeURIComponent(name) + "=" + encodeURIComponent(value);
-    }
-
-    let form = submit.form;
-    let doc = form.ownerDocument;
-    let charset = doc.charset;
-    let uri = window.makeURI(String(doc.URL.replace(/\?.*/, "")), charset);
-    let url = window.makeURI(form.getAttribute("action"), charset, uri).spec;
-
-    let post = form.method.toUpperCase() == "POST";
-
-    let elems = [encode(submit.name, submit.value)];
-    for (let [,elem] in Iterator(form.elements)) {
-        if (set.has(Events.editableInputs, elem.type)
-                || /^(?:hidden|textarea)$/.test(elem.type)
-                || elem.checked && /^(?:checkbox|radio)$/.test(elem.type))
-            elems.push(encode(elem.name, elem.value));
-        else if (elem instanceof HTMLSelectElement) {
-            for (let [,opt] in Iterator(elem.options))
-                if (opt.selected)
-                    elems.push(encode(elem.name, opt.value));
-        }
-    }
-    if (post)
-        return [url, elems.map(encodeURIComponent).join('&'), elems];
-    return [url + "?" + elems.join('&'), null];
-}
-
 function clickListener(event) {
     let elem = event.target;
     if (elem instanceof HTMLAnchorElement) {
@@ -58,14 +25,10 @@ function clickListener(event) {
             elem.removeAttribute("target");
         return;
     }
-    if (!(elem instanceof HTMLInputElement) || elem.type != "submit")
-        return;
-    if (elem.ownerDocument.defaultView.top != content)
-        return;
-    if (event.button != 1)
-        return;
-
-    liberator.open([parseForm(elem)], liberator.NEW_TAB);
+    if (elem instanceof HTMLInputElement && elem.type === "submit")
+        if (elem.ownerDocument.defaultView.top == content)
+            if (event.button == 1)
+                dactyl.open([util.parseForm(elem)], dactyl.NEW_TAB);
 }
 
 function keypressListener(event) {
