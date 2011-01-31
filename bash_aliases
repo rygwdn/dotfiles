@@ -42,7 +42,7 @@ alias chx='chmod +x'
 
 alias td='toodledo'
 
-alias cherokee="ssh linode-cherokee -C 'killall cherokee-admin; cherokee-admin -b'"
+alias cherokee="ssh linode -L 9090:localhost:9090 -t -C 'sudo killall cherokee-admin; sudo cherokee-admin -b'"
 
 alias g='&> /dev/null gvim'
 alias gr='g --remote-silent'

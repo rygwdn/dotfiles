@@ -15,7 +15,7 @@ PATH=$PATH:/var/lib/gems/1.8/bin
 PATH=$HOME/.cabal/bin:$PATH
 PATH=$PATH:.
 PATH=$PATH:/opt/local/bin
-PATH=$PATH:$NXJ_HOME/bin
+#PATH=$PATH:$NXJ_HOME/bin
 PATH=$PATH:$HOME/.gem/ruby/1.8/bin/
 PATH=$HOME/Dropbox/bin:$PATH
 PATH=$HOME/bin:$PATH
@@ -23,8 +23,8 @@ PATH=$HOME/bin:$PATH
 # include junit in java classpath
 CLASSPATH=$CLASSPATH:.:/usr/share/java/junit4.jar
 
-LD_LIBRARY_PATH=$NXJ_HOME/bin
-NXJ_HOME=/home/rwooden/src/lejos_nxj
+#LD_LIBRARY_PATH=$NXJ_HOME/bin
+#NXJ_HOME=/home/rwooden/src/lejos_nxj
 
 HISTSIZE=10000              # size of history
 SAVEHIST=10000              # maximum of history events to be save
