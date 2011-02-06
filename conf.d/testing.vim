@@ -105,5 +105,5 @@ let mapleader=","
 " nnoremap <leader>a :call RunAllTests('')<cr>:redraw<cr>:call JumpToError()<cr>
 " nnoremap <leader>A :call RunAllTests('')<cr>
 
-nnoremap <leader>t :call RunAllTests('')<cr>:redraw<cr>:call JumpToError()<cr>
-nnoremap <leader>T :call RunAllTests('')<cr>
+"nnoremap <leader>t :call RunAllTests('')<cr>:redraw<cr>:call JumpToError()<cr>
+"nnoremap <leader>T :call RunAllTests('')<cr>
