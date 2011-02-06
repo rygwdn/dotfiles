@@ -59,7 +59,8 @@ Bundle "git://github.com/kana/vim-operator-user.git"
 " Navigation
 Bundle "Marks-Browser"
 Bundle "FuzzyFinder"
-Bundle "taglist.vim"
+"Bundle "taglist.vim"
+Bundle "https://github.com/ervandew/taglisttoo.git"
 
 " Operations
 Bundle "git://github.com/tpope/vim-repeat.git"
