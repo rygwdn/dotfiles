@@ -18,6 +18,7 @@ Bundle "git://github.com/rygwdn/vim-pylint.git"
 Bundle "git://github.com/rygwdn/latexbox-rubber.git"
 
 if has("python")
+    Bundle "git://github.com/rygwdn/vim-async.git"
     Bundle "git://github.com/rygwdn/rope-omni.git"
 python << EOF
 import vim
