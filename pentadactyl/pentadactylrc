@@ -82,7 +82,7 @@ map <Leader>d :gonew reddit,rd<CR>
 map <C-/> <C-^>
 map ^ <C-^>
 
-map * -js hints.show("o", {continue: true, count:0})
+map * -js hints.show("b", {continue: true, count:0})
 map -modes hints * <Esc>
 
 "bmark -title=Acorn             -keyword=ac   http://acorn.acadiau.ca/my/
