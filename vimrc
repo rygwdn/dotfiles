@@ -72,14 +72,20 @@ if has('python')
 python << EOF
 import os, vim
 
-dirs = ("~/tmp/.vim", "~/.vim/tmp", "/tmp")
-for dir in dirs:
-    p = os.path.realpath(os.path.expanduser(dir))
+_dirs = ("~/tmp/.vim", "~/.vim/tmp", "/tmp")
+for _dir in _dirs:
+    p = os.path.realpath(os.path.expanduser(_dir))
     if os.path.isdir(p):
 	vim.command("let g:temp_path='%s'" % p)
 	break
 else:
     print 'Failed to set temp path'
+
+try:
+    del _dirs
+    del _dir
+except:
+    pass
 EOF
 endif
 
@@ -290,6 +296,8 @@ au BufNewFile,BufRead *.pl set ft=prolog
 " make 'make' not spew junk
 au filetype c,cpp set makeprg=make\ -s\ -i
 au filetype c,cpp set spell
+au filetype c,cpp nmap <LocalLeader>m :silent make<cr>
+au filetype c,cpp setl autowrite
 " }}}
 
 " help files, make return jump to tag {{{
