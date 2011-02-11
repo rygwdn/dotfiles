@@ -24,7 +24,7 @@
     }
   }
 
-  commands.addUserCommand(['pin[board]'], 'Bookmark page at pinboard.in', function(args) {
+  group.commands.add(['pin[board]'], 'Bookmark page at pinboard.in', function(args) {
     var url = buffer.URL;
     var description = args['-description'] || buffer.title || url;
     var note = args['-note'] || String(window.content.getSelection());

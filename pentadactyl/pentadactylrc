@@ -7,11 +7,8 @@ map < :tabmove -1<CR>
 map > :tabmove +1<CR>
 map J gt
 map K gT
-"map J :js gBrowser.tabContainer.advanceSelectedTab(1, true)<CR>
-"map K :js gBrowser.tabContainer.advanceSelectedTab(-1, true)<CR>
-"map D :emenu Delicious.Save a new Bookmark...<CR>
 js config.guioptions['D'] = ['Delicious Toolbar',['ybToolbar']];
-set go+=Trm
+set go+=Tr
 
 command! lastpasslogin javascript LP.lpOpenLogin()
 command! lp lastpasslogin
@@ -71,7 +68,7 @@ autocmd LocationChange 'mail\.google\.com'  :set nostrictfocus
 autocmd LocationChange !'mail\.google\.com' :set editor="gvim -f"
 autocmd LocationChange 'mail\.google\.com'  :set editor="gvim -f -c 'set ft=mail'"
 
-set passkeys+='https://mail\.google\.com':xsem!#rRaAvN[]{}z.IU=-gidac/?lujkonp<Esc>
+set passkeys+='https://mail\.google\.com':xsem!#rRaAvN[]{}z.IU=-gidac/?lujkonp<Esc>`y
 command! gm gonew gmail,https://mail.google.com/mail/?shva=1#inbox
 map <Leader>m :gm<CR>
 " end gmail stuff
@@ -84,6 +81,9 @@ map <Leader>d :gonew reddit,rd<CR>
 
 map <C-/> <C-^>
 map ^ <C-^>
+
+map * -js hints.show("o", {continue: true, count:0})
+map -modes hints * <Esc>
 
 "bmark -title=Acorn             -keyword=ac   http://acorn.acadiau.ca/my/
 "bmark -title="Search PyPI"     -keyword=pypi http://pypi.python.org/pypi?%3Aaction=search&term=%s

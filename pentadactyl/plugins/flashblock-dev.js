@@ -96,11 +96,11 @@ options.add(["fbwhitelist", "fbw"],
     });
 
 ["Play", "Stop"].forEach(function (action)
-    commands.addUserCommand(["flash" + action, "fl" + action[0]].map(String.toLowerCase),
+    group.commands.add(["flash" + action, "fl" + action[0]].map(String.toLowerCase),
         action + " all flash animations on the current page",
         function () { postMessage(content, "flashblock" + action) },
         { argCount: "0" }, true));
-commands.addUserCommand(["flashtoggle", "flt"],
+group.commands.add(["flashtoggle", "flt"],
     "Toggle playing of flash animations on the current page",
     function () {
         if (util.evaluateXPath("//pseudoembed", buffer.focusedFrame.document).snapshotLength)
@@ -110,10 +110,10 @@ commands.addUserCommand(["flashtoggle", "flt"],
     },
     { argCount: "0" }, true);
 
-mappings.addUserMap([modes.NORMAL], ["<Leader>fbwhitelist"],
+group.mappings.add([modes.NORMAL], ["<Leader>fbwhitelist"],
     "Add the current site to the flash whitelist",
     function () { whitelist.op("+", content.location.hostname) });
-mappings.addUserMap([modes.NORMAL], ["<Leader>fbWhitelist"],
+group.mappings.add([modes.NORMAL], ["<Leader>fbWhitelist"],
     "Toggle the current site in the flash whitelist",
     function () {
         let host = content.location.hostname.toLowerCase();
@@ -141,16 +141,17 @@ function removeHost(host) {
     whitelist.value = whitelist.value.filter(function (f) !Styles.matchFilter(f, uri));
     return whitelist.value.length != len;
 }
-function checkLoadFlash(e) {
-    let uri = e.target.documentURIObject;
-    if(!enabled.value || whitelist.value.some(function (f) Styles.matchFilter(f, uri)))
-        e.preventDefault();
-    e.stopPropagation();
-}
 
-if (!plugins.checkLoadFlash)
-    events.addSessionListener(window, "flashblockCheckLoad", function (e) plugins.checkLoadFlash(e), true, true);
-plugins.checkLoadFlash = checkLoadFlash;
+function onUnload() {
+    group.events.unlisten(null);
+}
+group.events.listen(window, "flashblockCheckLoad", 
+    function checkLoadFlash(event) {
+        let uri = event.target.documentURIObject;
+        if(!enabled.value || whitelist.value.some(function (f) Styles.matchFilter(f, uri)))
+            event.preventDefault();
+        event.stopPropagation();
+    }, true, true);
 
 XML.ignoreWhitespace = true;
 XML.prettyPrinting = false;

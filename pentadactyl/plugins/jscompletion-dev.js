@@ -90,7 +90,7 @@ addCompleter("getElementById", function (context, func, doc, args) {
     context.anchored = false;
     if (args.length == 1) {
         context.keys = { text: function (e) e.getAttribute("id"), description: util.objectToString };
-        return evalXPath("//*[@id and contains(@id," + util.escapeString(args.pop(), "'") + ")]", doc);
+        context.generate = function () evalXPath("//*[@id]", doc);
     }
 });
 
