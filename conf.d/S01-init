@@ -5,16 +5,16 @@
 
 # Let me know my shell!
 echo Zsh
-SHELL="`which zsh`"
+export SHELL="`which zsh`"
 
 # this should compile/recompile all the files here..
 # runs threaded, because it's really slow :)
-(
-    autoload -U zrecompile
-
-    for f in ~/.zshrc $zsh_cache/* $HOME/.zsh/conf.d/*
-    do
-        echo "$f" | grep -qv "\.zwc$" &&
-        zrecompile -p $f >> /dev/null && rm -f $f.zwc.old
-    done &
-) &> /dev/null
+#(
+#    autoload -U zrecompile
+#
+#    for f in ~/.zshrc $zsh_cache/* $HOME/.zsh/conf.d/*
+#    do
+#        echo "$f" | grep -qv "\.zwc$" &&
+#        zrecompile -p $f >> /dev/null && rm -f $f.zwc.old
+#    done &
+#) &> /dev/null

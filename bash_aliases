@@ -184,6 +184,16 @@ alias gvo="vo -g"
 complete -F _aptitude -o default ap
 complete -F _svn -o default -X '@(*/.svn|*/.svn/|.svn|.svn/)' s
 
+
+#windows stuff
+if echo "$OS" | grep -iq "windows"
+then
+    alias vim='cyg-wrapper.sh "C:/Users/rwooden/vim/vim.exe" --binary-opt=-c,--cmd,-T,-t,--servername,--remote-send,--remote-expr'
+    alias gvim='cyg-wrapper.sh "C:/Users/rwooden/vim/gvim.exe" --cyg-verbose --fork=2 --binary-opt=-c,--cmd,-T,-t,--servername,--remote-send,--remote-expr'
+    alias g='cyg-wrapper.sh "C:/Users/rwooden/vim/gvim.exe" --cyg-verbose --fork=2 --binary-opt=-c,--cmd,-T,-t,--servername,--remote-send,--remote-expr'
+fi
+
+
 # completion stuff
 _tnote()
 {
