@@ -32,8 +32,7 @@ function dolink()
 }
     
 
-for lfile in * */bash_aliases
+for lfile in * */bash_aliases */*rc
 do
     dolink $lfile
-    [ -e "$lfile/${lfile}rc" ] && dolink $lfile/${lfile}rc
 done
