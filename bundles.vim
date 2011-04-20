@@ -40,7 +40,7 @@ Bundle "git://github.com/vim-ruby/vim-ruby.git"
 Bundle "git://github.com/msanders/cocoa.vim.git"
 Bundle "git://github.com/sukima/xmledit.git"
 Bundle "git://github.com/Rip-Rip/clang_complete.git"
-Bundle "git://github.com/Raimondi/vimoutliner.git"
+Bundle "git://github.com/vimoutliner/vimoutliner.git"
 Bundle "git://github.com/nvie/vim-rst-tables.git"
 Bundle "git://github.com/ingydotnet/yaml-vim.git"
 
