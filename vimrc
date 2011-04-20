@@ -195,13 +195,22 @@ inoremap { {}O
 " Handy commands
 command! W w
 
+" Switch tabs
+nmap <C-Tab>   gt
+imap <C-Tab>   <Esc>gt
+nmap <C-S-Tab> gT
+imap <C-S-Tab> <Esc>gT
+
+nmap <leader>f zf%A
+vmap <leader>f zfA
+
 " Sometimes I hate the defaults for these two in insert!
 "inoremap <c-u> 
 "inoremap <c-w> 
 
 " Allow tab to jump between pairs
-nnoremap <tab> %
-vnoremap <tab> %
+"nnoremap <tab> %
+"vnoremap <tab> %
 
 " --------------------------------------------- }}}
 
