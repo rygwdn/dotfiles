@@ -72,7 +72,7 @@ if has('python')
 python << EOF
 import os, vim
 
-_dirs = ("~/tmp/.vim", "~/.vim/tmp", "/tmp")
+_dirs = ["~/tmp/.vim", "~/.vim/tmp", "/tmp", "~/vimfiles/tmp"]
 for _dir in _dirs:
     p = os.path.realpath(os.path.expanduser(_dir))
     if os.path.isdir(p):
