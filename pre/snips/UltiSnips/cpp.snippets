@@ -1,0 +1,28 @@
+snippet fore "for each int loop"
+for (${1:std::${2:vector<${3:double}>}}${4:::iterator} ${5:i} = ${6:${7:v}${8:.begin()}}; ${9:$5} < ${10:$7}${11:.end()}; ${12:++$5})
+{
+	${0:/* code */}
+}
+endsnippet
+
+snippet forec "const for each int loop"
+for (${1:std::${2:vector<${3:double}>}}${4:::const_iterator} ${5:i} = ${6:${7:v}${8:.begin()}}; ${9:$5} < ${10:$7}${11:.end()}; ${12:++$5})
+{
+	${0:/* code */}
+}
+endsnippet
+
+snippet forer "reverse for each int loop"
+for (${1:std::${2:vector<${3:double}>}}${4:::reverse_iterator} ${5:i} = ${6:${7:v}${8:.begin()}}; ${9:$5} < ${10:$7}${11:.end()}; ${12:++$5})
+{
+	${0:/* code */}
+}
+endsnippet
+
+snippet ce "cout << . << endl;"
+std::cout << $0 << std::endl;
+endsnippet
+
+snippet co "cout << .;"
+std::cout << $0;
+endsnippet
