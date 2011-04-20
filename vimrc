@@ -353,14 +353,17 @@ autocmd FileType python compiler pylint
 
 " --------------------------------------------------- }}}
 
-" Plugins {{{
+" includes {{{
 
+" Unix
 for src in split(glob("~/.vim/conf.d/*.vim"), "\n")
     execute "source " . src
 endfor
 
-let g:pylint_cwindow = 0
-let g:session_autosave = 1
+" Windows
+for src in split(glob("~/vimfiles/conf.d/*.vim"), "\n")
+    execute "source " . src
+endfor
 
 " }}}
 
