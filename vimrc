@@ -11,6 +11,9 @@
 if v:progname =~? "evim"
     finish
 endif
+
+" hack for windows :S
+set rtp+=~/.vim
 " ------------------------------------------- }}}
 
 " Bundles {{{
