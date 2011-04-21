@@ -115,7 +115,7 @@ alias dci='git svn dcommit'
 alias rb='git svn rebase'
 alias gd='git diff'
 alias gdc='git diff --cached'
-alias gl='git lg | head -n $(expr $LINES - 2) ; echo ;'
+alias gl='git lg | fold -s -w $(expr $COLUMNS + 20) | head -n $(expr $LINES - 2);'
 alias gk='gitk --all'
 
 
