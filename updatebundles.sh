@@ -12,10 +12,7 @@ git submodule foreach git pull
 echo
 
 echo Update autoloads
-for dir in $base/lib/*
-do
-    cp -r $dir/autoload/* $base/autoload/
-done
+cp -r $base/lib/*/autoload/* $base/autoload/
 echo
 
 echo "Update bundles"
