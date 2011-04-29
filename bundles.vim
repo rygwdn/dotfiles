@@ -3,23 +3,23 @@ Bundle 'L9'
 
 " Snippets
 "Bundle "UltiSnips"
-Bundle "git://github.com/rygwdn/ultisnips.git"
+Bundle "rygwdn/ultisnips"
 
 " Colorschemes
 Bundle "candycode.vim"
 Bundle "blackboard.vim"
 
 " Programming
-Bundle "git://github.com/tpope/vim-ragtag.git"
+Bundle "tpope/vim-ragtag"
 Bundle "DoxygenToolkit.vim"
 Bundle "FSwitch"
-Bundle "git://github.com/rygwdn/vim-ipython.git"
-Bundle "git://github.com/rygwdn/vim-pylint.git"
-Bundle "git://github.com/rygwdn/latexbox-rubber.git"
+Bundle "rygwdn/vim-ipython"
+Bundle "rygwdn/vim-pylint"
+Bundle "rygwdn/latexbox-rubber"
 
 if has("python")
-    Bundle "git://github.com/rygwdn/vim-async.git"
-    Bundle "git://github.com/rygwdn/rope-omni.git"
+    Bundle "rygwdn/vim-async"
+    Bundle "rygwdn/rope-omni"
 python << EOF
 import vim
 try:
@@ -34,39 +34,39 @@ endif
 Bundle "LaTeX-Box"
 Bundle "jQuery"
 Bundle "pdc.vim"
-Bundle "git://github.com/tpope/vim-rails.git"
-Bundle "git://github.com/tpope/vim-cucumber.git"
-Bundle "git://github.com/vim-ruby/vim-ruby.git"
-Bundle "git://github.com/msanders/cocoa.vim.git"
-Bundle "git://github.com/sukima/xmledit.git"
-Bundle "git://github.com/Rip-Rip/clang_complete.git"
-Bundle "git://github.com/vimoutliner/vimoutliner.git"
-Bundle "git://github.com/nvie/vim-rst-tables.git"
-Bundle "git://github.com/ingydotnet/yaml-vim.git"
+Bundle "tpope/vim-rails"
+Bundle "tpope/vim-cucumber"
+Bundle "vim-ruby/vim-ruby"
+Bundle "msanders/cocoa.vim"
+Bundle "sukima/xmledit"
+Bundle "Rip-Rip/clang_complete"
+Bundle "vimoutliner/vimoutliner"
+Bundle "nvie/vim-rst-tables"
+Bundle "ingydotnet/yaml-vim"
 
 
 " Search
 Bundle "IndexedSearch"
-Bundle "git://github.com/mileszs/ack.vim.git"
-Bundle "git://github.com/gmarik/vim-visual-star-search.git"
+Bundle "mileszs/ack.vim"
+Bundle "gmarik/vim-visual-star-search"
 
 " Open files
-Bundle "git://github.com/scrooloose/nerdtree.git"
+Bundle "scrooloose/nerdtree"
 
 " Movement
 Bundle "matchit.zip"
-Bundle "git://github.com/kana/vim-operator-user.git"
+Bundle "kana/vim-operator-user"
 
 " Navigation
 Bundle "Marks-Browser"
 Bundle "FuzzyFinder"
 "Bundle "taglist.vim"
-Bundle "https://github.com/ervandew/taglisttoo.git"
+Bundle "ervandew/taglisttoo"
 
 " Operations
-Bundle "git://github.com/tpope/vim-repeat.git"
-Bundle "git://github.com/tpope/vim-surround.git"
-Bundle "git://github.com/michaeljsmith/vim-indent-object.git"
+Bundle "tpope/vim-repeat"
+Bundle "tpope/vim-surround"
+Bundle "michaeljsmith/vim-indent-object"
 
 " Utility
 Bundle "VOoM"
@@ -76,14 +76,14 @@ Bundle "netrw.vim"
 Bundle "tlib"
 Bundle "bufkill.vim"
 Bundle "CmdlineCompl.vim"
-Bundle "git://github.com/tsaleh/vim-align.git"
-Bundle "git://github.com/panozzaj/vim-autocorrect.git"
-Bundle "https://github.com/gregsexton/VimCalc.git"
+Bundle "tsaleh/vim-align"
+Bundle "panozzaj/vim-autocorrect"
+Bundle "gregsexton/VimCalc"
 Bundle "session.vim--Odding"
-Bundle "git://github.com/rygwdn/vim-conque.git"
-Bundle "git://github.com/ervandew/supertab.git"
+Bundle "rygwdn/vim-conque"
+Bundle "ervandew/supertab"
 if v:version >= 703
-    Bundle "git://github.com/sjl/gundo.vim.git"
+    Bundle "sjl/gundo.vim"
 endif
 
 " Camelcase stuff
@@ -92,6 +92,6 @@ Bundle "operator-camelize"
 
 
 " Git stuff
-Bundle "git://github.com/tpope/vim-fugitive.git"
-Bundle "git://github.com/tpope/vim-git.git"
+Bundle "tpope/vim-fugitive"
+Bundle "tpope/vim-git"
 Bundle "gitolite.vim"
