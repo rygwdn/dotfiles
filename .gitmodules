@@ -1,9 +1,3 @@
-[submodule "manual/zen-coding"]
-	path = manual/zen-coding
-	url = http://github.com/mattn/zencoding-vim.git
-[submodule "lib/pathogen"]
-	path = lib/pathogen
-	url = http://github.com/tpope/vim-pathogen.git
 [submodule "lib/vundle"]
 	path = lib/vundle
 	url = http://github.com/gmarik/vundle.git
