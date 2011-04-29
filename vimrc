@@ -16,25 +16,36 @@ endif
 set rtp+=~/.vim
 " ------------------------------------------- }}}
 
-" Bundles {{{
+" Bundles & pathogen {{{
+
+filetype indent plugin off
+filetype off
 
 set rtp+=~/.vim/lib/vundle
 call vundle#rc()
 
 runtime bundles.vim
 
-" }}}
-
-" Run pathogen ---------------------------------------- {{{
-
-filetype indent plugin off
-filetype off
 " setup runtime path using the excellent vim-pathogen:
 " http://github.com/tpope/vim-pathogen
-call pathogen#runtime_append_all_bundles()
+"call pathogen#runtime_append_all_bundles() " handled by Vundle
 call pathogen#runtime_prepend_subdirectories('~/.vim/manual')
+call pathogen#runtime_prepend_subdirectories('~/vimfiles/manual')
 call pathogen#runtime_prepend_subdirectories('~/.vim/pre')
+call pathogen#runtime_prepend_subdirectories('~/vimfiles/pre')
 call pathogen#helptags()
+
+function! s:clean_rtp()
+    let n = []
+    for dir in pathogen#split(&rtp)
+        if isdirectory(dir)
+            call add(n, dir)
+        endif
+    endfor
+    let &rtp = pathogen#join(n)
+endfunction
+call s:clean_rtp()
+
 filetype on
 filetype indent plugin on
 
