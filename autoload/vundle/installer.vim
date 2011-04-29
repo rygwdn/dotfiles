@@ -1,83 +1,66 @@
-func! vundle#installer#install(bang, ...) abort
+func! vundle#installer#install(bang)
+  call s:reload_bundles()
   if !isdirectory(g:bundle_dir) | call mkdir(g:bundle_dir, 'p') | endif
-  let bundles = (a:1 == '') ?
-        \ s:reload_bundles() :
-        \ map(copy(a:000), 'vundle#config#init_bundle(v:val, {})')
-
-  let installed = s:install(a:bang, bundles)
-  redraw!
-  " TODO: handle error: let user know hen they need to restart Vim
-  call vundle#config#require(bundles)
-
-  call s:log("Installed bundles:\n".join((empty(installed) ? 
-  \      ['no new bundless installed'] : 
-  \      map(installed, 'v:val.name')),"\n"))
-
-  call vundle#installer#helptags(bundles)
+  for bundle in g:bundles | call s:install('!' == a:bang, bundle) | endfor
 endf
 
-func! vundle#installer#helptags(bundles) abort
-  let bundle_dirs = map(copy(a:bundles),'v:val.rtpath()')
-  let help_dirs = filter(bundle_dirs, 's:has_doc(v:val)')
-  call map(copy(help_dirs), 's:helptags(v:val)')
-  if !empty(help_dirs)
-    call s:log('Helptags: done. '.len(help_dirs).' bundles processed')
-  endif
-  return help_dirs
+func! vundle#installer#helptags()
+  let c = 0
+  for bundle in g:bundles | let c += s:helptags(bundle.rtpath()) | endfor
+  call s:log('Done. '.c.' bundles processed')
 endf
 
-func! vundle#installer#clean(bang) abort
+func! vundle#installer#clean(bang)
   let bundle_dirs = map(copy(g:bundles), 'v:val.path()') 
   let all_dirs = split(globpath(g:bundle_dir, '*'), "\n")
   let x_dirs = filter(all_dirs, '0 > index(bundle_dirs, v:val)')
-
-  if empty(x_dirs)
-    call s:log("All clean!")
-    return
+  if (!empty(x_dirs))
+    if ('!' == a:bang || input('Are you sure you want to remove '.len(x_dirs).' bundles?') =~? 'y')
+      exec '!rm -rf '.join(map(x_dirs, 'shellescape(v:val)'), ' ')
+    endif
   end
-
-  if (a:bang || input('Are you sure you want to remove '.len(x_dirs).' bundles? [ y/n ]:') =~? 'y')
-    let cmd = (has('win32') || has('win64')) ?
-    \           'rmdir /S /Q' :
-    \           'rm -rf'
-    exec '!'.cmd.' '.join(map(x_dirs, 'shellescape(v:val)'), ' ')
-  endif
 endf
 
 func! s:reload_bundles()
   " TODO: obtain Bundles without sourcing .vimrc
   silent source $MYVIMRC
   if filereadable($MYGVIMRC)| silent source $MYGVIMRC | endif
-  return g:bundles
 endf
 
-func! s:has_doc(rtp) abort
-  return isdirectory(a:rtp.'/doc')
-  \   && (!filereadable(a:rtp.'/doc/tags') || filewritable(a:rtp.'/doc/tags'))
-  \   && !(empty(glob(a:rtp.'/doc/*.txt')) && empty(glob(a:rtp.'/doc/*.??x')))
-endf
-
-func! s:helptags(rtp) abort
-  helptags `=a:rtp.'/doc'`
-endf
-
-func! s:sync(bang, bundle) abort
-  let git_dir = expand(a:bundle.path().'/.git')
-  if isdirectory(git_dir)
-    if !(a:bang) | return 0 | endif
-    let cmd = 'cd '.shellescape(a:bundle.path()).' && git pull'
-  else
-    let cmd = 'git clone '.a:bundle.uri.' '.shellescape(a:bundle.path())
+func! s:helptags(rtp)
+  if !(isdirectory(a:rtp.'/doc') && (!filereadable(a:rtp.'/doc/tags') || filewritable(a:rtp.'/doc/tags')))
+    return 0
   endif
-  silent exec '!'.cmd
+  helptags `=a:rtp.'/doc'`
   return 1
 endf
 
-func! s:install(bang, bundles) abort
-  return filter(copy(a:bundles), 's:sync(a:bang, v:val)')
+func! s:sync(bang, bundle) 
+  let git_dir = a:bundle.path().'/.git'
+  silent exec '!echo "* '.a:bundle.name.'" 2>&1 >>'. g:vundle_log
+  if isdirectory(git_dir)
+    if !(a:bang) | return 0 | endif
+    silent exec '!cd '.a:bundle.path().'; git pull 2>&1 >>'.g:vundle_log
+  else
+    silent exec '!git clone '.a:bundle.uri.' '.a:bundle.path().' 2>&1 >>'.g:vundle_log
+  endif
+  return 1
+endf
+
+func! s:install(bang, bundle)
+  let synced = s:sync(a:bang, a:bundle)
+  call s:helptags(a:bundle.rtpath())
+  call s:log(a:bundle.name.' '.(synced ? '': ' already').' installed')
+  if synced | call vundle#config#require(a:bundle) | endif
 endf
 
 " TODO: make it pause after output in console mode
 func! s:log(msg)
-  echo a:msg
+  if has('gui_running')
+    echo a:msg
+  else
+    " console vim requires to hit ENTER after each !cmd with stdout output
+    " workaround
+    silent exec '! echo '.a:msg.' >&2| cat >/dev/null' 
+  endif
 endf
