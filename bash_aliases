@@ -115,7 +115,7 @@ alias dci='git svn dcommit'
 alias rb='git svn rebase'
 alias gd='git diff'
 alias gdc='git diff --cached'
-alias gl='git lg | head -n $(expr $LINES - 2) ; echo ;'
+alias gl='git lg | fold -s -w $(expr $COLUMNS + 20) | head -n $(expr $LINES - 2);'
 alias gk='gitk --all'
 
 
@@ -183,6 +183,16 @@ alias gvo="vo -g"
 
 complete -F _aptitude -o default ap
 complete -F _svn -o default -X '@(*/.svn|*/.svn/|.svn|.svn/)' s
+
+
+#windows stuff
+if echo "$OS" | grep -iq "windows"
+then
+    alias vim='cyg-wrapper.sh "C:/Users/rwooden/vim/vim.exe" --binary-opt=-c,--cmd,-T,-t,--servername,--remote-send,--remote-expr'
+    alias gvim='cyg-wrapper.sh "C:/Users/rwooden/vim/gvim.exe" --cyg-verbose --fork=2 --binary-opt=-c,--cmd,-T,-t,--servername,--remote-send,--remote-expr'
+    alias g='cyg-wrapper.sh "C:/Users/rwooden/vim/gvim.exe" --cyg-verbose --fork=2 --binary-opt=-c,--cmd,-T,-t,--servername,--remote-send,--remote-expr'
+fi
+
 
 # completion stuff
 _tnote()

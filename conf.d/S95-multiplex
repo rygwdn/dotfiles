@@ -3,7 +3,11 @@
 SESS=zsh
 
 go=false
-if which tmux &> /dev/null
+if echo "$OS" | grep -qi "windows"
+then
+    : # running windows
+    echo "no multiplex, on windows"
+elif which tmux &> /dev/null
 then
     go=true
     list='tmux ls'
