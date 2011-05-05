@@ -3,10 +3,12 @@
 
 set mapleader=","
 
-map < :tabmove -1<CR>
-map > :tabmove +1<CR>
-map J gt
-map K gT
+map < <silent> :tabmove -1<CR>
+map > <silent> :tabmove +1<CR>
+
+map J <silent> :tabnext<CR>
+map K <silent> :tabprev<CR>
+
 js config.guioptions['D'] = ['Delicious Toolbar',['ybToolbar']];
 set go+=Tr
 
@@ -51,9 +53,27 @@ set visualbell
 
 loadplugins
 
+"backup
+js <<EOF
+
+function saveEm(event) {
+    var browser = gBrowser.getBrowserForTab(event.target);
+    plugins.penbackup.saveaddons("~/archives/firefox-addons.bak");
+    plugins.penbackup.savetabs("~/archives/firefox-tabs.bak");
+};
+
+var c = gBrowser.tabContainer;
+c.addEventListener("TabOpen", saveEm, false);
+c.addEventListener("TabMove", saveEm, false);
+c.addEventListener("TabClose", saveEm, false);
+
+EOF
+"endbackup
+
 "set tabclose=left,opener,previous,right
 "set tabopen=external:end,link:right,orphan:right
 set fbw+=alpha.glitch.com
+set fbw+=rdio.com
 
 command! gonew -nargs=1 js var args=<q-args>.split(","); var search = args[0].replace('"', "", 'g'); var open = args[1]; var matches = completion.runCompleter("buffer", search); if (matches.length > 0) { tabs.select(matches[0].id, false); } else { dactyl.execute("tabopen " + open); }
 
@@ -63,16 +83,23 @@ set passkeys+='.*\.google\.com/reader/.*':jkyr<Space><S-Space>
 
 
 " Gmail stuff
-autocmd LocationChange !'mail\.google\.com' :set strictfocus
-autocmd LocationChange 'mail\.google\.com'  :set nostrictfocus
+set strictfocus+=mail.google.com:laissez-faire
+"autocmd LocationChange !'mail\.google\.com' :unmap <Esc> <C-v><Esc><Esc>
+"autocmd LocationChange 'mail\.google\.com'  :map <Esc> <C-v><Esc><Esc>
 autocmd LocationChange !'mail\.google\.com' :set editor="gvim -f"
 autocmd LocationChange 'mail\.google\.com'  :set editor="gvim -f -c 'set ft=mail'"
+" ab -group extensions
+" map -group blah
 
-set passkeys+='https://mail\.google\.com':xsem!#rRaAvN[]{}z.IU=-gidac/?lujkonp<Esc>`y
+"set passkeys+=mail.google.com:xsem!#rRaAvN[]{}z.IU=-gidac/?lujkonp<Esc>`y
+set passkeys+=mail.google.com:ujkov<Return>pn`c/qxsyem!#rRaAfFN[]{}z.IULhT_l,gi,gs,gt,gd,ga,gc,gb,gk,gl,gp,*a,*n,*r,*u,*s,*t,<Ctrl-s>
 command! gm gonew gmail,https://mail.google.com/mail/?shva=1#inbox
 map <Leader>m :gm<CR>
+group gmail -locations=mail.google.com
+map ? <Pass>
+map <Esc> -b <Esc> <Esc><Pass>
+group user
 " end gmail stuff
-
 
 map <Leader>t :gonew toodledo,td<CR>
 map <Leader>c :gonew "google calendar",gc<CR>
@@ -84,6 +111,8 @@ map ^ <C-^>
 
 map * -js hints.show("b", {continue: true, count:0})
 map -modes hints * <Esc>
+
+"set passunknown=embed,insert,normal
 
 "bmark -title=Acorn             -keyword=ac   http://acorn.acadiau.ca/my/
 "bmark -title="Search PyPI"     -keyword=pypi http://pypi.python.org/pypi?%3Aaction=search&term=%s
