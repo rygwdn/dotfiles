@@ -21,9 +21,6 @@ set rtp+=~/.vim
 filetype indent plugin off
 filetype off
 
-set rtp+=~/.vim/lib/vundle
-call vundle#rc()
-
 runtime bundles.vim
 
 " setup runtime path using the excellent vim-pathogen:
@@ -372,6 +369,7 @@ autocmd FileType c set omnifunc=ccomplete#Complete
 
 "" Python stuff {{{
 autocmd FileType python compiler pylint
+autocmd FileType python setlocal foldmethod=indent
 " }}}
 
 " --------------------------------------------------- }}}
