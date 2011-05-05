@@ -1,3 +1,9 @@
+set nocompatible               " be iMproved
+filetype off                   " required!
+
+set rtp+=~/.vim/lib/vundle
+call vundle#rc()
+
 " Deps
 Bundle 'L9'
 
@@ -37,9 +43,9 @@ Bundle "pdc.vim"
 Bundle "tpope/vim-rails"
 Bundle "tpope/vim-cucumber"
 Bundle "vim-ruby/vim-ruby"
+Bundle "Rip-Rip/clang_complete"
 Bundle "msanders/cocoa.vim"
 Bundle "sukima/xmledit"
-Bundle "Rip-Rip/clang_complete"
 Bundle "vimoutliner/vimoutliner"
 Bundle "nvie/vim-rst-tables"
 Bundle "ingydotnet/yaml-vim"
@@ -94,4 +100,5 @@ Bundle "operator-camelize"
 " Git stuff
 Bundle "tpope/vim-fugitive"
 Bundle "tpope/vim-git"
+Bundle "int3/vim-extradite"
 Bundle "gitolite.vim"
