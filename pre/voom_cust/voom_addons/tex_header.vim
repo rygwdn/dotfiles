@@ -1,7 +1,3 @@
-if exists('g:voom_user_command')
-    execute g:voom_user_command
-endif
-
 python << EOF
 
 # Replace default headline construction procedure with a custom function:
