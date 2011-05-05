@@ -40,6 +40,8 @@
     insteadOf = gitolite:
 [url "git@github.com:rygwdn/"]
     insteadOf = github:
+[url "git@panther.colibri-software.com:"]
+    insteadOf = colibri:
 [rerere]
 	enabled = 1
 [branch]
