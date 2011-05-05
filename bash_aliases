@@ -46,7 +46,7 @@ alias cherokee="ssh linode -L 9090:localhost:9090 -t -C 'sudo killall cherokee-a
 
 alias g='&> /dev/null gvim'
 alias gr='g --remote-silent'
-which compdef &> /dev/null && compdef 'compadd $(gs --list)' gs
+#which compdef &> /dev/null && compdef 'compadd $(gs --list)' gs
 
 alias db2s='sudo su db2inst2 -c bash'
 
