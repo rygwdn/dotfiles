@@ -41,27 +41,27 @@
 // :susignout, :sulogout
 // Sign-out from StumbleUpon
 
-mappings.add([modes.NORMAL], ["<A-Esc>", "<M-Esc>", "<A-`>", "<M-`>"],
+group.mappings.add([modes.NORMAL], ["<A-Esc>", "<M-Esc>", "<A-`>", "<M-`>"],
 	"Show next page from StumbleUpon",
 	function() { stumble(0); });
 
-mappings.add([modes.NORMAL], ["<A-F1>", "<M-F1>", "<A-1>", "<M-1>"],
+group.mappings.add([modes.NORMAL], ["<A-F1>", "<M-F1>", "<A-1>", "<M-1>"],
 	"Add to favourites, show more like this \(StumbleUpon\)",
 	function() { su_rate(1, 0, 0, 0); });
 
-mappings.add([modes.NORMAL], ["<A-F2>", "<M-F2>", "<A-2>", "<M-2>"],
+group.mappings.add([modes.NORMAL], ["<A-F2>", "<M-F2>", "<A-2>", "<M-2>"],
 	"No more like this \(StumbleUpon\)",
 	function() { su_rate(0, 0, 0, 0); });
 
-mappings.add([modes.NORMAL], ["<A-F3>", "<M-F3>", "<A-3>", "<M-3>"],
+group.mappings.add([modes.NORMAL], ["<A-F3>", "<M-F3>", "<A-3>", "<M-3>"],
 	"Show StumbleUpon page review",
 	function() { su_website_info(0,'', 0); });
 
-mappings.add([modes.NORMAL], ["<A-/>", "<M-/>"],
+group.mappings.add([modes.NORMAL], ["<A-/>", "<M-/>"],
 	"Tag this page \(StumbleUpon\)",
 	function() { su_handle_tag_command(true); });
 
-mappings.add([modes.NORMAL], ["<C-F11>"],
+group.mappings.add([modes.NORMAL], ["<C-F11>"],
 	"Toggle StumbleUpon toolbar",
 	function() { su_toggle_toolbar(); });
 

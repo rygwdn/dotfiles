@@ -2,7 +2,7 @@
 XML.ignoreWhitespace = false;
 XML.prettyPrinting = false;
 var INFO =
-<plugin name="flashblock" version="1.0.2"
+<plugin name="flashblock" version="1.0.10"
         href="http://dactyl.sf.net/pentadactyl/plugins#flashblock-plugin"
         summary="Flash Blocker"
         xmlns={NS}>
@@ -32,7 +32,7 @@ var INFO =
     <item>
         <tags>'fbw' 'fbwhitelist'</tags>
         <spec>'fbwhitelist' 'fbw'</spec>
-        <type>stringlist</type>
+        <type>sitelist</type>
         <default></default>
         <description>
             <p>
@@ -78,7 +78,7 @@ var INFO =
 </plugin>;
 
 if ("noscriptOverlay" in window)
-    noscriptOverlay.safeAllow("chrome-data:", true, false);
+    noscriptOverlay.safeAllow("dactyl:", true, false);
 
 options.add(["flashblock", "fb"],
     "Enable blocking of flash animations",
@@ -86,10 +86,9 @@ options.add(["flashblock", "fb"],
     { setter: reload });
 options.add(["fbwhitelist", "fbw"],
     "Sites which may run flash animations without prompting",
-    "stringlist", "",
+    "sitelist", "",
     {
         completer: function (context) completion.visibleHosts(context),
-        domains: function (values) values,
         privateData: true,
         setter: reload,
         validator: function () true
@@ -112,13 +111,13 @@ group.commands.add(["flashtoggle", "flt"],
 
 group.mappings.add([modes.NORMAL], ["<Leader>fbwhitelist"],
     "Add the current site to the flash whitelist",
-    function () { whitelist.op("+", content.location.hostname) });
+    function () { whitelist.op("+", whitelist.parse(content.location.hostname)) });
 group.mappings.add([modes.NORMAL], ["<Leader>fbWhitelist"],
     "Toggle the current site in the flash whitelist",
     function () {
-        let host = content.location.hostname.toLowerCase();
+        let host = content.location.hostname;
         if (!removeHost(host))
-            whitelist.op("+", host);
+            whitelist.op("+", whitelist.parse(host));
     });
 
 var enabled = options.get("flashblock");
@@ -130,25 +129,22 @@ function reload(values) {
     //for (let [,t] in tabs.browsers)
     //    t.contentWindow.postMessage("flashblockReload", "*");
     postMessage(window.content, "flashblockReload");
-    if (isArray(values))
-        return array(values).map(String.toLowerCase).uniq().compact().array;
     return values;
 }
 
 function removeHost(host) {
     let len = whitelist.value.length;
     let uri = util.makeURI(host);
-    whitelist.value = whitelist.value.filter(function (f) !Styles.matchFilter(f, uri));
+    whitelist.value = whitelist.value.filter(function (f) !f(uri));
     return whitelist.value.length != len;
 }
 
 function onUnload() {
     group.events.unlisten(null);
 }
-group.events.listen(window, "flashblockCheckLoad", 
+group.events.listen(window, "flashblockCheckLoad",
     function checkLoadFlash(event) {
-        let uri = event.target.documentURIObject;
-        if(!enabled.value || whitelist.value.some(function (f) Styles.matchFilter(f, uri)))
+        if(!enabled.value || whitelist.getKey(event.target.documentURIObject))
             event.preventDefault();
         event.stopPropagation();
     }, true, true);
@@ -156,7 +152,7 @@ group.events.listen(window, "flashblockCheckLoad",
 XML.ignoreWhitespace = true;
 XML.prettyPrinting = false;
 var data = {
-    bindings: "chrome-data:text/xml," + encodeURIComponent('<?xml version="1.0"?>' +
+    bindings: "dactyl://data/text/xml," + encodeURIComponent('<?xml version="1.0"?>' +
       <e4x>
         <bindings
            xmlns="http://www.mozilla.org/xbl"
@@ -264,7 +260,7 @@ var data = {
                     myWindow.addEventListener("message", checkReplace, false);
 
                     if(this.src == this.ownerDocument.location)
-                        myWindow.location = 'chrome-data:application/xhtml+xml,' + encodeURIComponent('<?xml version="1.0" encoding="UTF-8"?>' +
+                        myWindow.location = 'dactyl://data/application/xhtml+xml,' + encodeURIComponent('<?xml version="1.0" encoding="UTF-8"?>' +
                                             '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">' +
                             <html xmlns="http://www.w3.org/1999/xhtml">
                                 <head><title></title></head>

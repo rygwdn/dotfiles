@@ -68,7 +68,7 @@ addCompleter("eval", function (context, func, obj, args) {
     if (args.length > 1)
         return [];
     if (!context.cache.js) {
-        context.cache.js = new JavaScript();
+        context.cache.js = JavaScript();
         context.cache.context = CompletionContext("");
     }
     let ctxt = context.cache.context;
