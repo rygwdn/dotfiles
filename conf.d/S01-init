@@ -5,7 +5,7 @@
 
 # Let me know my shell!
 echo Zsh
-SHELL="`which zsh`"
+export SHELL="`which zsh`"
 
 # this should compile/recompile all the files here..
 # runs threaded, because it's really slow :)
