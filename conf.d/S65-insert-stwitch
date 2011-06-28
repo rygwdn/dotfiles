@@ -10,7 +10,7 @@ function zle-line-init zle-keymap-select
 {
     export ZLE_VIMODE="${${KEYMAP/vicmd/N}/(main|viins)/I}"
     export ZLE_COLOR="${${KEYMAP/vicmd/$PR_BLUE}/(main|viins)/$PR_GREEN}"
-    setPrompts
+    rePrompt
     zle reset-prompt
 }
 

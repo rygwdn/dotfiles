@@ -2,7 +2,7 @@
 
 autoload -Uz vcs_info
 
-zstyle ':vcs_info:*' enable bzr git hg svn
+zstyle ':vcs_info:*' enable git bzr svn #hg
 zstyle ':vcs_info:(hg*|git*|bzr*):*' get-revision true
 zstyle ':vcs_info:(hg*|git*|bzr*):*' check-for-changes true
 
