@@ -183,28 +183,3 @@ alias gvo="vo -g"
 
 complete -F _aptitude -o default ap
 complete -F _svn -o default -X '@(*/.svn|*/.svn/|.svn|.svn/)' s
-
-
-#windows stuff
-if echo "$OS" | grep -iq "windows"
-then
-    alias vim='cyg-wrapper.sh "C:/Users/rwooden/vim/vim.exe" --binary-opt=-c,--cmd,-T,-t,--servername,--remote-send,--remote-expr'
-    alias gvim='cyg-wrapper.sh "C:/Users/rwooden/vim/gvim.exe" --cyg-verbose --fork=2 --binary-opt=-c,--cmd,-T,-t,--servername,--remote-send,--remote-expr'
-    alias g='cyg-wrapper.sh "C:/Users/rwooden/vim/gvim.exe" --cyg-verbose --fork=2 --binary-opt=-c,--cmd,-T,-t,--servername,--remote-send,--remote-expr'
-fi
-
-
-# completion stuff
-_tnote()
-{
-    local cur prev opts notes
-    COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="-h --help -e --editor -g --gvim -v --view -l --list -x --xml -c --create"
-    notes="`tnote --list | sed "s/ /\ /;"`"
-
-    COMPREPLY=( $(compgen -W "${opts} ${notes}" -- ${cur}) )
-    return 0
-}
-complete -F _tnote tnote
