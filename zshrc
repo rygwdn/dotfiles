@@ -1,5 +1,7 @@
 #! /bin/zsh
 
+source /etc/profile
+
 autoload -U compinit
 
 [ -z $HOST ] && export HOST=`hostname`
@@ -22,5 +24,3 @@ for snipplet in `find ~/.zsh/conf.d -type f \
 do
     source $snipplet
 done
-
-
