@@ -1,8 +1,13 @@
 set nocompatible               " be iMproved
 filetype off                   " required!
 
-set rtp+=~/.vim/lib/vundle
-call vundle#rc()
+if has("win32") || has("win64")
+    set rtp+=~/vimfiles/lib/vundle
+    call vundle#rc("~/vimfiles/bundle")
+else
+    set rtp+=~/.vim/lib/vundle
+    call vundle#rc()
+endif
 
 " Deps
 Bundle 'L9'
