@@ -10,7 +10,7 @@ func! vundle#installer#install(bang, ...) abort
   call vundle#config#require(bundles)
 
   call s:log("Installed bundles:\n".join((empty(installed) ? 
-  \      ['no new bundless installed'] : 
+  \      ['no new bundles installed'] : 
   \      map(installed, 'v:val.name')),"\n"))
 
   call vundle#installer#helptags(bundles)
@@ -58,7 +58,11 @@ func! s:has_doc(rtp) abort
 endf
 
 func! s:helptags(rtp) abort
-  helptags `=a:rtp.'/doc/'`
+  try
+    helptags `=a:rtp.'/doc/'`
+  catch
+    echohl Error | echo "Error generating helptags in ".a:rtp | echohl None
+  endtry
 endf
 
 func! s:sync(bang, bundle) abort
@@ -66,6 +70,11 @@ func! s:sync(bang, bundle) abort
   if isdirectory(git_dir)
     if !(a:bang) | return 0 | endif
     let cmd = 'cd '.shellescape(a:bundle.path()).' && git pull'
+
+    if (has('win32') || has('win64'))
+      let cmd = substitute(cmd, '^cd ','cd /d ','')  " add /d switch to change drives
+      let cmd = '"'.cmd.'"'                          " enclose in quotes
+    endif
   else
     let cmd = 'git clone '.a:bundle.uri.' '.shellescape(a:bundle.path())
   endif
