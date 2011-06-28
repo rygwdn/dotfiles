@@ -15,19 +15,15 @@ function dolink()
     tf=`readlink -f $file`
     [ "`readlink -f $hf`" = "$tf" ] && continue
 
-    if $win
+    if [ -e $hf ]
     then
-        [ -e $hf ] && rm -rf $hf
-        echo "copy $tf to $hf"
-        cp -r $tf $hf
+        echo $hf exists 1>&2
+    elif $win
+        echo "link $tf -> $hf"
+        [ -d $hf ] && mklink \d $tf $hf || mklink $tf $hf
     else
-        if [ -e $hf ]
-        then
-            echo $hf exists 1>&2
-        else
-            echo "link $tf -> $hf"
-            ln -s $tf $hf
-        fi
+        echo "link $tf -> $hf"
+        ln -s $tf $hf
     fi
 }
     
