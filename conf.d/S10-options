@@ -76,7 +76,7 @@ setopt multios              # multi redirection allowed
 setopt no_single_line_zle   # use multiline editor
 setopt no_sun_keyboard_hack # i don't use sun kb
 setopt vi                   # use bindkeys
-setopt no_xtrace            # do not debug by default
+#setopt no_xtrace            # do not debug by default
 setopt zle                  # use zsh le
 setopt prompt_subst         # allow substitutions in prompts
 

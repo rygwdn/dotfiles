@@ -5,6 +5,7 @@ autoload -Uz vcs_info
 zstyle ':vcs_info:*' enable git bzr svn #hg
 zstyle ':vcs_info:(hg*|git*|bzr*):*' get-revision true
 zstyle ':vcs_info:(hg*|git*|bzr*):*' check-for-changes true
+zstyle ':vcs_info:*' use-quilt false
 
 zstyle ':vcs_info:*:*' stagedstr "${PR_YELLOW}s"
 zstyle ':vcs_info:*:*' unstagedstr "${PR_RED}+"
@@ -12,12 +13,8 @@ zstyle ':vcs_info:hg*:*' hgrevformat "%r" # only show local rev.
 zstyle ':vcs_info:*:*' branchformat "%b:%r"
 
 VCS_FMT="${PR_BLUE}[%c%u${PR_GREEN}%b${PR_BLUE}]${PR_NO_COLOR}%m (%s)"
-# changes branch
 zstyle ':vcs_info:*' formats "${VCS_FMT}"
 zstyle ':vcs_info:*' actionformats "${PR_RED}(%a)${PR_NO_COLOR} ${VCS_FMT}"
-
-#disable long (but always correct) processing for large repos
-#zstyle ':vcs_info:hg*:netbeans' use-simple true
 zstyle ':vcs_info:bzr*' use-simple true
 
 zstyle ':vcs_info:hg*:*' get-bookmarks true
