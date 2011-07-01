@@ -13,69 +13,24 @@ if [ "$TERM" != "dumb" ]; then
 fi
 
 
-sp(){
-    smplayer "$@" &
-}
+alias cherokee="ssh linode -L 9090:localhost:9090 -t -C 'sudo killall cherokee-admin; sudo cherokee-admin -b'"
+alias psa='ps aux | grep -v grep | grep -e "^USER" -e '
+[[ `hostname` == "cherokee" ]] && alias screen='\screen -e x'
 
 
 alias ll='ls -l'
 alias la='ls -A'
 alias l='ls -CF'
-alias d='cd'
-alias psa='ps aux | grep -v grep | grep -e "^USER" -e '
 alias h='fc -l 0 | grep'
-alias cl='rm *~'
-alias work='. work'
-alias recup='sudo /etc/init.d/cupsys restart'
 alias pp='popd'
 alias pd='pushd'
-alias nnice='ionice -c2 -n7 nice -n10'
-alias cmmi='./configure && make && sudo make install'
-alias tt='sudo atop -r /var/log/atop.log'
 alias ap='sudo aptitude'
-alias up='my-net up && echo Yes || echo No'
 alias qmv='\qmv -f destination-only'
 alias upnup='ap update && ap full-upgrade'
 alias ack='ack-grep'
-alias ak='ack -a'
-alias chx='chmod +x'
-
-alias td='toodledo'
-
-alias cherokee="ssh linode -L 9090:localhost:9090 -t -C 'sudo killall cherokee-admin; sudo cherokee-admin -b'"
 
 alias g='&> /dev/null gvim'
-alias gr='g --remote-silent'
-#which compdef &> /dev/null && compdef 'compadd $(gs --list)' gs
-
-alias db2s='sudo su db2inst2 -c bash'
-
-alias dirs='dirs -v'
-
-
-# temp hack
-alias fu="fusermount -u"
-
-[[ `hostname` == "cherokee" ]] && alias screen='\screen -e x'
-[[ `hostname` != "razz" ]] && alias r='ssh razz'
-
-
-function media()
-{
-    gt=$1
-    [[ -z $gt ]] && gt=wired
-    mount ~/mnt/$gt
-    cd ~/mnt/$gt
-}
-
-function xr()
-{
-    to=-1
-    [[ "$1" == "2" ]] && to=0
-    [[ "$1" == "1" ]] && to=1
-    [[ $to < 0 ]] && echo "failed" && return 1
-    xrandr -s $to && ( kr avant-window-navigator &> /dev/null )
-}
+alias gvo="vo -g"
 
 
 function vcs()
@@ -111,57 +66,21 @@ alias add='vcs add'
 alias addp='vcs add --patch'
 alias addi='vcs add -i'
 
-alias dci='git svn dcommit'
-alias rb='git svn rebase'
 alias gd='git diff'
 alias gdc='git diff --cached'
 alias gl='git lg | fold -s -w $(expr $COLUMNS + 20) | head -n $(expr $LINES - 2);'
 alias gk='gitk --all'
 
 
-# pull examples from shell-fu
-function examples { lynx -width=$COLUMNS -nonumbers -dump "http://www.shell-fu.org/lister.php?tag=$1" | \
-sed -n '/^[a-zA-Z]/,$p' | egrep -v '^http|^javas|View Comm|HIDE|] \+|to Share|^ +\*|^ +[HV][a-z]* l|^ .*efu.*ep.*!$' | \
-sed -e '/^  *__*/N;s/\n$//g' | less -r; }
-
 # annoyances
 alias c='cd'
 alias d='cd'
 alias dpgk='dpkg'
 
-# share current tree over the web - http://www.shell-fu.org/lister.php?id=54
-function webshare()
-{
-    if [ x$1 = x ]
-    then
-        port=8080
-    elif expr "1 + $1" &> /dev/null
-    then
-        port=$1
-    else
-        echo "Invalid port"
-        return 1
-    fi
 
-    echo "Serve on:"
-    ifconfig | grep -o "inet addr:[^ ]*" | grep -v ":127" | sed "s/inet addr://;s/$/:$port/"
-    echo "Ctrl-C to quit"
-    python -m SimpleHTTPServer $port
-}
-
-alias webserve='webshare'
-
-alias md='mkdir -p'
-alias rd=rmdir
 alias ..='cd ..'
 alias ...='cd ../..'
 
-
-function rr ()
-{
-    sudo dhclient -r $@
-    sudo dhclient $@
-}
 
 # better gnome open command
 function o()
@@ -177,9 +96,4 @@ function o()
     done
 }
 
-alias here='ack "TODO[: ]*here"'
-
-alias gvo="vo -g"
-
 complete -F _aptitude -o default ap
-complete -F _svn -o default -X '@(*/.svn|*/.svn/|.svn|.svn/)' s
