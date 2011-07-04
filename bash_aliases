@@ -40,7 +40,7 @@ function vcs()
         svn "$@"
     else
         prog=`(
-            while [ $(pwd) != $HOME ] && [ $(pwd) != '/' ]
+            while [ "$(pwd)" != "$HOME" ] && [ "$(pwd)" != '/' ]
             do
                 [ -e .git ] && echo 'git' && break
                 [ -e .bzr ] && echo 'bzr' && break
