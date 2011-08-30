@@ -61,7 +61,7 @@ hostname=`hostname`
 hostname=`echo "$hostname" | sed 's/\.acadiau\.ca//'`
 
 # get host and set color
-if [ `id -u` -eq 0 ]; then
+if [ "`id -u`" -eq 0 ]; then
         Color='\[\033[1;31m\]'  # red background for root
 else
         case "$hostname" in
@@ -152,7 +152,7 @@ fi
 export PATH=$PATH:.:$HOME/bin
 [ -e /opt/local/bin ] && export PATH=$PATH:/opt/local/bin
 [ -e /usr/local/bin ] && export PATH=/usr/local/bin:$PATH
-[ -e $HOME/.cabal/bin ] && export PATH=$HOME/.cabal/bin:$PATH
+[ -e "$HOME/.cabal/bin" ] && export PATH=$HOME/.cabal/bin:$PATH
 export PATH=/var/lib/gems/1.8/bin:$PATH
 export PATH=$PATH:/usr/local/git/bin
 export PATH=/opt/subversion/bin:$PATH
