@@ -79,18 +79,22 @@ set backup                      " produce *~ backup files
 set backupext=~                 " add ~ to the end of backup files
 
 let g:temp_path = '/tmp' " default
+if has("win32")
+    let g:temp_path = "C:\\Temp"
+endif
+
 if has('python')
 python << EOF
 import os, vim
 
-_dirs = ["~/tmp/.vim", "~/.vim/tmp", "/tmp", "~/vimfiles/tmp"]
+_dirs = ["~/tmp/.vim", "~/.vim/tmp", "/tmp", "~/vimfiles/tmp", r"C:\Temp"]
 for _dir in _dirs:
     p = os.path.realpath(os.path.expanduser(_dir))
     if os.path.isdir(p):
 	vim.command("let g:temp_path='%s'" % p)
 	break
 else:
-    print 'Failed to set temp path'
+    vim.command("""echoerr "Failed to set temp path" """)
 
 try:
     del _dirs
