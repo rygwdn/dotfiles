@@ -1,0 +1,5 @@
+#!/bin/sh
+
+export SHELL=
+
+cyg-wrapper.sh "C:/Progra~1/vim/vim73/gvim.exe" --binary-opt=-c,--cmd,-T,-t,--servername,--remote-send,--remote-expr --fork=1 "$@"

@@ -1,0 +1,13 @@
+#!/bin/sh
+
+user=`git config --get user.email`
+
+days=0
+while [ $days -lt 5 ]
+do
+    days=`expr $days + 1`
+    commits=`git log --author=$user --relative-date --since="$days days ago" --oneline | wc -l`
+    [ $commits -gt 0 ] && break
+done
+
+git log --author=$user --relative-date --since="$days days ago"
