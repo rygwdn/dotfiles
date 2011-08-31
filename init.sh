@@ -27,10 +27,10 @@ function dolink()
         echo $hf exists 1>&2
     elif $win
     then
-        tf=`cygpath -w $tf`
-        hf=`cygpath -w $hf`
-        echo "mklink $tf -> $hf"
-        [ -d $hf ] && mklink \d $hf $tf || mklink $hf $tf
+        wtf=`cygpath -w $tf`
+        whf=`cygpath -w $hf`
+        echo "mklink $wtf -> $whf"
+        [ -d $tf ] && mklink '/D' $whf $wtf || mklink $whf $wtf
     else
         echo "link $tf -> $hf"
         ln -s $tf $hf
@@ -40,7 +40,7 @@ function dolink()
 
 for lfile in * */bash_aliases
 do
-    if [ $lfile != "init.sh" ]
+    if [ $lfile != "init.sh" ] && [ $lfile != "bin" ]
     then
         dolink $lfile
     fi
