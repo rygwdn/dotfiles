@@ -2,7 +2,7 @@
 XML.ignoreWhitespace = false;
 XML.prettyPrinting   = false;
 var INFO =
-<plugin name="jscompletion" version="1.0.1"
+<plugin name="jscompletion" version="1.0.2"
         href="http://dactyl.sf.net/pentadactyl/plugins#jscompletion-plugin"
         summary="JavaScript completion enhancements"
         xmlns={NS}>
@@ -27,10 +27,10 @@ function evalXPath(xpath, doc, namespace) {
             dactyl:     NS.uri,
             ns:         namespace
         }[prefix]),
-        XPathResult.UNORDERED_NODE_ITERATOR_TYPE,
+        XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE,
         null
     );
-    return (function () { try { let elem; while ((elem = res.iterateNext())) yield elem; } catch (e) {} })();
+    return (function () { for (let i = 0; i < res.snapshotLength; i++) yield res.snapshotItem(i); })();
 }
 
 let NAMESPACES = [
@@ -52,7 +52,7 @@ function addCompleter(names, fn) {
 function uniq(iter) {
     let seen = {};
     for (let val in iter)
-        if (!set.add(seen, val))
+        if (!Set.add(seen, val))
             yield val;
 }
 

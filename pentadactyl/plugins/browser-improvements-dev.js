@@ -28,7 +28,7 @@ function clickListener(event) {
     if (elem instanceof HTMLInputElement && elem.type === "submit")
         if (elem.ownerDocument.defaultView.top == content)
             if (event.button == 1)
-                dactyl.open([util.parseForm(elem)], dactyl.NEW_TAB);
+                dactyl.open(DOM(elem).formData, dactyl.NEW_TAB);
 }
 
 function keypressListener(event) {
@@ -38,12 +38,11 @@ function keypressListener(event) {
         if (isinstance(form.wrappedJSObject.submit, HTMLInputElement))
             buffer.followLink(form.wrappedJSObject.submit);
         else {
-            let event = events.create(form.ownerDocument, "submit", { cancelable: true });
-            if (events.dispatch(form, event))
+            if (!DOM(form).submit().canceled)
                 form.submit();
         }
     }
-    if (key == "<C-Return>" && isinstance(elem, [HTMLTextAreaElement, HTMLSelectElement]))
+    if (key == "<C-Return>" && elem.form && isinstance(elem, [HTMLTextAreaElement, HTMLSelectElement]))
         submit(elem.form);
 }
 

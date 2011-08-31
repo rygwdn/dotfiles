@@ -108,7 +108,14 @@ let onUnload = observer.closure.cleanup;
 
 function iterHeaders(type) {
     let win = buffer.focusedFrame;
-    let store = win.document.dactylStore || win.controllers.getControllerForCommand("dactyl-headers");
+    let store = win.document.dactylStore;
+    if (!store || !store.headers)
+        for (let i in util.range(0, win.controllers.getControllerCount())) {
+            let controller = win.controllers.getControllerAt(i);
+            if (controller.supportsCommand("dactyl-headers") && controller.wrappedJSObject instanceof Controller)
+                store = controller.wrappedJSObject;
+        }
+
     if (win.document.dactylStore)
         for (let [k, v] in values(win.document.dactylStore[type + "Headers"] || []))
             yield [k, v];
