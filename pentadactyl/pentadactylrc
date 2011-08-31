@@ -10,6 +10,13 @@ map > <silent> :tabmove +1<CR>
 map K <silent> :tabnext<CR>
 map J <silent> :tabprev<CR>
 
+" Allow defaults to work
+map <C-l> <Pass>
+map <C-k> <Pass>
+map <C-t> <Pass>
+map <C-w> <Pass>
+
+
 js config.guioptions['D'] = ['Delicious Toolbar',['ybToolbar']];
 set go+=TrB
 
