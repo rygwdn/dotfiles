@@ -118,13 +118,54 @@ map -modes hints * <Esc>
 
 "set passunknown=embed,insert,normal
 
-"bmark -title=Acorn             -keyword=ac   http://acorn.acadiau.ca/my/
-"bmark -title="Search PyPI"     -keyword=pypi http://pypi.python.org/pypi?%3Aaction=search&term=%s
-"bmark -title="Search PPA"      -keyword=ppa  https://launchpad.net/ubuntu/+ppas?name_filter=alsa?name_filter=%s
-"bmark -title="Gmail"           -keyword=gm   https://mail.google.com/mail/?shva=1#inbox
-"bmark -title="Google Calendar" -keyword=gc   https://www.google.com/calendar/render?gsessionid=tytkp42YyR2FoRo4F9zAGQ
-"bmark -title="Google Reader"   -keyword=gr   http://www.google.com/reader/view/
-"bmark -title="reddit"          -keyword=rd   http://www.reddit.com/
-"bmark -title="Toodledo"        -keyword=td   http://www.toodledo.com/
-"bmark -title="Java6 API"       -keyword=j6   http://download.oracle.com/javase/6/docs/api/
-"bmark -title="Facebook"        -keyword=fb   https://facebook.com
+js <<EOF
+plugins.pluginDl = {
+    downloadPlugin: function(pluginName) {
+        let url = "http://dactyl.sourceforge.net/plugins/" + pluginName + ".js";
+        //let filename = url.split(/\/+/g).pop();
+        let filename = pluginName + ".js"
+
+        var f = io.File("~/.pentadactyl/plugins/" + filename);
+
+        if(!f.exists()) 
+            f.create(0x00,0644);
+
+        var persist = Cc['@mozilla.org/embedding/browser/nsWebBrowserPersist;1'].createInstance(Ci.nsIWebBrowserPersist);
+        const nsIWBP = Components.interfaces.nsIWebBrowserPersist;
+        const flags = nsIWBP.PERSIST_FLAGS_REPLACE_EXISTING_FILES;
+        persist.persistFlags = flags | nsIWBP.PERSIST_FLAGS_FROM_CACHE;
+        persist.saveURI(makeURI(url), null, null, null, null, f);
+    }
+};
+
+EOF
+
+"command! gonew -nargs=1 js var args=<q-args>.split(","); var search = args[0].replace('"', "", 'g'); var open = args[1]; var matches = completion.runCompleter("buffer", search); if (matches.length > 0) { tabs.select(matches[0].id - 1, false); } else { dactyl.execute("tabopen " + open); }
+command downloadPlugin -nargs=1 js plugins.pluginDl.downloadPlugin(<q-args>)
+
+command updatePlugins
+\ downloadPlugin browser-improvements-dev
+\ downloadPlugin curl-dev
+\ downloadPlugin flashblock-dev
+\ downloadPlugin http-headers-dev
+\ downloadPlugin jscompletion-dev
+\ downloadPlugin useragent-dev
+\ rehash
+
+"command! updatePlugin -nargs=1 
+"
+"command updatePlugins
+"\ stuff here
+
+command addbmarks
+\ bmark -title=Acorn             -keyword=ac   http://acorn.acadiau.ca/my/
+\ bmark -title="Search Google"   -keyword=g    http://www.google.ca/search?q=%s
+\ bmark -title="Search PyPI"     -keyword=pypi http://pypi.python.org/pypi?%3Aaction=search&term=%s
+\ bmark -title="Search PPA"      -keyword=ppa  https://launchpad.net/ubuntu/+ppas?name_filter=alsa?name_filter=%s
+\ bmark -title="Gmail"           -keyword=gm   https://mail.google.com/mail/?shva=1#inbox
+\ bmark -title="Google Calendar" -keyword=gc   https://www.google.com/calendar/render?gsessionid=tytkp42YyR2FoRo4F9zAGQ
+\ bmark -title="Google Reader"   -keyword=gr   http://www.google.com/reader/view/
+\ bmark -title="reddit"          -keyword=rd   http://www.reddit.com/
+\ bmark -title="Toodledo"        -keyword=td   http://www.toodledo.com/
+\ bmark -title="Java6 API"       -keyword=j6   http://download.oracle.com/javase/6/docs/api/
+\ bmark -title="Facebook"        -keyword=fb   https://facebook.com
