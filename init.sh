@@ -1,5 +1,12 @@
 #!/bin/bash
 
+if test "$1" = "cp"
+then
+    copy=true
+else
+    copy=false
+fi
+
 if test "$1" = "win" || test "$OS" = "Windows_NT"
 then
     win="true"
@@ -15,32 +22,36 @@ function dolink()
     hf=$HOME/.`basename $file`
     if $win
     then
-        [ $file = "vim" ] && hf=$HOME/vimfiles
-        [ $file = "vim/vimrc" ] && file="vim/_vimrc" && hf=$HOME/_vimrc
+        [ $file = "vim" ] && hf="$HOME/vimfiles"
+        [ $file = "vim/vimrc" ] && file="vim/_vimrc" && hf="$HOME/_vimrc"
     fi
 
-    tf=`readlink -f $file`
-    [ "`readlink -f $hf`" = "$tf" ] && echo "$file" already linked && return
+    tf=`readlink -f "$file"`
+    [ "`readlink -f "$hf"`" = "$tf" ] && echo "$file" already linked && return
 
-    if [ -e $hf ]
+    if [ -e "$hf" ]
     then
         echo $hf exists 1>&2
+    elif $copy
+    then
+        echo "copy $tf -> $hf"
+        cp -r "$tf" "$hf"
     elif $win
     then
-        wtf=`cygpath -w $tf`
-        whf=`cygpath -w $hf`
+        wtf=`cygpath -w "$tf"`
+        whf=`cygpath -w "$hf"`
         echo "mklink $wtf -> $whf"
-        [ -d $tf ] && mklink '/D' $whf $wtf || mklink $whf $wtf
+        [ -d "$tf" ] && mklink '/D' "$whf" "$wtf" || mklink "$whf" "$wtf"
     else
         echo "link $tf -> $hf"
-        ln -s $tf $hf
+        ln -s "$tf" "$hf"
     fi
 }
     
 
 for lfile in * */bash_aliases
 do
-    if [ $lfile != "init.sh" ] && [ $lfile != "bin" ]
+    if [ $lfile != "init.sh" ] && [ $lfile != "bin" ] && [ -e $lfile ]
     then
         dolink $lfile
     fi
