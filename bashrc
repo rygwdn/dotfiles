@@ -7,7 +7,7 @@
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
 
-[ -e /c/cygwin/bin ] && export CYGWIN=true
+[ -e /c/cygwin/bin ] && export CYGWIN=true || CYGWIN=false
 
 $CYGWIN && export PATH="$PATH":"/c/cygwin/bin"
 
@@ -154,10 +154,10 @@ fi
 
 if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases
-elif [ -f ~/conf/zsh/bash_aliases ]; then
-    . ~/.bash_aliases
 elif [ -f ~/.zsh/bash_aliases ]; then
-    . ~/.bash_aliases
+    . ~/.zsh/bash_aliases
+elif [ -f ~/conf/zsh/bash_aliases ]; then
+    . ~/conf/zsh/bash_aliases
 fi
 
 
