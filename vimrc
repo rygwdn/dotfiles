@@ -64,6 +64,7 @@ set linebreak                   " wrap on words, not in the middle of them
 set wrap                        " ...
 set guioptions-=T               " no toolbar
 "set formatoptions=l            " don't insert eols, just wrap
+set clipboard=unnamed           " use "* as the default register
 
 let maplocalleader=','          " all my macros start with ,
 let mapleader=","               " set <Leader> to , instead of \
@@ -318,9 +319,10 @@ au BufNewFile,BufRead *.pl set ft=prolog
 
 "" C, C++ stuff {{{
 " make 'make' not spew junk
-au filetype c,cpp set makeprg=make\ -s\ -i
+au filetype c,cpp set makeprg=g++\ -Wall\ -g\ -o\ \"%<\"\ \"%\"
 au filetype c,cpp set spell
-au filetype c,cpp nmap <LocalLeader>m :silent make<cr>
+au filetype c,cpp nmap <LocalLeader>m :w<CR>:silent make<cr>
+au filetype c,cpp nmap <LocalLeader>r :!start vimrun %<<cr>
 au filetype c,cpp setl autowrite
 " }}}
 
