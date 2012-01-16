@@ -1,20 +1,35 @@
+extends c
+
+snippet f "method/functoin"
+${1:void} ${2:funcname}($3) {
+    $0
+}
+endsnippet
+
+snippet inc "#include local header (inc)" !
+#include ${1:<}${2:`!p snip.rv = snip.basename + '.h'`}${1/</>/}
+endsnippet
+
+snippet for "for int loop (fori)" !
+for (${1:int} ${2:i} = ${3:0}; $2 ${4:<} ${5:count}; ${6:$2++}) {
+	${0:/* code */}
+}
+endsnippet
+
 snippet fore "for each int loop"
-for (${1:std::${2:vector<${3:double}>}}${4:::iterator} ${5:i} = ${6:${7:v}${8:.begin()}}; ${9:$5} < ${10:$7}${11:.end()}; ${12:++$5})
-{
+for (${1:std::${2:vector<${3:double}>}}${4:::iterator} ${5:i} = ${6:${7:v}${8:.begin()}}; ${9:$5} < ${10:$7}${11:.end()}; ${12:++$5}) {
 	${0:/* code */}
 }
 endsnippet
 
 snippet forec "const for each int loop"
-for (${1:std::${2:vector<${3:double}>}}${4:::const_iterator} ${5:i} = ${6:${7:v}${8:.begin()}}; ${9:$5} < ${10:$7}${11:.end()}; ${12:++$5})
-{
+for (${1:std::${2:vector<${3:double}>}}${4:::const_iterator} ${5:i} = ${6:${7:v}${8:.begin()}}; ${9:$5} < ${10:$7}${11:.end()}; ${12:++$5}) {
 	${0:/* code */}
 }
 endsnippet
 
 snippet forer "reverse for each int loop"
-for (${1:std::${2:vector<${3:double}>}}${4:::reverse_iterator} ${5:i} = ${6:${7:v}${8:.begin()}}; ${9:$5} < ${10:$7}${11:.end()}; ${12:++$5})
-{
+for (${1:std::${2:vector<${3:double}>}}${4:::reverse_iterator} ${5:i} = ${6:${7:v}${8:.begin()}}; ${9:$5} < ${10:$7}${11:.end()}; ${12:++$5}) {
 	${0:/* code */}
 }
 endsnippet
