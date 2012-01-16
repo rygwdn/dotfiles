@@ -7,9 +7,12 @@
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
 
+[ -e /c/cygwin/bin ] && export CYGWIN=true
+
+$CYGWIN && export PATH="$PATH":"/c/cygwin/bin"
 
 # I choose ZSH!!
-if which zsh &> /dev/null && ! echo $SHELL | grep -q zsh
+if ! $CYGWIN && which zsh &> /dev/null && ! echo $SHELL | grep -q zsh
 then
     if zsh
     then
@@ -59,6 +62,7 @@ shopt -s checkwinsize
 # deal with stupid hostnames
 hostname=`hostname`
 hostname=`echo "$hostname" | sed 's/\.acadiau\.ca//'`
+hostname=`echo "$hostname" | sed 's/^CI[0-9]*$/Work/'`
 
 # get host and set color
 if [ "`id -u`" -eq 0 ]; then
@@ -75,6 +79,11 @@ else
                 dyna174* )
                         Color='\[\033[01;32m\]'
                         ;;
+                # Work
+                CI*|Work )
+                        Color='\[\033[0;36m\]'
+                        #Color='\[\033[01;32m\]'
+                        ;;
                 * )
 		    # red for unknown host
                         Color='\[\033[1;31m\]'
@@ -89,24 +98,23 @@ fi
 
 PROMPT_COMMAND="$PROMPT_COMMAND;"'DIR=`pwd|sed -e "s!$HOME!~!"`; if [ ${#DIR} -gt 20 ]; then CurDir=`echo $DIR | sed -e "s!\([^/]\{1,2\}\)[^/]*/!\1/!g"`; else CurDir=$DIR; fi'
 
-PS1="${Color}$psprepend$hostname:\[\033[00m\]\$CurDir\$ "
+PS1="${Color}$psprepend$hostname:\[\033[0;32m\]\$CurDir\[\033[33m\$(__git_ps1)\033[0m\]\$ "
+
+#PS1='\[\033]0;$MSYSTEM:\w\007
+#\033[32m\]\u@\h \[\033[33m\w$(__git_ps1)\033[0m\]
+#$ '
+
 
 
 # If this is an xterm set the title to user@host:dir
 case "$TERM" in
-xterm*|rxvt*)
+xterm*|rxvt*|cygwin)
     PROMPT_COMMAND="$PROMPT_COMMAND;"'echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD/$HOME/~}\007"'
     ;;
 *)
     ;;
 esac
 
-
-if [ "$scr" == script ]
-then
-    PS1='\$'
-    PROMPT_COMMAND=
-fi
 
 # catch failures
 #catch_failure()
@@ -146,7 +154,12 @@ fi
 
 if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases
+elif [ -f ~/conf/zsh/bash_aliases ]; then
+    . ~/.bash_aliases
+elif [ -f ~/.zsh/bash_aliases ]; then
+    . ~/.bash_aliases
 fi
+
 
 
 export PATH=$PATH:.:$HOME/bin
