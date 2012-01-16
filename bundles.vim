@@ -14,7 +14,7 @@ Bundle 'L9'
 
 " Snippets
 "Bundle "UltiSnips"
-Bundle "rygwdn/ultisnips"
+Bundle "SirVer/ultisnips"
 
 " Colorschemes
 Bundle "candycode.vim"
@@ -27,8 +27,11 @@ Bundle "blackboard.vim"
 "Bundle "rygwdn/vim-ipython"
 Bundle "rygwdn/vim-pylint"
 Bundle "rygwdn/latexbox-rubber"
+Bundle "mephux/vim-javascript.git"
+Bundle "Twinside/vim-codeoverview"
 
 if has("python")
+    Bundle "VOoM"
     Bundle "rygwdn/vim-async"
     Bundle "rygwdn/rope-omni"
 python << EOF
@@ -80,7 +83,6 @@ Bundle "ervandew/taglisttoo"
 Bundle "michaeljsmith/vim-indent-object"
 
 " Utility
-Bundle "VOoM"
 "Bundle "ZoomWin"
 Bundle "YankRing.vim"
 Bundle "netrw.vim"
