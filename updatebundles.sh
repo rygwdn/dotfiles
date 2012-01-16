@@ -30,6 +30,6 @@ $nobundle && echo "Now to :BundleInstall from vim" && exit 0
 
 echo "Update bundles"
 $install && bi='BundleInstall' || bi='BundleInstall!'
-vim -u bundles.vim -e -c $bi -c 'q'
+vim -u bundles.vim -e +$bi +'qall'
 
 exit 0
