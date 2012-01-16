@@ -3,6 +3,7 @@ func! vundle#config#bundle(arg, ...)
   call s:rtp_rm_a()
   call add(g:bundles, bundle)
   call s:rtp_add_a()
+  return bundle
 endf
 
 func! vundle#config#init()
@@ -40,10 +41,11 @@ endf
 
 func! s:parse_name(arg)
   let arg = a:arg
+  let git_proto = exists('g:vundle_default_git_proto') ? g:vundle_default_git_proto : 'https'
 
   if    arg =~? '^\s*\(gh\|github\):\S\+'
   \  || arg =~? '^[a-z0-9][a-z0-9-]*/[^/]\+$'
-    let uri = 'https://github.com/'.split(arg, ':')[-1]
+    let uri = git_proto.'://github.com/'.split(arg, ':')[-1]
     if uri !~? '\.git$'
       let uri .= '.git'
     endif
@@ -55,7 +57,7 @@ func! s:parse_name(arg)
     let name = split( substitute(uri,'/\?\.git\s*$','','i') ,'\/')[-1]
   else
     let name = arg
-    let uri  = 'https://github.com/vim-scripts/'.name.'.git'
+    let uri  = git_proto.'://github.com/vim-scripts/'.name.'.git'
   endif
   return {'name': name, 'uri': uri, 'name_spec': arg }
 endf
@@ -69,17 +71,17 @@ func! s:rtp_add_a()
 endf
 
 func! s:rtp_rm(dir) abort
-  exec 'set rtp-='.fnameescape(expand(a:dir))
-  exec 'set rtp-='.fnameescape(expand(a:dir.'/after'))
+  exec 'set rtp-='.fnameescape(expand(a:dir, 1))
+  exec 'set rtp-='.fnameescape(expand(a:dir.'/after', 1))
 endf
 
 func! s:rtp_add(dir) abort
-  exec 'set rtp^='.fnameescape(expand(a:dir))
-  exec 'set rtp+='.fnameescape(expand(a:dir.'/after'))
+  exec 'set rtp^='.fnameescape(expand(a:dir, 1))
+  exec 'set rtp+='.fnameescape(expand(a:dir.'/after', 1))
 endf
 
 func! s:expand_path(path) abort
-  return simplify(expand(a:path))
+  return simplify(expand(a:path, 1))
 endf
 
 let s:bundle = {}
