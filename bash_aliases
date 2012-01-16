@@ -2,7 +2,11 @@
 
 # Set up ls
 if [ "$TERM" != "dumb" ]; then
-    if which dircolors &> /dev/null
+    if $CYGWIN
+    then
+        alias ls='ls --color'
+        export LS_COLORS=
+    elif which dircolors &> /dev/null
     then
         eval "`dircolors -b`"
         alias ls='ls --color=auto'
@@ -81,6 +85,8 @@ __git_shortcut addp add --patch
 __git_shortcut addi add -i
 __git_shortcut gd diff
 __git_shortcut gdc diff --cached
+__git_shortcut br branch
+__git_shortcut show show
 alias st='git st'
 
 alias gl='git lg | fold -s -w $(expr $COLUMNS + 20) | head -n $(expr $LINES - 2);'
