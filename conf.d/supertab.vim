@@ -10,4 +10,5 @@ let g:SuperTabLongestEnhanced = 1
 let g:SuperTabCrMapping = 0
 
 "au FileType java call SuperTabSetDefaultCompletionType("<c-x><c-u>")
+au FileType cpp call SuperTabSetDefaultCompletionType("<c-x><c-n>")
 "au BufWinEnter */sc/ta/*/marks call SuperTabSetDefaultCompletionType("<c-x><c-l>")
