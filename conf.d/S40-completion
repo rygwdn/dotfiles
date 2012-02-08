@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 
-autoload -U compinit
-compinit
+#autoload -U compinit
+#compinit
 
 #[ Generic ]############################################
 #Trying without cache for now

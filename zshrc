@@ -1,5 +1,7 @@
 #! /bin/zsh
 
+source /etc/profile
+
 autoload -U compinit
 
 [ -z $HOST ] && export HOST=`hostname`
@@ -13,14 +15,12 @@ else
     compinit -d $zsh_cache
 fi
 
-for snipplet in `find ~/.zsh/conf.d -type f \
+find ~/.zsh/conf.d -type f \
     -name 'S*' -and \
     -not -iname '*.zwc' -and \
     -not -iname '*~' -and \
     -not -iname '*.old' \
-    | sort`
+    | sort | while read snipplet
 do
-    source $snipplet
+    source "$snipplet"
 done
-
-
