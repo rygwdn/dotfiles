@@ -8,6 +8,7 @@ bindkey -v "[F" end-of-line
 
 bindkey -v "[3~" delete-char
 bindkey -v "" backward-delete-char
+bindkey -v "" backward-delete-char
 bindkey -v "[1~" beginning-of-line
 bindkey -v "[4~" end-of-line
 bindkey -v "[5~" backward-word
@@ -31,9 +32,6 @@ bindkey -v "^V" quoted-insert
 bindkey -v "^W" backward-kill-word
 bindkey -v "^O" push-line # push current command into buffer, then pull back
 bindkey -v "^S" push-line # (stash) push current command into buffer, then pull back
-
-bindkey -v "^H" run-help
-bindkey -v "^h" run-help
 
 # alow for editing of the command line with $EDITOR
 # http://zshwiki.org/home/examples/zlewidgets
