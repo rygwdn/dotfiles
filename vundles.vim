@@ -28,7 +28,7 @@ Bundle "blackboard.vim"
 Bundle "rygwdn/vim-pylint"
 Bundle "rygwdn/latexbox-rubber"
 Bundle "mephux/vim-javascript.git"
-Bundle "Twinside/vim-codeoverview"
+"Bundle "Twinside/vim-codeoverview"
 
 if has("python")
     Bundle "VOoM"
@@ -57,7 +57,8 @@ Bundle "jQuery"
 Bundle "vimoutliner/vimoutliner"
 "Bundle "nvie/vim-rst-tables"
 Bundle "ingydotnet/yaml-vim"
-
+Bundle "jceb/vim-orgmode"
+Bundle "utl.vim"
 
 " Search
 "Bundle "IndexedSearch"
@@ -73,14 +74,16 @@ Bundle "matchit.zip"
 
 " Navigation
 "Bundle "Marks-Browser"
-Bundle "FuzzyFinder"
+"Bundle "FuzzyFinder"
 "Bundle "taglist.vim"
 Bundle "ervandew/taglisttoo"
+Bundle "majutsushi/tagbar"
 
 " Operations
-"Bundle "tpope/vim-repeat"
-"Bundle "tpope/vim-surround"
+Bundle "tpope/vim-repeat"
+Bundle "tpope/vim-surround"
 Bundle "michaeljsmith/vim-indent-object"
+Bundle "tpope/vim-speeddating"
 
 " Utility
 "Bundle "ZoomWin"
@@ -95,6 +98,8 @@ Bundle "bufkill.vim"
 Bundle "session.vim--Odding"
 Bundle "rygwdn/vim-conque"
 Bundle "ervandew/supertab"
+Bundle "chrisbra/NrrwRgn"
+Bundle "kien/ctrlp.vim"
 if v:version >= 703
     Bundle "sjl/gundo.vim"
 endif
