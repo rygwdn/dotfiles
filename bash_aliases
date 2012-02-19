@@ -87,6 +87,8 @@ __git_shortcut gd diff
 __git_shortcut gdc diff --cached
 __git_shortcut br branch
 __git_shortcut show show
+__git_shortcut rb rebase
+__git_shortcut rbi rebase -i
 alias st='git st'
 
 alias gl='git lg | fold -s -w $(expr $COLUMNS + 20) | head -n $(expr $LINES - 2);'
