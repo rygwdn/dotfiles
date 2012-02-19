@@ -21,7 +21,7 @@ set rtp+=~/.vim
 filetype indent plugin off
 filetype off
 
-runtime bundles.vim
+runtime vundles.vim
 
 " setup runtime path using the excellent vim-pathogen:
 " http://github.com/tpope/vim-pathogen
