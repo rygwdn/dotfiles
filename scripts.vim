@@ -1,4 +1,4 @@
-if did_filetype()	" filetype already set..
+if did_filetype() && expand("%") !~? "pentadactyl.txt"	" filetype already set..
     finish		" ..don't do these checks
 endif
 
