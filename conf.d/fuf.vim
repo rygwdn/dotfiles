@@ -1,10 +1,10 @@
 " Like textmate's command-t, but better
 
-let g:fuzzy_matching_limit = 20
-map <leader>ff :FufFile<CR>
-map <leader>fr :FufCoverageFile<CR>
-map <leader>b :FufBuffer<CR>
-nmap <space> :FufBuffer<CR>
+"let g:fuzzy_matching_limit = 20
+"map <leader>ff :FufFile<CR>
+"map <leader>fr :FufCoverageFile<CR>
+"map <leader>b :FufBuffer<CR>
+"nmap <space> :FufBuffer<CR>
 
 " abbrev for recursive
 let g:fuf_abbrevMap = {"^\*" : ["**/",],}
