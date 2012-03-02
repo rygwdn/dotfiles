@@ -1,4 +1,4 @@
-"use strict";
+/* use strict */
 XML.ignoreWhitespace = false;
 XML.prettyPrinting   = false;
 var INFO =
@@ -13,7 +13,7 @@ var INFO =
         This plugin provides advanced completion functions for
         DOM functions, eval, and some other special functions.
         For instance,
-        <ex>:js content.document.getElementById("<k name="Tab"/></ex>
+        <ex>:js content.document.getElementById("<k name="Tab" link="c_&lt;Tab>"/></ex>
         should provide you with a list of all element IDs
         present on the current web page. Many other DOM
         methods are provided, along with their namespaced variants.
