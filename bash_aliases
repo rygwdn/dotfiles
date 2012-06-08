@@ -16,7 +16,6 @@ if [ "$TERM" != "dumb" ]; then
     fi
 fi
 
-
 alias cherokee="ssh linode -L 9090:localhost:9090 -t -C 'sudo killall cherokee-admin; sudo cherokee-admin -b'"
 alias psa='ps aux | grep -v grep | grep -e "^USER" -e '
 [[ `hostname` == "cherokee" ]] && alias screen='\screen -e x'
@@ -91,7 +90,7 @@ __git_shortcut rb rebase
 __git_shortcut rbi rebase -i
 alias st='git st'
 
-alias gl='git lg | fold -s -w $(expr $COLUMNS + 20) | head -n $(expr $LINES - 2);'
+alias gl='lg -n-1 --all'
 alias gk='gitk --all'
 
 
