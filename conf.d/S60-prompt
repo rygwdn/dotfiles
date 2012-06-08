@@ -40,6 +40,60 @@ function getdir
     echo $CurDir
 }
 
+export HAS_GIT=$(which git &> /dev/null && echo true || echo false)
+export LASTPWD=
+export GITDIR=
+export VCS_PROMPT=
+
+function git_ps1() {
+    if $HAS_GIT; then
+        if [[ "$PWD" != "$LASTPWD" ]]; then
+            export LASTPWD=$PWD
+            export GITDIR="$(git rev-parse --git-dir 2>/dev/null)"
+        fi
+        local g=$GITDIR
+        if [[ -n "$g" ]]; then
+            local r
+            local b
+            if [ -d "$g/rebase-apply" ]; then
+                if test -f "$g/rebase-apply/rebasing"; then
+                    r="|rebase"
+                elif test -f "$g/rebase-apply/applying"; then
+                    r="|am"
+                else
+                    r="|am/rebase"
+                fi
+                b="$(git symbolic-ref HEAD 2>/dev/null)"
+            elif [ -f "$g/rebase-merge/interactive" ]; then
+                r="|rebase-i"
+                b="$(cat "$g/rebase-merge/head-name")"
+            elif [ -d "$g/rebase-merge" ]; then
+                r="|rebase-m"
+                b="$(cat "$g/rebase-merge/head-name")"
+            elif [ -f "$g/MERGE_HEAD" ]; then
+                r="|merging"
+                b="$(git symbolic-ref HEAD 2>/dev/null)"
+            else
+                if [ -f "$g/BISECT_LOG" ]; then
+                    r="|bisecting"
+                fi
+                b="$(cut -f2 -d" " "$g/HEAD")"
+                if [[ "${b##refs/heads/}" == "${b}" ]]; then
+                    if ! b="$(git symbolic-ref HEAD 2>/dev/null)"; then
+                        if ! b="$(git describe --exact-match HEAD 2>/dev/null)"; then
+                            b="$(cut -c1-7 "$g/HEAD")..."
+                        fi
+                    fi
+                fi
+            fi
+            export VCS_PROMPT=`printf "%s" "(${b##refs/heads/}$r)"`
+        else
+            export VCS_PROMPT=
+        fi
+    else
+        export VCS_PROMPT=
+    fi
+}
 
 windows=`echo $OS | grep -iq 'windows' && echo true || echo false`
 
@@ -55,8 +109,10 @@ function setPrompts
     export PS1_DIR=`getdir`
     rePrompt
 
-    if ! $windows
+    if $windows
     then
+        git_ps1
+    else
         DISABLE_CHPWD=true vcs_info
     fi
 
@@ -64,6 +120,7 @@ function setPrompts
     [[ -n "$PROJECT" ]] && RPROMPT+=' ${PR_RED}(${PR_BLUE}${PROJECT}${PR_RED})'
     [[ -n "${VIRTUALENV_PROMPT}" ]] && RPROMPT+=' ${PR_GREEN}${VIRTUALENV_PROMPT}'
     [[ -n "${vcs_info_msg_0_}" ]] && RPROMPT+=" ${vcs_info_msg_0_}"
+    [[ -n "${VCS_PROMPT}" ]] && RPROMPT+=" ${VCS_PROMPT}"
     [[ -n "${PR_NO_COLOR}" ]] && RPROMPT+='${PR_NO_COLOR}'
     export RPROMPT
 }
