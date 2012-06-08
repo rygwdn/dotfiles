@@ -2,7 +2,7 @@
 
 # Set up ls
 if [ "$TERM" != "dumb" ]; then
-    if $CYGWIN
+    if [[ $TERM == cygwin ]]
     then
         alias ls='ls --color'
         export LS_COLORS=

@@ -1,4 +1,6 @@
 #!/usr/bin/env zsh
 
+[ -e ~/.zsh/bash_aliases ] && bash_source ~/.zsh/bash_aliases
 [ -e ~/.bash_aliases ] && bash_source ~/.bash_aliases
+[ -e ~/.bash_aliases_local ] && bash_source ~/.bash_aliases_local
 [ -e ~/.zsh_aliases ] && source ~/.zsh_aliases

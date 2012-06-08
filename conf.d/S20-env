@@ -10,6 +10,8 @@ EMAIL="rygwdn@gmail.com"
 FULLNAME="Ryan Wooden"
 TZ="America/Halifax"
 
+[[ -z $CYGWIN ]] && CYGWIN=nodosfilewarning
+
 PATH=/usr/local/bin:$PATH
 PATH=$PATH:/var/lib/gems/1.8/bin
 PATH=$HOME/.cabal/bin:$PATH
@@ -59,7 +61,7 @@ then
 fi
 
 # Enable colors in grep
-export GREP_OPTIONS="--color=auto"
+#export GREP_OPTIONS="--color=auto"
 
 # local stuff
 LC_ALL='en_US.UTF-8'
