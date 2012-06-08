@@ -4,7 +4,7 @@ setopt TRANSIENT_RPROMPT
 
 # get host and set color
 case "$ZHOST" in
-    razz )
+    razz|work )
         Color=$PR_LIGHT_CYAN
         ;;
     jazz )

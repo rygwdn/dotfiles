@@ -13,6 +13,8 @@ elif [[ $ZHOST =~ "linode" ]]; then
     ZHOST="linode"
 elif [[ $ZHOST =~ "acadiau\.ca" ]]; then
     ZHOST="acadia"
+elif [[ $ZHOST =~ "CI000" ]]; then
+    ZHOST="work"
 else
     ZHOST="other"
 fi
