@@ -13,16 +13,16 @@ to support monitoring of failed test cases via vim's error format,
 eclim provides a custom TestNG listener which must be installed into
 your build environment.
 
-1. The first step is to place the eclim-misc.jar file in your TestNG
+1. The first step is to place the eclim-testng.jar file in your TestNG
    classpath you have configured for ant.  You can find this jar file
-   in your $ECLIPSE_HOME/plugins/org.eclim_version/ directory.
+   in your $ECLIPSE_HOME/plugins/org.eclim.jdt_version/ directory.
 
 2. The second step is to add the listener attribute to your testng
    task which references the required eclim testng listener:
 
    >
         ...
-      <testng ... listener="org.eclim.misc.testng.TestNgListener">
+      <testng ... listener="org.eclim.testng.TestNgListener">
         ...
 
    <

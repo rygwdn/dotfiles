@@ -8,8 +8,8 @@ As stated in the project description, eclim's main goal is to bring
 Eclipse functionality to the Vim editor.  Here you will find
 documentation on the functionality that eclim provides.
 
-Note: For installation instructions please see the install guide
-  (|guides-install|).
+Note: For installation instructions please see the install guide (|guides-
+  install|).
 
 The eclim documentation is broken up into two parts.  The first is the
 comprehensive documentation which details the usage and purpose of
@@ -41,8 +41,8 @@ other categories.
 
 - :EclimSettings - Allows you to view / edit the global settings
   (|vim-settings|). For project level settings see the
-  :ProjectSettings command on the project documentation page
-  (|vim-common-project|).
+  |:ProjectSettings| command on the project documentation page (|vim-
+  common-project|).
 
 *:EclimDisable*
 

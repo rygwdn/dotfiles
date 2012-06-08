@@ -5,7 +5,7 @@
 "
 " License:
 "
-" Copyright (C) 2005 - 2010  Eric Van Dewoestine
+" Copyright (C) 2005 - 2011  Eric Van Dewoestine
 "
 " This program is free software: you can redistribute it and/or modify
 " it under the terms of the GNU General Public License as published by
@@ -87,7 +87,7 @@ function s:HelpWindow()
     let index += 1
   endwhile
 
-  botright new
+  new
 endfunction " }}}
 
 " BufferHelp(lines, orientation, size) {{{
@@ -110,8 +110,12 @@ function! eclim#help#BufferHelp(lines, orientation, size)
   endif
 
   silent! noautocmd exec a:size . orient . "new " . escape(name, ' ')
-  let b:eclim_temp_window = 1
-  setlocal nowrap winfixheight
+  if a:orientation == 'vertical'
+    setlocal winfixwidth
+  else
+    setlocal winfixheight
+  endif
+  setlocal nowrap
   setlocal noswapfile nobuflisted nonumber
   setlocal buftype=nofile bufhidden=delete
   nnoremap <buffer> <silent> ? :bd<cr>

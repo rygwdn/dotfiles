@@ -105,10 +105,10 @@ Generating test method stubs.
 =============================
 
 While editing junit files, eclim provides functionality to generate
-test method stubs similar to the method override / impl
-(|vim-java-impl|) functionality provided for non-test-case classes.
-The only difference is that instead of :JavaImpl, you use :JUnitImpl
-to open the window of possible methods to implement.
+test method stubs similar to the method override / impl (|vim-java-
+impl|) functionality provided for non-test-case classes.  The only
+difference is that instead of :JavaImpl, you use :JUnitImpl to open
+the window of possible methods to implement.
 
 To determine what class the current test case is for, eclim expects
 that the standard naming convention for test cases is followed, where

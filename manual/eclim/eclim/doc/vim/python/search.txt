@@ -17,7 +17,7 @@ perform a search for that element by issuing the command
 
 If only one result is found and that result is in the current source
 file, the cursor will be moved to the element found.  Otherwise, on
-single result matches, the value of g:EclimPythonSearchSingleResult
+single result matches, the value of |g:EclimPythonSearchSingleResult|
 will be consulted for the action to take.  If there are multiple
 results, the location list will be opened with the list of results.
 
@@ -53,6 +53,16 @@ Vim Variables
 
   - 'edit' - open the result in the current window.
 
+  - 'tabnew' - open the result in a new tab.
+
   - 'lopen' - open the location list to display the result.
+
+  This setting overrides the global default for all supported language
+  types which can be set using the g:EclimDefaultFileOpenAction
+  setting which accepts the same possible values.
+
+- g:EclimLocationListHeight (Default: 10) - Sets the height in lines
+  of the location list window when eclim opens it to display search
+  results.
 
 vim:ft=eclimhelp

@@ -43,8 +43,8 @@ starting eclimd and then attempting to execute some project dependent
 functionality, the functionality appears to do nothing or eclim
 complains that the project could not be determined.  If you have
 existing projects created in eclipse and eclim is not finding them,
-then the likely cause is that your projects are located in a
-non-default workspace location.
+then the likely cause is that your projects are located in a non-
+default workspace location.
 
 For the answer to how to specify the location of your workspace when
 starting eclimd, please see the faq (|eclim-workspace|) devoted to
@@ -110,6 +110,19 @@ follow its directions on adding the following to your vimrc:
 
    <
 
+
+*ts_signs_misplaced*
+
+
+Code validation signs are showing up on the wrong lines.
+========================================================
+
+This is most likely a result of eclipse being setup to use a different
+file encoding than vim, most likely cp1251 (windows-1251) vs utf-8.
+You should be able to resolve this issue by setting eclipse's default
+encoding (|eclim-encoding|) accordingly.
+
+If you're unsure what encoding to use, try using utf-8.
 
 *ts_exception*
 

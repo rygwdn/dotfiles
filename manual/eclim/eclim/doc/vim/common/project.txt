@@ -155,11 +155,35 @@ may use Vim's command line completion to complete the project name.
 
   Refreshes all projects.
 
+*:ProjectBuild*
+
+- :ProjectBuild [<project>]
+
+  Builds the current or supplied project.
+
 *:ProjectInfo*
 
 - :ProjectInfo [<project>]
 
   Echo info about the current or supplied project.
+
+  *g:EclimProjectStatusLine*
+  Eclim supports displaying info about the current project in vim's
+  status line by adding a call to
+  eclim#project#util#ProjectStatusLine() to your statusline option:
+
+  >
+     set statusline=%<%f\ %M\ %h%r%=%-10.(%l,%c%V\ %{eclim#project#util#ProjectStatusLine()}%)\ %P
+
+  <
+
+  By default, this will just include the project name, but you can
+  customize the output by setting g:EclimProjectStatusLine:
+
+  >
+     let g:EclimProjectStatusLine = 'eclim(p=${name}, n=${natures})'
+
+  <
 
 *:ProjectOpen*
 
@@ -198,12 +222,14 @@ may use Vim's command line completion to complete the project name.
 
 *:ProjectProblems*
 
-- :ProjectProblems [<project>] Populates vim's quickfix with a list of
-  all eclipse build errors and warnings for the current, or specific
-  project, and all related projects.  Very similar to eclipse's
-  "Problems" view.  By default, if the current quickfix list
+- :ProjectProblems[!] [<project>] Populates vim's quickfix with a list
+  of all eclipse build errors and warnings for the current, or
+  specific project, and all related projects.  Very similar to
+  eclipse's "Problems" view.  By default, if the current quickfix list
   represents a problems list, then as you save source files this list
   will be updated accordingly.
+
+  Appending '!' limits the problem results to just errors.
 
   Note: Problems are only reported for those projects that have an
     associated builder in their .project file.  If a project is not
@@ -262,6 +288,8 @@ may use Vim's command line completion to complete the project name.
 
   - S - Opens the current file in a new split.
 
+  - | (pipe) - Opens the current file in a new vertical split.
+
   - T - Opens the current file in a new tab.
 
   - o - Toggles folding / unfolding of a directory, or opens a window
@@ -301,6 +329,9 @@ may use Vim's command line completion to complete the project name.
     with the directory path in the tree where this mapping was
     executed.
 
+  - Y - Yanks the path of the current file/directory to your
+    clipboard.
+
   - ? - View the help buffer
 
   Configuration
@@ -335,7 +366,7 @@ may use Vim's command line completion to complete the project name.
     will be echoed as you move the cursor around.
 
   *g:EclimProjectTreeSharedInstance*
-  - g:EclimProjectTreeSharedInstance (Default: 0)
+  - g:EclimProjectTreeSharedInstance (Default: 1)
 
     When non 0, a tree instance with the same list of projects will be
     shared across vim tabs.  This allows you to have the same project
@@ -359,6 +390,17 @@ may use Vim's command line completion to complete the project name.
     List of mappings which link file patterns to the available actions
     for opening files that match those patterns.  Note that the first
     mapping is the list is used as the default (<cr>).
+
+  Note: ProjectTree honors vim's 'wildignore' option by filtering out
+    files matching those patterns from the tree. The 'A' mapping will
+    toggle the display of those files along with other hidden files
+    and directories.
+
+*:ProjectTreeToggle*
+
+- :ProjectTreeToggle
+
+  Toggles (opens/closes) the project tree for the current project.
 
 *:ProjectsTree*
 
@@ -413,8 +455,8 @@ may use Vim's command line completion to complete the project name.
 - :ProjectTodo
 
   Searches all the source files in the project (those with extensions
-  included in g:EclimTodoSearchExtensions) for the fixme / todo
-  pattern (defined by g:EclimTodoSearchPattern) and adds all
+  included in |g:EclimTodoSearchExtensions|) for the fixme / todo
+  pattern (defined by |g:EclimTodoSearchPattern|) and adds all
   occurrences to the current location list.
 
 *:Todo*
@@ -452,38 +494,5 @@ may use Vim's command line completion to complete the project name.
 
     Defines a list of file extensions that will be searched for the
     todo / fixme entries.
-
-
-Tracker
-=======
-
-*:TrackerTicket*
-
-- :TrackerTicket <ticket_id>
-
-  Opens the supplied ticket via your web browser for the configured
-  tracking system configured via org.eclim.project.tracker.
-
-  Configuration
-
-  Eclim Settings
-
-  *org.eclim.project.tracker*
-  - org.eclim.project.tracker Url used to view tickets in your ticket
-    tracking software. This url supports the '<id>' placeholder which
-    will be replaced with the ticket id.
-
-    Ex. An example setting for a Trac installation:
-
-    >
-       org.eclim.project.tracker=http://somedomain.com/trac/ticket/<id>
-
-    <
-
-    In addition to being used by :TrackerTicket, this setting is also
-    used in conjunction with :VcsLog to enable linking of ticket ids
-    of the form #ticket_id (#1234) found in user supplied commit
-    comments.  You may also specify other patterns to match by setting
-    the g:EclimVcsTrackerIdPatterns variable.
 
 vim:ft=eclimhelp

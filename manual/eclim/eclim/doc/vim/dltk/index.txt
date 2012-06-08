@@ -4,7 +4,6 @@
 Dltk (Dynamic Languages Toolkit)
 ********************************
 
-- Dltk Build Path ()
 The dltk plugin in eclipse is used to provide shared functionality for
 those languages which eclim supports that are based on the dltk
 platform.  Currently, these languages include Php (|vim-php-index|)

@@ -4,27 +4,11 @@
 Python
 ******
 
-- Python Validation ()
-  - Configuration (#configuration)
-- Python Code Completion ()
-- Python Search ()
-  - Element Search (#element-search)
-  - Configuration (#configuration)
-- Python Regex Testing ()
-  - Configuration (#configuration)
-- Django ()
-  - Django manage.py (#django-manage-py)
-  - Configuration (#configuration)
-  - Django python support (#django-python-support)
-  - Django html template support (#django-html-template-support)
-  - Configuration (#id1)
 - Python Validation (|vim-python-validate|)
 
 - Python Code Completion (|vim-python-complete|)
 
 - Python Search (|vim-python-search|)
-
-- Python Regex Testing (|vim-python-regex|)
 
 - Django (|vim-python-django|)
 
@@ -54,16 +38,16 @@ Minimum Requirements:
        So if you want to leverage eclim's rope support, you will need
        to recompile gvim against python 2.5 or higher or find a site
        which provides a pre-compiled version for you.  Here are is one
-       such site providing binaries for python 2.5 and 2.6: gooli.org 
-       (http://www.gooli.org/blog/gvim-72-with-python-2526-support-win
-       dows-binaries/)
+       such site providing binaries for python 2.5 and 2.6: gooli.org
+       (http://www.gooli.org/blog/gvim-72-with-python-2526-support-
+       windows-binaries/)
 
 Functionality Utilizing Rope
    - code completion (|vim-python-complete|)
 
    - find element definition (|vim-python-search|)
 
-   - :PyLint
+   - |:PyLint|
 
 Configuration
 

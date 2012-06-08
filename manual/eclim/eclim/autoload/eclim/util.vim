@@ -8,7 +8,7 @@
 "
 " License:
 "
-" Copyright (C) 2005 - 2010  Eric Van Dewoestine
+" Copyright (C) 2005 - 2012  Eric Van Dewoestine
 "
 " This program is free software: you can redistribute it and/or modify
 " it under the terms of the GNU General Public License as published by
@@ -47,6 +47,19 @@ function! eclim#util#Balloon(message)
     let message = substitute(message, '\n', ' ', 'g')
   endif
   return message
+endfunction " }}}
+
+" CompilerExists(compiler) {{{
+" Check whether a particular vim compiler is available.
+function! eclim#util#CompilerExists(compiler)
+  if !exists('s:compilers')
+    redir => compilers
+    silent compiler
+    redir END
+    let s:compilers = split(compilers, '\n')
+    call map(s:compilers, 'fnamemodify(v:val, ":t:r")')
+  endif
+  return index(s:compilers, a:compiler) != -1
 endfunction " }}}
 
 " DelayedCommand(command, [delay]) {{{
@@ -116,9 +129,16 @@ function! s:EchoLevel(message, level, highlight)
   if a:message != "0" && g:EclimLogLevel >= a:level
     exec "echohl " . a:highlight
     redraw
-    for line in split(a:message, '\n')
-      echom line
-    endfor
+    if mode() == 'n'
+      for line in split(a:message, '\n')
+        echom line
+      endfor
+    else
+      " if we aren't in normal mode then use regular 'echo' since echom
+      " messages won't be displayed while the current mode is displayed in
+      " vim's command line.
+      echo a:message . "\n"
+    endif
     echohl None
   endif
 endfunction " }}}
@@ -149,11 +169,12 @@ function! eclim#util#EscapeBufferName(name)
   return substitute(name, '\(.\{-}\)\[\(.\{-}\)\]\(.\{-}\)', '\1[[]\2[]]\3', 'g')
 endfunction " }}}
 
-" Exec(cmd) {{{
+" Exec(cmd [,output]) {{{
 " Used when executing ! commands that may be disrupted by non default vim
 " options.
-function! eclim#util#Exec(cmd)
-  call eclim#util#System(a:cmd, 1)
+function! eclim#util#Exec(cmd, ...)
+  let exec_output = len(a:000) > 0 ? a:000[0] : 0
+  return eclim#util#System(a:cmd, 1, exec_output)
 endfunction " }}}
 
 " ExecWithoutAutocmds(cmd, [events]) {{{
@@ -218,11 +239,34 @@ function! eclim#util#GetEncoding()
   return encoding
 endfunction " }}}
 
-" GetOffset() {{{
-" Gets the byte offset for the current cursor position.
-function! eclim#util#GetOffset()
-  let offset = line2byte(line('.')) - 1
-  let offset += col('.') - 1
+" GetOffset([line, col]) {{{
+" Gets the byte offset for the current cursor position or supplied line, col.
+function! eclim#util#GetOffset(...)
+  let lnum = a:0 > 0 ? a:000[0] : line('.')
+  let cnum = a:0 > 1 ? a:000[1] : col('.')
+  let offset = 0
+
+  " handle case where display encoding differs from the underlying file
+  " encoding
+  if &fileencoding != '' && &encoding != '' && &fileencoding != &encoding
+    let prev = lnum - 1
+    if prev > 0
+      let lineEnding = &ff == 'dos' ? "\r\n" : "\n"
+      " convert each line to the file encoding and sum their lengths
+      let offset = eval(
+        \ join(
+        \   map(
+        \     range(1, prev),
+        \     'len(iconv(getline(v:val), &encoding, &fenc) . "' . lineEnding . '")'),
+        \   '+'))
+    endif
+
+  " normal case
+  else
+    let offset = line2byte(lnum) - 1
+  endif
+
+  let offset += cnum - 1
   return offset
 endfunction " }}}
 
@@ -376,37 +420,6 @@ function! eclim#util#GetPathEntry(file)
   return 0
 endfunction " }}}
 
-" GetVimWidth() {{{
-function! eclim#util#GetVimWidth()
-  " edge case for the command line window
-  if &ft == 'vim' && bufname('%') == '[Command Line]'
-    return winwidth(winnr())
-  endif
-
-  let curwin = winnr()
-  let width = 0
-  try
-    let lastwin = curwin
-    noautocmd winc h
-    while winnr() != lastwin
-      let lastwin = winnr()
-      noautocmd winc h
-    endwhile
-
-    let width = winwidth(lastwin)
-
-    noautocmd winc l
-    while winnr() != lastwin
-      let lastwin = winnr()
-      let width += winwidth(lastwin) + 1
-      noautocmd winc l
-    endwhile
-  finally
-    noautocmd exec curwin . 'winc w'
-  endtry
-  return width
-endfunction " }}}
-
 " GetVisualSelection(line1, line2, default) {{{
 " Returns the contents of, and then clears, the last visual selection.
 " If default is set, the default range will be honor.
@@ -480,11 +493,11 @@ endfunction " }}}
 " Focuses the window containing the supplied buffer name or buffer number.
 " Returns 1 if the window was found, 0 otherwise.
 function! eclim#util#GoToBufferWindow(buf)
-  if type(a:buf) == 0
+  if type(a:buf) == g:NUMBER_TYPE
     let winnr = bufwinnr(a:buf)
   else
     let name = eclim#util#EscapeBufferName(a:buf)
-    let winnr = bufwinnr(bufnr('^' . name))
+    let winnr = bufwinnr(bufnr('^' . name . '$'))
   endif
   if winnr != -1
     exec winnr . "winc w"
@@ -548,19 +561,40 @@ endfunction " }}}
 " To determine element equality both '==' and 'is' are tried as well as
 " ^element$ to support a regex supplied element string.
 function! eclim#util#ListContains(list, element)
-  let string = type(a:element) == 1 ? a:element : escape(string(a:element), '\')
+  let string = type(a:element) == g:STRING_TYPE ?
+    \ a:element : escape(string(a:element), '\')
   for element in a:list
     if element is a:element ||
         \ (type(element) == type(a:element) && element == a:element)
       return 1
     else
-      let estring = type(element) == 1 ? element : string(element)
+      let estring = type(element) == g:STRING_TYPE ? element : string(element)
       if estring =~ '^' . string . '$'
         return 1
       endif
     endif
   endfor
   return 0
+endfunction " }}}
+
+" Make(bang, args) {{{
+" Executes make using the supplied arguments.
+function! eclim#util#Make(bang, args)
+  let makefile = findfile('makefile', '.;')
+  let makefile2 = findfile('Makefile', '.;')
+  if len(makefile2) > len(makefile)
+    let makefile = makefile2
+  endif
+  let cwd = getcwd()
+  let save_mlcd = g:EclimMakeLCD
+  exec 'lcd ' . fnamemodify(makefile, ':h')
+  let g:EclimMakeLCD = 0
+  try
+    call eclim#util#MakeWithCompiler('eclim_make', a:bang, a:args)
+  finally
+    exec 'lcd ' . escape(cwd, ' ')
+    let g:EclimMakeLCD = save_mlcd
+  endtry
 endfunction " }}}
 
 " MakeWithCompiler(compiler, bang, args) {{{
@@ -584,34 +618,52 @@ function! eclim#util#MakeWithCompiler(compiler, bang, args, ...)
     set shellpipe=>\ %s\ 2<&1
   endif
 
+  if a:compiler =~ 'ant\|maven\|mvn'
+    runtime autoload/eclim/java/test.vim
+    if exists('*eclim#java#test#ResolveQuickfixResults')
+      augroup eclim_make_java_test
+        autocmd!
+        autocmd QuickFixCmdPost make
+          \ call eclim#java#test#ResolveQuickfixResults(['junit', 'testng'])
+      augroup END
+    endif
+  endif
+
   try
     unlet! g:current_compiler b:current_compiler
     exec 'compiler ' . a:compiler
     let make_cmd = substitute(&makeprg, '\$\*', a:args, '')
 
+    if g:EclimMakeLCD
+      let w:quickfix_dir = getcwd()
+      let dir = eclim#project#util#GetCurrentProjectRoot()
+      if dir != ''
+        exec 'lcd ' . escape(dir, ' ')
+      endif
+    endif
+
     " windows machines where 'tee' is available
     if (has('win32') || has('win64')) && executable('tee')
-      let outfile = g:EclimTempDir . '/eclim_make_output.txt'
-      let teefile = eclim#cygwin#CygwinPath(outfile)
-      let command = '!cmd /c "' . make_cmd . ' 2>&1 | tee "' . teefile . '" "'
-
       doautocmd QuickFixCmdPre make
-      call eclim#util#Exec(command)
-      if filereadable(outfile)
+      let resultfile = eclim#util#Exec(make_cmd, 2)
+      if filereadable(resultfile)
         if a:bang == ''
-          exec 'cfile ' . escape(outfile, ' ')
+          exec 'cfile ' . escape(resultfile, ' ')
         else
-          exec 'cgetfile ' . escape(outfile, ' ')
+          exec 'cgetfile ' . escape(resultfile, ' ')
         endif
-        call delete(outfile)
+        call delete(resultfile)
       endif
-      doautocmd QuickFixCmdPost make
+      silent doautocmd QuickFixCmdPost make
 
     " all other platforms
     else
       call eclim#util#EchoTrace('make: ' . make_cmd)
       exec 'make' . a:bang . ' ' . a:args
     endif
+  catch /E42\>/
+    " ignore 'E42: No Errors' which occurs when the make has qf results, but a
+    " QuickFixCmdPost filters them all out.
   finally
     if exists('saved_compiler')
       unlet! g:current_compiler b:current_compiler
@@ -624,6 +676,12 @@ function! eclim#util#MakeWithCompiler(compiler, bang, args, ...)
     if has('win32') || has('win64')
       let &shellpipe = saved_shellpipe
     endif
+    if exists('w:quickfix_dir')
+      exec 'lcd ' . escape(w:quickfix_dir, ' ')
+      unlet w:quickfix_dir
+    endif
+
+    silent! autocmd! eclim_make_java_test
   endtry
 endfunction " }}}
 
@@ -641,6 +699,18 @@ endfunction " }}}
 function! eclim#util#MarkSave()
   let s:markCol = col("'`")
   return line("''")
+endfunction " }}}
+
+" Pad(string, length, [char]) {{{
+" Pad the supplied string.
+function! eclim#util#Pad(string, length, ...)
+  let char = a:0 > 0 ? a:1 : ' '
+
+  let string = a:string
+  while len(string) < a:length
+    let string .= char
+  endwhile
+  return string
 endfunction " }}}
 
 " ParseArgs(args) {{{
@@ -679,6 +749,9 @@ function! eclim#util#ParseArgs(args)
         let escape = 0
       endif
     else
+      if escape && char != ' '
+        let arg .= '\'
+      endif
       let arg .= char
       let escape = 0
     endif
@@ -711,7 +784,7 @@ function! eclim#util#ParseLocationEntries(entries, ...)
     let dict = s:ParseLocationEntry(entry)
 
     " partition by severity
-    if type(entries) == 4 " dictionary
+    if type(entries) == g:DICT_TYPE
       " empty key not allowed
       let type = dict.type == '' ? ' ' : tolower(dict.type)
       if !has_key(entries, type)
@@ -726,7 +799,7 @@ function! eclim#util#ParseLocationEntries(entries, ...)
   endfor
 
   " re-assemble severity partitioned results
-  if type(entries) == 4 " dictionary
+  if type(entries) == g:DICT_TYPE
     let results = []
     if has_key(entries, 'e')
       let results += remove(entries, 'e')
@@ -753,13 +826,27 @@ endfunction " }}}
 " s:ParseLocationEntry(entry) {{{
 function! s:ParseLocationEntry(entry)
   let entry = a:entry
-  let file = substitute(entry, '\(.\{-}\)|.*', '\1', '')
-  let line = substitute(entry, '.*|\([0-9]\+\) col.*', '\1', '')
-  let col = substitute(entry, '.*col \([0-9]\+\)|.*', '\1', '')
-  let message = substitute(entry, '.*col [0-9]\+|\(.\{-}\)\(|.*\|$\)', '\1', '')
-  let type = substitute(entry, '.*|\(e\|w\)$', '\1', '')
-  if type == entry
+  if type(entry) == g:DICT_TYPE
+    let file = entry.filename
+    let line = entry.line
+    let col = entry.column
+    let message = entry.message
     let type = ''
+    if has_key(entry, 'warning')
+      let type = entry.warning ? 'w' : 'e'
+    endif
+
+  " FIXME: should be safe to remove this block after all commands have gone
+  " through the json conversion.
+  else
+    let file = substitute(entry, '\(.\{-}\)|.*', '\1', '')
+    let line = substitute(entry, '.*|\([0-9]\+\) col.*', '\1', '')
+    let col = substitute(entry, '.*col \([0-9]\+\)|.*', '\1', '')
+    let message = substitute(entry, '.*col [0-9]\+|\(.\{-}\)\(|.*\|$\)', '\1', '')
+    let type = substitute(entry, '.*|\(e\|w\)$', '\1', '')
+    if type == entry
+      let type = ''
+    endif
   endif
 
   if has('win32unix')
@@ -968,7 +1055,7 @@ endfunction " }}}
 " ShowCurrentError() {{{
 " Shows the error on the cursor line if one.
 function! eclim#util#ShowCurrentError()
-  if mode() != 'n'
+  if mode() != 'n' || expand('%') == ''
     return
   endif
 
@@ -976,10 +1063,6 @@ function! eclim#util#ShowCurrentError()
   if message != ''
     " remove any new lines
     let message = substitute(message, '\n', ' ', 'g')
-
-    if len(message) > (&columns - 1)
-      let message = strpart(message, 0, &columns - 4) . '...'
-    endif
 
     call eclim#util#WideMessage('echo', message)
     let s:show_current_error_displaying = 1
@@ -1016,8 +1099,11 @@ function! eclim#util#Simplify(file)
   return file
 endfunction " }}}
 
-" System(cmd, [exec]) {{{
+" System(cmd, [exec, exec_results]) {{{
 " Executes system() accounting for possibly disruptive vim options.
+" exec (0 or 1): whether or not to use exec instead of system
+" exec_results (0, 1, or 2): 0 to not return the results of an exec, 1 to
+"   return the results, or 2 to return the filename containing the results.
 function! eclim#util#System(cmd, ...)
   let saveshell = &shell
   let saveshellcmdflag = &shellcmdflag
@@ -1043,7 +1129,6 @@ function! eclim#util#System(cmd, ...)
     else
       set shell=/bin/sh
     endif
-    set shell=/bin/sh
     set shellcmdflag=-c
     set shellpipe=2>&1\|\ tee
     set shellquote=
@@ -1053,84 +1138,122 @@ function! eclim#util#System(cmd, ...)
     set shellxquote=
   endif
 
-  if len(a:000) > 0 && a:000[0]
-    let result = ''
-    let begin = localtime()
-    try
-      exec a:cmd
-    finally
-      call eclim#util#EchoTrace('exec: ' . a:cmd, localtime() - begin)
-    endtry
-  else
-    let begin = localtime()
-    try
-      let result = system(a:cmd)
-    finally
-      call eclim#util#EchoTrace('system: ' . a:cmd, localtime() - begin)
-    endtry
-  endif
+  try
+    " use exec
+    if len(a:000) > 0 && a:000[0]
+      let cmd = a:cmd
+      let begin = localtime()
+      let exec_output = len(a:000) > 1 ? a:000[1] : 0
+      if exec_output
+        let outfile = g:EclimTempDir . '/eclim_exec_output.txt'
+        if has('win32') || has('win64') || has('win32unix')
+          let cmd = substitute(cmd, '^!', '', '')
+          let cmd = substitute(cmd, '^"\(.*\)"$', '\1', '')
+          if executable('tee')
+            let teefile = has('win32unix') ? eclim#cygwin#CygwinPath(outfile) : outfile
+            let cmd = '!cmd /c "' . cmd . ' 2>&1 | tee "' . teefile . '" "'
+          else
+            let cmd = '!cmd /c "' . cmd . ' >"' . outfile . '" 2>&1 "'
+          endif
+        else
+          let cmd .= ' 2>&1| tee "' . outfile . '"'
+        endif
+      endif
 
-  let &shell = saveshell
-  let &shellcmdflag = saveshellcmdflag
-  let &shellquote = saveshellquote
-  let &shellslash = saveshellslash
-  let &shelltemp = saveshelltemp
-  let &shellxquote = saveshellxquote
+      try
+        exec cmd
+      finally
+        call eclim#util#EchoTrace('exec: ' . cmd, localtime() - begin)
+      endtry
 
-  " If a System call is executed at startup, it appears to interfere with
-  " vim's setting of 'shellpipe' and 'shellredir' to their shell specific
-  " values.  So, if we detect that the values we are restoring look like
-  " uninitialized defaults, then attempt to mimic vim's documented
-  " (:h 'shellpipe' :h 'shellredir') logic for setting the proper values based
-  " on the shell.
-  " Note: still doesn't handle more obscure shells
-  if saveshellredir == '>'
-    if index(s:bourne_shells, fnamemodify(&shell, ':t')) != -1
-      set shellpipe=2>&1\|\ tee
-      set shellredir=>%s\ 2>&1
-    elseif index(s:c_shells, fnamemodify(&shell, ':t')) != -1
-      set shellpipe=\|&\ tee
-      set shellredir=>&
+      let result = ''
+      if exec_output == 1 && filereadable(outfile)
+        let result = join(readfile(outfile), "\n")
+        call delete(outfile)
+      elseif exec_output == 2
+        let result = outfile
+      endif
+
+    " use system
+    else
+      let begin = localtime()
+      try
+        let result = system(a:cmd)
+      finally
+        call eclim#util#EchoTrace('system: ' . a:cmd, localtime() - begin)
+      endtry
+    endif
+  finally
+    let &shell = saveshell
+    let &shellcmdflag = saveshellcmdflag
+    let &shellquote = saveshellquote
+    let &shellslash = saveshellslash
+    let &shelltemp = saveshelltemp
+    let &shellxquote = saveshellxquote
+
+    " If a System call is executed at startup, it appears to interfere with
+    " vim's setting of 'shellpipe' and 'shellredir' to their shell specific
+    " values.  So, if we detect that the values we are restoring look like
+    " uninitialized defaults, then attempt to mimic vim's documented
+    " (:h 'shellpipe' :h 'shellredir') logic for setting the proper values based
+    " on the shell.
+    " Note: still doesn't handle more obscure shells
+    if saveshellredir == '>'
+      if index(s:bourne_shells, fnamemodify(&shell, ':t')) != -1
+        set shellpipe=2>&1\|\ tee
+        set shellredir=>%s\ 2>&1
+      elseif index(s:c_shells, fnamemodify(&shell, ':t')) != -1
+        set shellpipe=\|&\ tee
+        set shellredir=>&
+      else
+        let &shellpipe = saveshellpipe
+        let &shellredir = saveshellredir
+      endif
     else
       let &shellpipe = saveshellpipe
       let &shellredir = saveshellredir
     endif
-  else
-    let &shellpipe = saveshellpipe
-    let &shellredir = saveshellredir
-  endif
+  endtry
 
   return result
 endfunction " }}}
 
-" TempWindow(name, lines, [readonly]) {{{
+" TempWindow(name, lines, [options]) {{{
 " Opens a temp window w/ the given name and contents which is readonly unless
 " specified otherwise.
 function! eclim#util#TempWindow(name, lines, ...)
+  let options = a:0 > 0 ? a:1 : {}
   let filename = expand('%:p')
   let winnr = winnr()
 
-  call eclim#util#TempWindowClear(a:name)
   let name = eclim#util#EscapeBufferName(a:name)
 
+  let line = 1
+  let col = 1
+
   if bufwinnr(name) == -1
-    silent! noautocmd exec "botright 10sview " . escape(a:name, ' ')
-    let b:eclim_temp_window = 1
-
-    " play nice with maximize.vim
-    if eclim#display#maximize#GetMaximizedWindow()
-      call eclim#display#maximize#AdjustFixedWindow(10, 1)
-    endif
-
+    let height = get(options, 'height', 10)
+    silent! noautocmd exec "botright " . height . "sview " . escape(a:name, ' []')
     setlocal nowrap
     setlocal winfixheight
     setlocal noswapfile
     setlocal nobuflisted
     setlocal buftype=nofile
     setlocal bufhidden=delete
+    silent doautocmd WinEnter
   else
-    exec bufwinnr(name) . "winc w"
+    let temp_winnr = bufwinnr(name)
+    if temp_winnr != winnr()
+      exec temp_winnr . 'winc w'
+      silent doautocmd WinEnter
+      if get(options, 'preserveCursor', 0)
+        let line = line('.')
+        let col = col('.')
+      endif
+    endif
   endif
+
+  call eclim#util#TempWindowClear(a:name)
 
   setlocal modifiable
   setlocal noreadonly
@@ -1138,7 +1261,9 @@ function! eclim#util#TempWindow(name, lines, ...)
   retab
   silent 1,1delete _
 
-  if len(a:000) == 0 || a:000[0]
+  call cursor(line, col)
+
+  if get(options, 'readonly', 1)
     setlocal nomodified
     setlocal nomodifiable
     setlocal readonly
@@ -1178,15 +1303,6 @@ endfunction " }}}
 function! eclim#util#TempWindowCommand(command, name, ...)
   let name = eclim#util#EscapeBufferName(a:name)
 
-  let line = 1
-  let col = 1
-  " if the window is open, save the cursor position
-  if bufwinnr(name) != -1
-    exec bufwinnr(name) . "winc w"
-    let line = line('.')
-    let col = col('.')
-  endif
-
   if len(a:000) > 0
     let port = a:000[0]
     let result = eclim#ExecuteEclim(a:command, port)
@@ -1199,9 +1315,7 @@ function! eclim#util#TempWindowCommand(command, name, ...)
     return 0
   endif
 
-  call eclim#util#TempWindow(name, results)
-
-  call cursor(line, col)
+  call eclim#util#TempWindow(name, results, {'preserveCursor': 1})
 
   return 1
 endfunction " }}}
@@ -1218,9 +1332,9 @@ function! eclim#util#WideMessage(command, message)
 
   set noruler noshowcmd
   redraw
-  let width = eclim#util#GetVimWidth()
-  if len(message) > width
-    let remove = len(message) - width
+  let vimwidth = &columns * &cmdheight
+  if len(message) > vimwidth - 1
+    let remove = len(message) - vimwidth
     let start = (len(message) / 2) - (remove / 2) - 4
     let end = start + remove + 4
     let message = substitute(message, '\%' . start . 'c.*\%' . end . 'c', '...', '')

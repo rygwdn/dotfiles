@@ -117,8 +117,18 @@ Embedded gvim
 =============
 
 Note: Please note that this feature is currently considered alpha.  Please
-  post any issues on the eclim user
-  (http://groups.google.com/group/eclim-user) mailing list.
+  post any issues on the eclim user (http://groups.google.com/group
+  /eclim-user) mailing list.
+
+Note: Embedding is only supported on Windows and Unix systems (where gvim
+  is compiled with the gtk gui).Embedding of macvim for OSX is not
+  supported since macvim does not currently have the ability to be
+  embedded like gvim. Macvim can still be used to open files from
+  eclipse, but macvim will open as an external editor. Also note that
+  macvim snapshots 56 through 63 contain a bug
+  (https://github.com/b4winckler/macvim/pull/22) where opening a file
+  from eclipse will open an instance of macvim, but the file will not
+  be loaded into that instance.
 
 Another feature provided by eclim for those who prefer to work inside
 of the eclipse gui, is the embedding of gvim inside of eclipse.  This
@@ -144,12 +154,18 @@ Note: If you'd like to have the embedded gvim editor as the default for
 The eclim installer should take care of locating your gvim
 installation for use inside of eclipse, but in the event that it could
 not locate it, you can set the location and other settings via the
-vimplugin preferences located under the Windows menu at:
+vimplugin preferences:
 
-   Preferences -> Vimplugin
+   Window > Preferences > Vimplugin
 
-Note: If you have vimplugin installed you should remove it prior to using
-  the eclim version.
+For MacVim users on OSX, the eclim installer will attempt to locate
+MacVim's mvim script on your path. If it's not found you can set the
+location of that script in the Vimplugin preferences:
+
+   Eclipse > Preferences > Vimplugin
+
+Note: If you have non-eclim version of vimplugin installed you should
+  remove it prior to using the eclim version.
 
 Note: Some users have reported issues with the embedded gvim's command
   line being cut off or possible rendering issues when scrolling
@@ -159,6 +175,15 @@ Note: Some users have reported issues with the embedded gvim's command
 
      set guioptions-=m " turn off menu bar
      set guioptions-=T " turn off toolbar
+
+  <
+
+
+  Additionally, some users have reported that gvim's left scrollbar
+  may also need to be disabled:>
+
+     set guioptions-=L " turn off left scrollbar
+     set guioptions-=l
 
   <
 
@@ -198,11 +223,19 @@ focus, you will fall into one of two groups:
      eclipse bindings whenever an embedded gvim editor has focus and
      then restore them with a non-gvim editor gains focus:
 
+     - Ctrl+U: in eclipse this runs "Execute", but in gvim this is
+       needed to run code completion (ex. ctrl-x ctrl-u).
+
+     - Ctrl+N: in eclipse this runs the "New" wizard, but in gvim this
+       is also needed as a part of code completion, to scroll through
+       the results.
+
+     - Ctrl+V: in eclipse this pastes text from the clipboard (though
+       not into gvim), but in gvim this is needed for column wise
+       visual selections.
+
      - Ctrl+W: in eclipse this closes a tab, but in gvim this is
        needed to switch windows (ex. ctrl-w j).
-
-     - Ctrl+U: in eclipse this run "Execute", but in gvim this is
-       needed to run code completion (ex. ctrl-x ctrl-u).
 
 *FeedKeys*
 
@@ -257,6 +290,9 @@ which you would like to include.
 Ex.
 
 >
+
+   # Bind eclimd to all interfaces
+   nailgun.server.host=0.0.0.0
 
    # Specifies the port that nailgun / eclimd listens on for client requests.
    nailgun.server.port=10012
@@ -334,9 +370,5 @@ Windows:
       $HOME/.eclim/resources/ext
 
    <
-
-
-For an example of utilizing the ext dir, please take a look at the
-VimClojure (|guides-clojure-vimclojure|) guide.
 
 vim:ft=eclimhelp

@@ -4,7 +4,7 @@
 "
 " License:
 "
-" Copyright (C) 2005 - 2010  Eric Van Dewoestine
+" Copyright (C) 2005 - 2011  Eric Van Dewoestine
 "
 " This program is free software: you can redistribute it and/or modify
 " it under the terms of the GNU General Public License as published by
@@ -32,8 +32,10 @@ if !exists('g:EclimBuffersDefaultAction')
   let g:EclimBuffersDefaultAction = g:EclimDefaultFileOpenAction
 endif
 if !exists('g:EclimOnlyExclude')
-  let g:EclimOnlyExclude =
-    \ '\(ProjectTree_*\|__Tag_List__\|-MiniBufExplorer-\|command-line\)'
+  let g:EclimOnlyExclude = '^NONE$'
+endif
+if !exists('g:EclimOnlyExcludeFixed')
+  let g:EclimOnlyExcludeFixed = 1
 endif
 " }}}
 
@@ -143,9 +145,11 @@ function! eclim#common#buffers#Only()
   let curwin = winnr()
   let winnum = 1
   while winnum <= winnr('$')
-    if winnum != curwin &&
-     \ getwinvar(winnum, '&ft') != 'qf' &&
-     \ bufname(winbufnr(winnum)) !~ g:EclimOnlyExclude
+    let fixed = g:EclimOnlyExcludeFixed && (
+      \ getwinvar(winnum, '&winfixheight') == 1 ||
+      \ getwinvar(winnum, '&winfixwidth') == 1)
+    let excluded = bufname(winbufnr(winnum)) =~ g:EclimOnlyExclude
+    if winnum != curwin && !fixed && !excluded
       if winnum < curwin
         let curwin -= 1
       endif
@@ -173,7 +177,19 @@ function! s:BufferDelete()
   setlocal readonly
   let buffer = b:eclim_buffers[index]
   call remove(b:eclim_buffers, index)
-  exec 'bd ' . buffer.bufnr
+
+  let winnr = bufwinnr(buffer.bufnr)
+  if winnr != -1
+    " if active in a window, go to the window to delete the buffer since that
+    " keeps eclim's prevention of closing the last non-utility window working
+    " properly.
+    let curwin = winnr()
+    exec winnr . 'winc w'
+    bdelete
+    exec curwin . 'winc w'
+  else
+    exec 'bd ' . buffer.bufnr
+  endif
 endfunction " }}}
 
 " s:BufferEntryToLine(buffer, filelength) {{{
@@ -204,6 +220,20 @@ function! s:BufferOpen(cmd)
   let file = bufname(b:eclim_buffers[line - 1].bufnr)
   let winnr = b:winnr
   close
+
+  " prevent opening the buffer in a split of a vertical tool window (project
+  " tree, taglist, etc.)
+  if exists('g:VerticalToolBuffers') && has_key(g:VerticalToolBuffers, winbufnr(winnr))
+    let winnr = 1
+    while has_key(g:VerticalToolBuffers, winbufnr(winnr))
+      let winnr += 1
+      if winnr > winnr('$')
+        let winnr -= 1
+        break
+      endif
+    endwhile
+  endif
+
   exec winnr . 'winc w'
   call eclim#util#GoToBufferWindowOrOpen(file, a:cmd)
 endfunction " }}}

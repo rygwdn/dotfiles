@@ -5,8 +5,8 @@ Getting Started
 ***************
 
 The first step to getting started with eclim is to install it.  If you
-haven't already done so, please see the install guide
-(|guides-install|) for instruction on how to install eclim.
+haven't already done so, please see the install guide (|guides-
+install|) for instructions on how to install eclim.
 
 If you've already installed eclim, then the next step is to create
 your first project after which you can then start writing code and
@@ -150,8 +150,8 @@ The contents of this file should now look something like this:
 
 
 Now that your source directory is setup, you can proceed to edit java
-files in that directory and make use of the java functionality
-(|vim-java-index|) provided by eclim.
+files in that directory and make use of the java functionality (|vim-
+java-index|) provided by eclim.
 
 *gettingstarted-coding*
 
@@ -262,8 +262,8 @@ Lets get started writing our first java application using eclim.
    After running the :Java command in vim you should now see your
    output in a new split window.
 
-This only scratches the surface on the number of java features
-(|vim-java-index|) that eclim provides, but hopefully this example was
+This only scratches the surface on the number of java features (|vim-
+java-index|) that eclim provides, but hopefully this example was
 enough to get you started.
 
 *gettingstarted-projectsettings*
@@ -273,7 +273,7 @@ Editing your project's settings
 ===============================
 
 Several of eclim's features are configurable via project settings
-which you can modify using the :ProjectSettings command.  If your
+which you can modify using the |:ProjectSettings| command.  If your
 current Vim window's working directory is at or under the project's
 root directory then you can execute the :ProjectSettings with no
 arguments, otherwise you will need to supply the project name.
@@ -291,9 +291,10 @@ are the project's preferences files.  You should avoid editing these
 files directly and stick to using :ProjectSettings to update them.
 
 Note: If you have only one project or many projects that share the same
-  settings you can use the :EclimSettings command instead to edit the
-  global settings.  These global settings will apply to any project
-  that has not overridden them with values via :ProjectSettings.
+  settings you can use the |:EclimSettings| command instead to edit
+  the global settings.  These global settings will apply to any
+  project that has not overridden them with values via
+  :ProjectSettings.
 
 *gettingstarted-maven*
 

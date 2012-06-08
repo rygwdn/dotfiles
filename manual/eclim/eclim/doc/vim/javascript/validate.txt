@@ -23,7 +23,7 @@ machine (your paths may vary):
 
 >
 
-   $ cd js-<version>/src
+   $ cd jsl-<version>/src
    $ make -f Makefile.ref
 
    # this path will undoubtedly vary on non-linux machines, so watch the
