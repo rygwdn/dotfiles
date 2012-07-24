@@ -16,6 +16,7 @@ function! EnableEclim()
     if exists("g:EclimDisabled")
         unlet g:EclimDisabled
         runtime! plugin/eclim.vim
+        call SuperTabSetDefaultCompletionType("<c-x><c-u>")
         " HACK!!!!!
 python << EOF
 import vim
@@ -31,7 +32,7 @@ let g:EclimBrowser = 'firefox'
 let g:EclimEclipseHome = $HOME . '/src/eclipse'
 let g:EclimTaglistEnabled = 0
 
-command! EclimStart silent !eclipse &> /dev/null &
+"command! EclimStart silent !eclipse &> /dev/null &
 command! PR ProjectRefresh
 command! EclimEnable call EnableEclim()
 " Only enable eclim for filtypes listed here!
