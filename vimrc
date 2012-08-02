@@ -235,6 +235,9 @@ vmap <leader>f zfA
 " Use the cool tab complete menu
 set wildmenu
 set wildignore+=*.o,*~,.lo
+set wildignore+=*/.git/*,*/.ht/*,*/.svn/*
+set wildignore+=.git\\*,.hg\\*,.svn\\*
+set wildignore+=*/docs/*
 set suffixes+=.in,.a
 
 " shell style completion, double tab cycles
