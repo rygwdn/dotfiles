@@ -118,7 +118,7 @@ function setPrompts
 
     RPROMPT=""
     [[ -n "$PROJECT" ]] && RPROMPT+=' ${PR_RED}(${PR_BLUE}${PROJECT}${PR_RED})'
-    [[ -n "${VIRTUALENV_PROMPT}" ]] && RPROMPT+=' ${PR_GREEN}${VIRTUALENV_PROMPT}'
+    [[ -n "${VIRTUAL_ENV}" ]] && RPROMPT+=' ${PR_GREEN}('`basename "$VIRTUAL_ENV"`')'
     [[ -n "${vcs_info_msg_0_}" ]] && RPROMPT+=" ${vcs_info_msg_0_}"
     [[ -n "${VCS_PROMPT}" ]] && RPROMPT+=" ${VCS_PROMPT}"
     [[ -n "${PR_NO_COLOR}" ]] && RPROMPT+='${PR_NO_COLOR}'
