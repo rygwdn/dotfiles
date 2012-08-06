@@ -1,8 +1,17 @@
 #!/bin/bash
 
+if test "$1" = "-c"
+then
+    clean=true
+    shift
+else
+    clean=false
+fi
+
 if test "$1" = "cp"
 then
     copy=true
+    shift
 else
     copy=false
 fi
@@ -14,7 +23,26 @@ else
     win="false"
 fi
 
+abspath() { cd "`dirname \"$1\"`" ; echo -n "`pwd`/" ; basename "$1" ; }
+
 mklink() { cmd /c mklink "$@"; }
+
+rl() {
+    out=$(
+        if test `uname` = "Darwin"
+        then
+            readlink "$1"
+        else
+            readlink -f "$1"
+        fi
+    )
+    if [ -z "$out" ]
+    then
+        abspath "$1"
+    else
+        abspath "$out"
+    fi
+}
 
 function dolink()
 {
@@ -26,24 +54,51 @@ function dolink()
         [ $file = "vim/vimrc" ] && file="vim/_vimrc" && hf="$HOME/_vimrc"
     fi
 
-    tf=`readlink -f "$file"`
-    [ "`readlink -f "$hf"`" = "$tf" ] && echo "$file" already linked && return
+    tf=`rl "$file"`
+    hl=`rl "$hf"`
 
-    if [ -e "$hf" ]
+    prn() {
+        echo -n "`basename \"$file\" | sed -e :a -e 's/^.\{1,15\}$/& /;ta'`"
+        echo "$@"
+    }
+
+    if [ "$hl" = "$tf" ]
     then
-        echo $hf exists 1>&2
+        if $clean
+        then
+            prn clean up linked
+            rm $hf
+        else
+            prn already linked
+            return
+        fi
+    elif [ -e "$hf" ]
+    then
+        prn non-link file exists
+    elif [ ! -e "$hf" -a "$hf" != "$hl" ]
+    then
+        if $clean
+        then
+            prn "removing broken link: $hf <-"
+            rm $hf
+        else
+            prn "apparently broken link: $hf -> $hl (-c to delete)"
+        fi
+    elif $clean
+    then
+        prn "ignoring (clean)"
     elif $copy
     then
-        echo "copy $tf -> $hf"
+        prn "copy -> $hf"
         cp -r "$tf" "$hf"
     elif $win
     then
         wtf=`cygpath -w "$tf"`
         whf=`cygpath -w "$hf"`
-        echo "mklink $wtf -> $whf"
+        prn "mklink -> $whf"
         [ -d "$tf" ] && mklink '/D' "$whf" "$wtf" || mklink "$whf" "$wtf"
     else
-        echo "link $tf -> $hf"
+        prn "link -> $hf"
         ln -s "$tf" "$hf"
     fi
 }
