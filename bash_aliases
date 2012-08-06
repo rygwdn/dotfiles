@@ -30,7 +30,7 @@ alias pd='pushd'
 alias ap='sudo aptitude'
 alias qmv='\qmv -f destination-only'
 alias upnup='ap update && ap full-upgrade'
-alias ack='ack-grep'
+which ack-grep 1>/dev/null 2>/dev/null && alias ack='ack-grep'
 
 alias g='&> /dev/null gvim --fork=1'
 alias gvo="vo -g"
