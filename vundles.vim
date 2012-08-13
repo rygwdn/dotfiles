@@ -80,4 +80,5 @@ endif
 Bundle "tpope/vim-fugitive"
 Bundle "tpope/vim-git"
 Bundle "int3/vim-extradite"
+Bundle "sjl/splice.vim"
 "Bundle "gitolite.vim"
