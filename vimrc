@@ -290,7 +290,6 @@ set winminheight=1
 
 set laststatus=2
 
-
 if has("gui_running")
     " window size
     "set lines=40
@@ -299,7 +298,8 @@ if has("gui_running")
         colorscheme candycode
     endif
 
-    set guifont="Inconsolata Medium 12"
+    set guifont=DejaVu\ Sans\ Mono\ for\ Powerline:h9
+    let g:Powerline_symbols="fancy"
 
     set cursorline cursorcolumn
     au WinLeave * set nocursorline nocursorcolumn

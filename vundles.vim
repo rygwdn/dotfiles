@@ -73,6 +73,9 @@ Bundle "kien/ctrlp.vim"
 if v:version >= 703
     Bundle "sjl/gundo.vim"
 endif
+if has("gui_running")
+    Bundle "Lokaltog/vim-powerline"
+endif
 "Bundle "rygwdn/vim-conque"
 
 
