@@ -65,6 +65,7 @@ set wrap                        " ...
 set guioptions-=T               " no toolbar
 "set formatoptions=l            " don't insert eols, just wrap
 set clipboard=unnamed           " use "* as the default register
+set encoding=utf-8
 
 let maplocalleader=','          " all my macros start with ,
 let mapleader=","               " set <Leader> to , instead of \
@@ -325,7 +326,7 @@ au BufNewFile,BufRead *.pl set ft=prolog
 au filetype c,cpp set makeprg=g++\ -Wall\ -g\ -o\ \"%<\"\ \"%\"
 au filetype c,cpp set spell
 au filetype c,cpp nmap <LocalLeader>m :w<CR>:silent make<cr>
-au filetype c,cpp nmap <LocalLeader>r :!start vimrun %<<cr>
+"au filetype c,cpp nmap <LocalLeader>r :!start vimrun %<<cr>
 au filetype c,cpp setl autowrite
 " }}}
 
