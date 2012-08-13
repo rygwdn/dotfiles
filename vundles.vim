@@ -52,6 +52,7 @@ Bundle "kien/rainbow_parentheses.vim"
 Bundle "vimoutliner/vimoutliner"
 Bundle "mileszs/ack.vim"
 Bundle "bufkill.vim"
+Bundle "derekwyatt/vim-fswitch"
 if has("python")
     Bundle "VOoM"
 endif
