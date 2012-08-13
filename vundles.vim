@@ -24,6 +24,7 @@ Bundle "SirVer/ultisnips"
 " Colorschemes
 Bundle "candycode.vim"
 Bundle "blackboard.vim"
+Bundle "kien/rainbow_parentheses.vim"
 
 " Web dev
 "Bundle "mephux/vim-javascript.git"
