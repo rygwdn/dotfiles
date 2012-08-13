@@ -322,12 +322,7 @@ au BufNewFile,BufRead *.pl set ft=prolog
 " }}}
 
 "" C, C++ stuff {{{
-" make 'make' not spew junk
-au filetype c,cpp set makeprg=g++\ -Wall\ -g\ -o\ \"%<\"\ \"%\"
 au filetype c,cpp set spell
-au filetype c,cpp nmap <LocalLeader>m :w<CR>:silent make<cr>
-"au filetype c,cpp nmap <LocalLeader>r :!start vimrun %<<cr>
-au filetype c,cpp setl autowrite
 " }}}
 
 " help files, make return jump to tag {{{
