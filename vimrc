@@ -164,6 +164,8 @@ vnoremap / /\v
 
 " insert mode paste (like esc p i)
 imap  "
+imap ,,<C-v> +
+nmap ,,<C-v> "+p
 
 nmap Y y$
 
