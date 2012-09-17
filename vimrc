@@ -308,6 +308,7 @@ au BufNewFile,BufRead *.pl set ft=prolog
 
 "" C, C++ stuff {{{
 au filetype c,cpp set spell
+set tags+=./tags;$HOME " add tags files from current dir up to $HOME
 " }}}
 
 " help files, make return jump to tag {{{
@@ -358,7 +359,7 @@ autocmd FileType c set omnifunc=ccomplete#Complete
 " }}}
 
 "" Python stuff {{{
-autocmd FileType python compiler pylint
+autocmd FileType python if &rtp =~ "pylint" | compiler pylint | endif
 autocmd FileType python setlocal foldmethod=indent
 " }}}
 
