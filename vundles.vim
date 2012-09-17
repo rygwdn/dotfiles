@@ -1,3 +1,5 @@
+" setup {{{1
+
 set nocompatible               " be iMproved
 filetype off                   " required!
 
@@ -9,7 +11,7 @@ else
     call vundle#rc()
 endif
 
-" Deps
+" Deps {{{1
 Bundle 'L9'
 Bundle "netrw.vim"
 Bundle "tlib"
@@ -18,22 +20,25 @@ Bundle "utl.vim"
 "    Bundle "rygwdn/vim-async"
 "endif
 
-" Snippets
-Bundle "SirVer/ultisnips"
+" Snippets {{{1
+Bundle "ervandew/supertab"
+if has("python")
+    Bundle "SirVer/ultisnips"
+endif
 
-" Colorschemes
+" Colorschemes {{{1
 Bundle "candycode.vim"
 Bundle "blackboard.vim"
 Bundle "kien/rainbow_parentheses.vim"
 
-" Web dev
+" Web dev {{{1
 "Bundle "mephux/vim-javascript.git"
 "Bundle "jQuery"
 
-" Docs
+" Docs {{{1
 "Bundle "rygwdn/latexbox-rubber"
 
-" Python
+" Python {{{1
 "Bundle "rygwdn/vim-pylint"
 "if has("python")
 "    Bundle "rygwdn/rope-omni"
@@ -46,9 +51,11 @@ Bundle "kien/rainbow_parentheses.vim"
 "EOF
 "endif
 
+" QML {{{1
+Bundle "omailson/vim-qml"
 
 
-" General
+" General {{{1
 Bundle "vimoutliner/vimoutliner"
 Bundle "mileszs/ack.vim"
 Bundle "bufkill.vim"
@@ -58,17 +65,25 @@ if has("python")
 endif
 
 
-" Navigation
+" org mode {{{1
+"Bundle "jceb/vim-orgmode"
+"Bundle "utl.vim"
+"Bundle "tpope/vim-repeat"
+"Bundle "tpope/vim-speeddating"
+"Bundle "chrisbra/NrrwRgn"
+"Bundle "calendar.vim"
+
+
+" Navigation {{{1
 Bundle "scrooloose/nerdtree"
 Bundle "majutsushi/tagbar"
 
-" Operations
+" Operations {{{1
 Bundle "michaeljsmith/vim-indent-object"
 Bundle "camelcasemotion"
 
-" Utility
+" Utility {{{1
 Bundle "session.vim--Odding"
-Bundle "ervandew/supertab"
 Bundle "kien/ctrlp.vim"
 if v:version >= 703
     Bundle "sjl/gundo.vim"
@@ -79,9 +94,11 @@ endif
 "Bundle "rygwdn/vim-conque"
 
 
-" Git stuff
+" Git stuff {{{1
 Bundle "tpope/vim-fugitive"
 Bundle "tpope/vim-git"
 Bundle "int3/vim-extradite"
 Bundle "sjl/splice.vim"
 "Bundle "gitolite.vim"
+
+"vim: fdm=marker fdl=0
