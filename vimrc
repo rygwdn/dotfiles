@@ -81,37 +81,20 @@ set backup                      " produce *~ backup files
 set backupext=~                 " add ~ to the end of backup files
 
 let g:temp_path = '/tmp' " default
-if has("win32")
-    let g:temp_path = "C:\\Temp"
-endif
+for dir in ["~/tmp/.vim", "~/.vim/tmp", "/tmp", "~/vimfiles/tmp", "C:\\Temp"]
+    if glob(dir) != ""
+        let g:temp_path = dir
+        break
+    endif
+    echom "Failed to find valid temp path"
+endfor
 
-if has('python')
-python << EOF
-import os, vim
-
-_dirs = ["~/tmp/.vim", "~/.vim/tmp", "/tmp", "~/vimfiles/tmp", r"C:\Temp"]
-for _dir in _dirs:
-    p = os.path.realpath(os.path.expanduser(_dir))
-    if os.path.isdir(p):
-	vim.command("let g:temp_path='%s'" % p)
-	break
-else:
-    vim.command("""echoerr "Failed to set temp path" """)
-
-try:
-    del _dirs
-    del _dir
-except:
-    pass
-EOF
-endif
-
-let &directory=g:temp_path
-let &backupdir=g:temp_path
+exec "set directory=" . g:temp_path
+exec "set backupdir=" . g:temp_path
 
 if v:version >= 703
+    exec "set undodir=" . g:temp_path
     set undofile
-    let &undodir=g:temp_path
 endif
 
 let g:yankring_history_dir = g:temp_path
