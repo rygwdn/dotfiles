@@ -29,7 +29,7 @@ if has('netbeans_enabled') && exists('g:vimplugin_running')
     " vim's netbean support is commentted out for some reason.
     autocmd BufWritePost * call eclim#vimplugin#BufferWritten()
     autocmd CursorHold,CursorHoldI * call eclim#vimplugin#BufferModified()
-    autocmd BufWinLeave * call eclim#vimplugin#BufferClosed()
+    "autocmd BufDelete * call eclim#vimplugin#BufferClosed()
     autocmd BufEnter * call eclim#vimplugin#BufferEnter()
   augroup END
 endif
