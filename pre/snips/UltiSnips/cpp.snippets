@@ -41,3 +41,17 @@ endsnippet
 snippet co "cout << .;"
 std::cout << $0;
 endsnippet
+
+snippet qf "Q_FOREACH"
+Q_FOREACH(${1/(int|char|bool)/const /}${1:int} ${1/(int|char|bool)/&/}${2:item}, ${3:items}) {
+	$0
+}
+endsnippet
+
+snippet d "qDebug()"
+qDebug() << $0
+endsnippet
+
+snippet /q(Debug|Warn).*</ "<<" ir
+`!p snip.rv = match.group(0).rstrip("< ")` << $0
+endsnippet
