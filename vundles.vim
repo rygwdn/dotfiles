@@ -3,9 +3,11 @@
 set nocompatible               " be iMproved
 filetype off                   " required!
 
+let s:bundle_dir=expand("~/.vim/bundle")
 if has("win32") || has("win64")
     set rtp+=~/vimfiles/lib/vundle
     call vundle#rc("~/vimfiles/bundle")
+    let s:bundle_dir=expand("~/vimfiles/bundle")
 else
     set rtp+=~/.vim/lib/vundle
     call vundle#rc()
@@ -100,5 +102,9 @@ Bundle "tpope/vim-git"
 Bundle "int3/vim-extradite"
 Bundle "sjl/splice.vim"
 "Bundle "gitolite.vim"
+
+if glob(s:bundle_dir) == ""
+    au VimEnter * BundleInstall
+endif
 
 "vim: fdm=marker fdl=0
