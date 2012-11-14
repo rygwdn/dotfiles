@@ -98,7 +98,12 @@ fi
 
 PROMPT_COMMAND="$PROMPT_COMMAND;"'DIR=`pwd|sed -e "s!$HOME!~!"`; if [ ${#DIR} -gt 20 ]; then CurDir=`echo $DIR | sed -e "s!\([^/]\{1,2\}\)[^/]*/!\1/!g"`; else CurDir=$DIR; fi'
 
-PS1="${Color}$psprepend$hostname:\[\033[0;32m\]\$CurDir\[\033[33m\$(__git_ps1)\033[0m\]\$ "
+if type __git_ps1 >/dev/null 2>&1
+then
+    PS1="${Color}$psprepend$hostname:\[\033[0;32m\]\$CurDir\[\033[33m\$(__git_ps1)\033[0m\]\$ "
+else
+    PS1="${Color}$psprepend$hostname:\[\033[0;32m\]\$CurDir\[\033[0m\]\$ "
+fi
 
 #PS1='\[\033]0;$MSYSTEM:\w\007
 #\033[32m\]\u@\h \[\033[33m\w$(__git_ps1)\033[0m\]
@@ -189,4 +194,15 @@ fi
 if [[ "$TERM" = "screen" ]]
 then
     export PS1='\[\033k\033\\\]'"$PS1"
+fi
+
+# virtualenv stuff
+
+vwpth=`which virtualenvwrapper.sh 2>/dev/null`
+[ -z $vwpth ] && vwpth=`dirname $(which python 2>/dev/null)`/Scripts/virtualenvwrapper.sh
+if [ -e $vwpth ]; then
+    export MSYS_HOME=`python -c "import sys; print sys.argv[1]" $(dirname $(which git))`
+    export TMPDIR=$TEMP
+    export WORKON_HOME="$HOME/.virtualenvs"
+    source $vwpth
 fi
