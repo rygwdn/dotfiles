@@ -2,7 +2,7 @@
 
 # Set up ls
 if [ "$TERM" != "dumb" ]; then
-    if [[ $TERM == cygwin ]]
+    if [[ "$TERM" == "cygwin" ]] || "$CYGWIN" || [[ -n "$MSYSTEM" ]]
     then
         alias ls='ls --color'
         export LS_COLORS=
@@ -107,16 +107,17 @@ alias ...='cd ../..'
 # better gnome open command
 function o()
 {
-    op_prg=`for op in open gnome-open cygstart explorer.exe
+    op_prg=`for op in open gnome-open cygstart start explorer.exe
     do
-        which $op &>/dev/null && echo $op
+        which $op &>/dev/null && echo $op && break
     done | tail -n 1`
 
     for file in "$@"
     do
-        if [ $op_prg = "explorer.exe" ]; then
+        if [[ "$op_prg" = "explorer.exe" ]] && $CYGWIN; then
             $op_prg "`cygpath -w $file`"
         else
+            file=`echo "$file" | sed 's/\/$//'`
             $op_prg $file
         fi
     done
