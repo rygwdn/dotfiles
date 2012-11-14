@@ -20,7 +20,9 @@ bindkey -v "[3~" delete-char
 bindkey -v "" backward-delete-char
 bindkey -v "" backward-delete-char
 bindkey -v "[1~" beginning-of-line
+bindkey -v "OH" beginning-of-line
 bindkey -v "[4~" end-of-line
+bindkey -v "OF" end-of-line
 bindkey -v "[5~" backward-word
 bindkey -v "[6~" forward-word
 
