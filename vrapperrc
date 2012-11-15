@@ -1,0 +1,5 @@
+set incsearch
+set sanecw
+set saney
+set scrolloff=10
+set clipboard=unnamed

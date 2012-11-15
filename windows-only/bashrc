@@ -1,0 +1,3 @@
+bind '"\e[4~" end-of-line'
+source ~/conf/bashrc
+cd

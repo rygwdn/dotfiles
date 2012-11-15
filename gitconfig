@@ -10,7 +10,7 @@
 	editor = vim
 	excludesfile = ~/.gitignore
 [merge]
-        tool = vimdiff
+	tool = p4merge
 [pack]
         threads = 4
 [giggle]
@@ -18,7 +18,7 @@
 	main-window-geometry = 700x550+235+179
 	main-window-view = FileView
 [alias]
-        serve = daemon --reuseaddr --verbose  --base-path=. --export-all ./.git
+        serve = daemon --reuseaddr --verbose --base-path=. --export-all ./.git
         st = status
         ci = commit
         br = branch
@@ -28,8 +28,7 @@
         who = shortlog -s --
 
         log1 = log --pretty=oneline --abbrev-commit --decorate
-        lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
-        lgn = "!f() { git log --graph --pretty=format:'%Cred%H%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --date=relative $@ | git name-rev --stdin --name-only ; } ; f"
+        lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative -n 10
 
         vimdiff = difftool -t vimdiff
         gvimdiff = difftool -t gvimdiff
@@ -46,3 +45,15 @@
 	enabled = 1
 [branch]
 	autosetupmerge = true
+[diff]
+	renames = copies
+	mnemonicprefix = true
+	tool = p4merge
+[difftool]
+	prompt = false
+	keepTemporaries = false
+	keepBackup = false
+[mergetool]
+	prompt = false
+	keepTemporaries = false
+	keepBackup = false
