@@ -3,5 +3,5 @@
 for file in *-dev.js
 do
     echo update $file
-    curl http://5digits.org/cgi-bin/hgweb.cgi/raw-file/tip/htdocs/plugins/$file -o $file
+    curl http://5digits.org/plugins/$file -o $file
 done

@@ -1,23 +1,56 @@
-<html><head><title>Encountered a 500 error</title>
-<body>
-<p>An error has been encountered in accessing this page.
-<p>1. <b>Server:</b> 5digits.org
-<br />2. <b>URL path:</b> /cgi-bin/hgweb.cgi/raw-file/tip/htdocs/plugins/browser-improvements-dev.js
-<br />3. <b>Error notes:</b> Premature end of script headers: hgweb.cgi
-<br />4. <b>Error type:</b> 500
-<br />5. <b>Request method:</b> GET
-<br />6. <b>Request query string:</b> 
-<br />7. <b>Time:</b> 2012-11-15 01:50:17 UTC (1352944217)
-<p><b>Reporting this problem:</b> The problem you have encountered is with a project web site hosted by SourceForge.net.  This issue should be reported to the SourceForge.net-hosted project (not to SourceForge.net).
-<p><i>If this is a severe or recurring/persistent problem,</i> please do one of the following, and provide the error text (numbered 1 through 7, above):
-<ol><li>Contact the project via their <a href="http://sourceforge.net/support/prweb-lookup.php?host=5digits.org&support=1">designated support resources</a>.
-<li>Contact the project administrators of this project via email (see the upper right-hand corner of the <a href="http://sourceforge.net/support/prweb-lookup.php?host=5digits.org">Project Summary page</a> for their usernames) at <i>user-name</i>@users.sourceforge.net</ol>
+/* use strict */
+XML.ignoreWhitespace = false;
+XML.prettyPrinting   = false;
+var INFO =
+<plugin name="browser-improvements" version="0.3"
+        href="http://dactyl.sf.net/pentadactyl/plugins#browser-improvements-plugin"
+        summary="Browser Consistency Improvements"
+        xmlns={NS}>
+    <author email="maglione.k@gmail.com">Kris Maglione</author>
+    <license href="http://opensource.org/licenses/mit-license.php">MIT</license>
+    <project name="Pentadactyl" min-version="1.0"/>
+    <p>
+        This plugin provides various browser consistency improvements, including:
+    </p>
+    <ul>
+        <li>Middle clicking on a form submit button opens the resulting page in a new tab.</li>
+        <li>Pressing <k name="C-Return" link="false"/> while a textarea or select element is focused submits the form.</li>
+    </ul>
+</plugin>;
 
-<p>If you are a maintainer of this web content, please refer to the <a href="http://sourceforge.net/apps/trac/sourceforge/wiki/WikiStart#HostingwithSourceForge.net">Site Documentation regarding web services</a> for further assistance.
+function clickListener(event) {
+    let elem = event.originalTarget;
+    if (elem instanceof HTMLAnchorElement) {
+        if (/^_(?!top$)/.test(elem.getAttribute("target")))
+            elem.removeAttribute("target");
+        return;
+    }
+    if (elem instanceof HTMLInputElement && elem.type === "submit")
+        if (elem.ownerDocument.defaultView.top == content)
+            if (event.button == 1)
+                dactyl.open(DOM(elem).formData, dactyl.NEW_TAB);
+}
 
-<p>NOTE: As of 2008-10-23 directory index display has been disabled by default. This option may be re-enabled by the project by placing a file with the name ".htaccess" with this line:
-<p><pre>
-Options +Indexes
-</pre>
+function keypressListener(event) {
+    let elem = event.originalTarget;
+    let key = DOM.Event.stringify(event);
+    let submit = function submit(form) {
+        if (isinstance(form.wrappedJSObject.submit, HTMLInputElement))
+            buffer.followLink(form.wrappedJSObject.submit);
+        else {
+            if (!DOM(form).submit().canceled)
+                form.submit();
+        }
+    }
+    if (key == "<C-Return>" && elem.form && isinstance(elem, [HTMLTextAreaElement, HTMLSelectElement]))
+        submit(elem.form);
+}
 
-</body></html>
+function onUnload() {
+    group.events.unlisten(null);
+}
+let appContent = document.getElementById("appcontent");
+group.events.listen(appContent, "click", clickListener, true);
+group.events.listen(appContent, "keypress", keypressListener, true);
+
+/* vim:se sts=4 sw=4 et: */
