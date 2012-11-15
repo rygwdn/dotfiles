@@ -1,7 +1,6 @@
 " vim: fdm=marker
 " vim: foldlevel=0
 
-set mapleader=","
 set rtp="~/.pentadactyl"
 
 map < <silent> :tabmove -1<CR>
@@ -62,26 +61,27 @@ set visualbell
 loadplugins
 
 "backup
-js <<EOF
-
-function saveEm(event) {
-    var browser = gBrowser.getBrowserForTab(event.target);
-    plugins.penbackup.saveaddons("~/archives/firefox-addons.bak");
-    plugins.penbackup.savetabs("~/archives/firefox-tabs.bak");
-};
-
-var c = gBrowser.tabContainer;
-c.addEventListener("TabOpen", saveEm, false);
-c.addEventListener("TabMove", saveEm, false);
-c.addEventListener("TabClose", saveEm, false);
-
-EOF
+"js <<EOF
+"
+"function saveEm(event) {
+"    var browser = gBrowser.getBrowserForTab(event.target);
+"    plugins.penbackup.saveaddons("~/archives/firefox-addons.bak");
+"    plugins.penbackup.savetabs("~/archives/firefox-tabs.bak");
+"};
+"
+"var c = gBrowser.tabContainer;
+"c.addEventListener("TabOpen", saveEm, false);
+"c.addEventListener("TabMove", saveEm, false);
+"c.addEventListener("TabClose", saveEm, false);
+"
+"EOF
 "endbackup
-
+"
 "set tabclose=left,opener,previous,right
 "set tabopen=external:end,link:right,orphan:right
 "set fbw+=alpha.glitch.com
 "set fbw+=rdio.com
+set fbw+=rim.net
 
 command! gonew -nargs=1 js var args=<q-args>.split(","); var search = args[0].replace('"', "", 'g'); var open = args[1]; var matches = completion.runCompleter("buffer", search); if (matches.length > 0) { tabs.select(matches[0].id - 1, false); } else { dactyl.execute("tabopen " + open); }
 
@@ -89,26 +89,31 @@ map <silent> <A-p> :flashtoggle<CR>
 
 set passkeys+='.*\.google\.com/reader/.*':jkyr<Space><S-Space>
 
+set passkeys+='.*gerrit.*':/NP[]fjklnpucorsO,ga,gd,gi,gm,go,gs,gw,<Ctrl-s>
+group gerrit -locations='.*gerrit.*'
+map ? <Pass>
+map <Esc> -b <Esc> <Esc><Pass>
+group user
 
 " Gmail stuff
 set strictfocus+=mail.google.com:laissez-faire
-autocmd LocationChange !'mail\.google\.com' :set editor="gvim -f"
-autocmd LocationChange 'mail\.google\.com'  :set editor="gvim -f -c 'set ft=mail'"
+"autocmd LocationChange !'mail\.google\.com' :set editor="gvim -f"
+"autocmd LocationChange 'mail\.google\.com'  :set editor="gvim -f -c 'set ft=mail'"
 
 "set passkeys+=mail.google.com:xsem!#rRaAvN[]{}z.IU=-gidac/?lujkonp<Esc>`y
 set passkeys+=mail.google.com:ujkov<Esc>pn`c/qxsyem!#rRaAfFN[]{}z.IULhT_l,gi,gs,gt,gd,ga,gc,gb,gk,gl,gp,*a,*n,*r,*u,*s,*t,<Ctrl-s>
 command! gm gonew gmail,https://mail.google.com/mail/?shva=1#inbox
-map <Leader>m :gm<CR>
+map ,m :gm<CR>
 group gmail -locations=mail.google.com
 map ? <Pass>
 map <Esc> -b <Esc> <Esc><Pass>
 group user
 " end gmail stuff
 
-map <Leader>t :gonew toodledo,td<CR>
-map <Leader>c :gonew "google calendar",gc<CR>
-map <Leader>r :gonew "google reader",gr<CR>
-map <Leader>d :gonew reddit,rd<CR>
+map ,t :gonew toodledo,td<CR>
+map ,c :gonew "google calendar",gc<CR>
+map ,r :gonew "google reader",gr<CR>
+map ,d :gonew reddit,rd<CR>
 
 map <C-/> <C-^>
 map ^ <C-^>
