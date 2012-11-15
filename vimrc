@@ -283,7 +283,7 @@ if has("gui_running")
         colorscheme candycode
     endif
 
-    set guifont=DejaVu\ Sans\ Mono\ for\ Powerline:h9
+    set guifont=DejaVu\ Sans\ Mono\ for\ Powerline
     let g:Powerline_symbols="fancy"
 
     set cursorline cursorcolumn
