@@ -49,6 +49,9 @@
 	renames = copies
 	mnemonicprefix = true
 	tool = p4merge
+[mergetool "splice"]
+    cmd = "gvim -f $BASE $LOCAL $REMOTE $MERGED -c 'SpliceInit'"
+    trustExitCode = true
 [difftool]
 	prompt = false
 	keepTemporaries = false
