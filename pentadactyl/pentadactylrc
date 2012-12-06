@@ -89,8 +89,8 @@ map <silent> <A-p> :flashtoggle<CR>
 
 set passkeys+='.*\.google\.com/reader/.*':jkyr<Space><S-Space>
 
-set passkeys+='.*gerrit.*':/NP[]fjklnpucorsO,ga,gd,gi,gm,go,gs,gw,<Ctrl-s>
-group gerrit -locations='.*gerrit.*'
+set passkeys+='.*gerrit\..*':/NP[]jkflnpucorsO,gf,ga,gd,gi,gm,go,gs,gw,<Ctrl-s>
+group gerrit -locations='.*gerrit.*\.'
 map ? <Pass>
 map <Esc> -b <Esc> <Esc><Pass>
 group user
@@ -110,10 +110,17 @@ map <Esc> -b <Esc> <Esc><Pass>
 group user
 " end gmail stuff
 
+" TODO: (1) move work stuff to different file
+" TODO: (2) make my own shortcuts for OWA
+" TODO: (3) clean up this file
+set passkeys+=cas-hq.rim.net:<Up><Down><Left><Right><Ctrl-n><Ctrl-s>
+
 map ,t :gonew toodledo,td<CR>
 map ,c :gonew "google calendar",gc<CR>
 map ,r :gonew "google reader",gr<CR>
 map ,d :gonew reddit,rd<CR>
+map ,o :gonew outlook,https://cas-hq.rim.net/owa/<CR>
+map ,g :gonew gerrit,http://gerrit.rim.net<CR>
 
 map <C-/> <C-^>
 map ^ <C-^>
