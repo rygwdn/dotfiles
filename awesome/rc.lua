@@ -43,8 +43,8 @@ end
 beautiful.init("/usr/share/awesome/themes/default/theme.lua")
 
 -- This is used later as the default terminal and editor to run.
-terminal = "x-terminal-emulator"
-editor = os.getenv("EDITOR") or "editor"
+terminal = "sakura"
+editor = os.getenv("EDITOR") or "vim"
 editor_cmd = terminal .. " -e " .. editor
 
 -- Default modkey.
@@ -342,6 +342,14 @@ awful.rules.rules = {
                      maximized_vertical = false,
                      maximized_horizontal = false,
                      buttons = clientbuttons } },
+    { rule = { class = "vmplayer" },
+      properties = { tag = tags[1][3] } },
+    { rule = { class = "Momentics" },
+      properties = { tag = tags[1][2] } },
+    { rule = { class = "Qde" },
+      properties = { floating = true, tag = tags[1][2] } },
+    { rule = { class = "Pidgin" },
+      properties = { tag = ( screen.count() > 1 and tags[2][1] or tags[1][8] ) } },
     { rule = { class = "MPlayer" },
       properties = { floating = true } },
     { rule = { class = "Guake" },
