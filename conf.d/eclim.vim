@@ -38,7 +38,7 @@ endfun
 function! EnableEclim()
     if exists("g:EclimDisabled")
         unlet g:EclimDisabled
-        nmap ,m :call MyEclimBuild()<CR>
+        nmap ,em :call MyEclimBuild()<CR>
         nmap <F10> :call EVimPluginFeedKey("F10", 1)<CR>
         nmap <F11> :call EVimPluginFeedKey("F11", 1)<CR>
         nnoremap <silent> <buffer> <cr> :CSearchContext<cr>
@@ -57,7 +57,7 @@ endfunction
 "let g:EclimNailgunClient = 'external'
 let g:EclimPythonValidate = 1
 let g:EclimBrowser = 'firefox'
-let g:EclimEclipseHome = $HOME . '/src/eclipse'
+"let g:EclimEclipseHome = $HOME . '/src/eclipse'
 let g:EclimTaglistEnabled = 0
 
 "command! EclimStart silent !eclipse &> /dev/null &
