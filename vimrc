@@ -64,7 +64,12 @@ set linebreak                   " wrap on words, not in the middle of them
 set wrap                        " ...
 set guioptions-=T               " no toolbar
 "set formatoptions=l            " don't insert eols, just wrap
-set clipboard=unnamed           " use "* as the default register
+if has("win32") || has("win64")
+    set clipboard=unnamed       " use "* as the default register
+else
+    set clipboard=unnamedplus   " use "+ as the default register
+endif
+
 set encoding=utf-8
 
 let maplocalleader=','          " all my macros start with ,
@@ -126,6 +131,7 @@ set undolevels=1000             " number of forgivable mistakes
 set updatecount=100             " write swap file to disk every 100 chars
 set foldenable
 set foldlevel=99999
+set autowrite                   " write before :make
 
 if v:version >= 703
     set colorcolumn=80
@@ -172,14 +178,14 @@ nmap Y y$
 map <F4> :FSHere<CR>
 
 " save and build
-nmap <LocalLeader>wm  :w<cr>:make<cr>
+nmap <LocalLeader>m  :make!<cr>
 
 " work with errors
 nmap <LocalLeader>ln  :lnext<CR>
 nmap <LocalLeader>lp  :lprevious<CR>
 nmap <LocalLeader>cn  :cnext<CR>
 nmap <LocalLeader>cp  :cprevious<CR>
-nmap <LocalLeader>cc  :cc<CR>
+"nmap <LocalLeader>cc  :cc<CR>
 
 " use Q for formatting
 map Q gq
@@ -205,6 +211,25 @@ imap <C-S-Tab> <Esc>gT
 
 nmap <leader>f zf%A
 vmap <leader>f zfA
+
+" toggles the quickfix window.
+command! -bang -nargs=? QFix call QFixToggle(<bang>0)
+function! QFixToggle(forced)
+    if exists("g:qfix_win") && a:forced == 0
+        cclose
+    else
+        execute "botright copen"
+    endif
+endfunction
+
+" used to track the quickfix window
+augroup QFixToggle
+    autocmd!
+    autocmd BufWinEnter quickfix let g:qfix_win = bufnr("$")
+    autocmd BufWinLeave * if exists("g:qfix_win") && expand("<abuf>") == g:qfix_win | unlet! g:qfix_win | endif
+augroup END
+
+map ,cc :QFix<CR>
 
 " Sometimes I hate the defaults for these two in insert!
 "inoremap <c-u> 
@@ -301,6 +326,7 @@ endif
 set diffopt=filler,iwhite       " ignore all whitespace and sync
 
 " detection {{{
+au BufNewFile,BufRead *.as set ft=actionscript
 au BufNewFile,BufRead *.m set ft=objc
 let filetype_m='objc'
 au BufNewFile,BufRead *.pl set ft=prolog
@@ -309,6 +335,7 @@ au BufNewFile,BufRead *.pl set ft=prolog
 "" C, C++ stuff {{{
 au filetype c,cpp set spell
 set tags+=./tags;$HOME " add tags files from current dir up to $HOME
+let g:load_doxygen_syntax=1
 " }}}
 
 " help files, make return jump to tag {{{
