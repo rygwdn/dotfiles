@@ -55,3 +55,15 @@ endsnippet
 snippet /q(Debug|Warn).*</ "<<" ir
 `!p snip.rv = match.group(0).rstrip("< ")` << $0
 endsnippet
+
+snippet t "TEST"
+TEST(${1:`!p snip.rv = snip.fn.split('.')[0]`}, ${2:Name}) {
+    $0
+}
+endsnippet
+
+snippet tf "TEST_F"
+TEST_F(${1:`!p snip.rv = snip.fn.split('.')[0]`}, ${2:Name}) {
+    $0
+}
+endsnippet
