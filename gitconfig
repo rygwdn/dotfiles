@@ -63,3 +63,5 @@
 	prompt = false
 	keepTemporaries = false
 	keepBackup = false
+[push]
+	default = simple
