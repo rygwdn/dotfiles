@@ -61,7 +61,8 @@ Bundle "omailson/vim-qml"
 Bundle "vimoutliner/vimoutliner"
 Bundle "mileszs/ack.vim"
 Bundle "bufkill.vim"
-Bundle "derekwyatt/vim-fswitch"
+"Bundle "derekwyatt/vim-fswitch"
+Bundle "rygwdn/tagswitch"
 if has("python")
     Bundle "VOoM"
 endif
@@ -101,6 +102,7 @@ Bundle "tpope/vim-fugitive"
 Bundle "tpope/vim-git"
 Bundle "int3/vim-extradite"
 Bundle "sjl/splice.vim"
+"Bundle 'airblade/vim-gitgutter'
 "Bundle "gitolite.vim"
 
 if glob(s:bundle_dir) == ""
