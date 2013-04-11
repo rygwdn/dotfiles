@@ -26,10 +26,10 @@ runtime vundles.vim
 " setup runtime path using the excellent vim-pathogen:
 " http://github.com/tpope/vim-pathogen
 "call pathogen#runtime_append_all_bundles() " handled by Vundle
-call pathogen#runtime_prepend_subdirectories('~/.vim/manual')
-call pathogen#runtime_prepend_subdirectories('~/vimfiles/manual')
-call pathogen#runtime_prepend_subdirectories('~/.vim/pre')
-call pathogen#runtime_prepend_subdirectories('~/vimfiles/pre')
+call pathogen#surround('~/.vim/manual/{}')
+call pathogen#surround('~/vimfiles/manual/{}')
+call pathogen#surround('~/.vim/pre/{}')
+call pathogen#surround('~/vimfiles/pre/{}')
 call pathogen#helptags()
 
 function! s:clean_rtp()
