@@ -12,9 +12,9 @@ augroup java
     autocmd FileType java let b:jcommenter_file_author='Ryan Wooden, 100079872'
 augroup END
 
-au FileType cpp call EnableEclim()
+"au FileType cpp call EnableEclim()
 
-let g:EclimProjectProblemsUpdateOnSave=1
+let g:EclimProjectProblemsUpdateOnSave=0
 let g:EclimCValidate=0
 
 function! MyEclimBuild()
