@@ -7,7 +7,10 @@ ${1:void} ${2:funcname}($3) {
 endsnippet
 
 snippet inc "#include local header (inc)" !
-#include ${1:<}${2:`!p snip.rv = snip.basename + '.h'`}${1/</>/}
+#include ${1:<${2:`!p snip.rv = snip.basename + '.h'`}}`!p snip.rv = (
+    (t[1] and t[1][0] == "<" and ">" not in t[1][1:]) and ">" or
+    (t[1] and t[1][0] == '"' and '"' not in t[1][1:]) and '"' or
+    '')`
 endsnippet
 
 snippet for "for int loop (fori)" !
@@ -43,9 +46,17 @@ std::cout << $0;
 endsnippet
 
 snippet qf "Q_FOREACH"
-Q_FOREACH(${1/(int|char|bool)/const /}${1:int} ${1/(int|char|bool)/&/}${2:item}, ${3:items}) {
+Q_FOREACH${1/(int|char|bool)?(.*)/(?2:\(const :\()/}${1:int} ${1/(int|char|bool)?(.*)/(?2:&)/}${2:item}, ${3:$2s}) {
 	$0
 }
+endsnippet
+
+snippet /(qp|Q_PROPERTY|qprop)/ "Q_PROPERTY" ir
+Q_PROPERTY(${1:QVariant} ${2:propName} READ ${2/\*//}${4: WRITE set${2/\*?(.*)/\u$1/}}${5: NOTIFY ${2/\*//}Changed}${6: FINAL})${7:
+// For use below
+$1 $2() const;}${8:
+void set${2/\*?(.*)/\u$1/}($1 $2);}${9:
+void ${2/\*//}Changed();}
 endsnippet
 
 snippet d "qDebug()"
@@ -58,12 +69,22 @@ endsnippet
 
 snippet t "TEST"
 TEST(${1:`!p snip.rv = snip.fn.split('.')[0]`}, ${2:Name}) {
-    $0
+	$0
 }
 endsnippet
 
 snippet tf "TEST_F"
 TEST_F(${1:`!p snip.rv = snip.fn.split('.')[0]`}, ${2:Name}) {
-    $0
+	$0
 }
+endsnippet
+
+snippet mi "method implementation"
+${2:void} ${1:`!p snip.rv = snip.fn.split('.')[0]`}::${1:methodName}(${3}) {
+	$0
+}
+endsnippet
+
+snippet md "method declaration"
+${2:void} ${1:methodName}(${3});
 endsnippet
