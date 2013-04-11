@@ -9,8 +9,8 @@ catch_failure()
     pt=$?
     if [[ "$pt" != 0 ]]
     then
-        hist=`history -1 | sed -e "s/^ *[0-9]* *//"`
-        failure="`history -1 | sed -e "s/^ *\([0-9]*\) *.*/\1/"`"
+        hist=`history -1 | head -n 1 | sed -e "s/^ *[0-9]* *//"`
+        failure="`history -1 | head -n 1 | sed -e "s/^ *\([0-9]*\) *.*/\1/"`"
         [[ "$failure" = "$LAST_FAILURE" ]] && return
         export LAST_FAILURE=$failure
         echo -e "\033[1;31m'$hist' Failed ($pt)"

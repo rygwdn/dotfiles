@@ -2,7 +2,7 @@
 
 # Set up ls
 if [ "$TERM" != "dumb" ]; then
-    if [[ "$TERM" == "cygwin" ]] || "$CYGWIN" || [[ -n "$MSYSTEM" ]]
+    if [[ "$TERM" == "cygwin" ]] || [[ "$CYGWIN" == "true" ]] || [[ -n "$MSYSTEM" ]]
     then
         alias ls='ls --color'
         export LS_COLORS=
@@ -34,9 +34,9 @@ which ack-grep 1>/dev/null 2>/dev/null && alias ack='ack-grep'
 
 #TODO: if windows { .. } else { .. }
 #alias g='&> /dev/null gvim --fork=1'
-function g() { ( gvim -f "$@" & ) &> /dev/null  }
-alias gvo="vo -g"
-
+function g { ( gvim -f "$@" & ) &>/dev/null ; }
+alias gses="g --servername"
+alias gn="gses"
 
 function vcs()
 {
@@ -109,7 +109,7 @@ alias ...='cd ../..'
 # better gnome open command
 function o()
 {
-    op_prg=`for op in open gnome-open cygstart start explorer.exe
+    op_prg=`for op in gnome-open open cygstart start explorer.exe
     do
         which $op &>/dev/null && echo $op && break
     done | tail -n 1`
@@ -117,10 +117,10 @@ function o()
     for file in "$@"
     do
         if [[ "$op_prg" = "explorer.exe" ]] && $CYGWIN; then
-            $op_prg "`cygpath -w $file`"
+            $op_prg "`cygpath -w "$file"`"
         else
             file=`echo "$file" | sed 's/\/$//'`
-            $op_prg $file
+            $op_prg "$file"
         fi
     done
 }

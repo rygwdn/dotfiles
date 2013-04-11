@@ -34,16 +34,16 @@ then
         eval $list
     elif [[ "$TERM" != "screen" && "$TERM" != "tmux" ]]
     then
-        if [[ -n "$sess" ]]
-        then
-            if echo "$sess" | grep -q $isattached
-            then
+        #if [[ -n "$sess" ]]
+        #then
+            #if echo "$sess" | grep -q $isattached
+            #then
                 eval $list
-            else
-                eval $attach
-            fi
-        else
-            eval $new && exit
-        fi
+            #else
+                #eval $attach
+            #fi
+        #else
+            #eval $new && exit
+        #fi
     fi
 fi

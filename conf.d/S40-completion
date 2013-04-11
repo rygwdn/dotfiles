@@ -68,7 +68,7 @@ zstyle '*' single-ignored show
 # ignore completion functions (until the _ignored completer)
 zstyle ':completion:*:functions' ignored-patterns '_*'
 # Filename suffixes to ignore during completion (except after rm command)
-zstyle ':completion:*:*:(^rm):*:*files' ignored-patterns '*?.o' '*?.c~' '*?.old' '*?.pro'
+zstyle ':completion:*:*:(^rm):*:*files' ignored-patterns '*?.o' '*?.c~' '*?.old'
 # Ignores for vim
 zstyle ':completion:*:*:vim(m|):*:*' ignored-patterns '*?.(aux|dvi|ps|pdf|bbl|toc|lot|lof|o|zwc|class|pyc|cm?)'
 # Suggested for git
