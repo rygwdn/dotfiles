@@ -1,3 +1,5 @@
+-- {{{ Requires
+
 -- Standard awesome library
 require("awful")
 require("awful.autofocus")
@@ -12,6 +14,8 @@ require("debian.menu")
 
 -- scratchpad
 local scratch = require("scratch")
+
+-- }}}
 
 -- {{{ Error handling
 -- Check if awesome encountered an error during startup and fell back to
@@ -41,6 +45,9 @@ end
 -- {{{ Variable definitions
 -- Themes define colours, icons, and wallpapers
 beautiful.init("/usr/share/awesome/themes/default/theme.lua")
+
+-- TODO: set a better color between windows
+-- TODO: autostart/shutdown stuff with awesome
 
 -- This is used later as the default terminal and editor to run.
 terminal = "sakura"
@@ -89,12 +96,13 @@ myawesomemenu = {
    { "restart", awesome.restart },
    { "quit", awesome.quit },
    { "logout", "gnome-session-quit" },
-   { "shutdown", "gksudo 'shutdown -h now'" }
 }
 
 mymainmenu = awful.menu({ items = { { "awesome", myawesomemenu, beautiful.awesome_icon },
                                     { "Debian", debian.menu.Debian_menu.Debian },
-                                    { "open terminal", terminal }
+                                    { "open terminal", terminal },
+                                    { "force shutdown", "gksudo 'shutdown -h now'" },
+                                    { "nice shutdown", "gnome-session-quit --power-off" }
                                   }
                         })
 
@@ -104,10 +112,28 @@ mylauncher = awful.widget.launcher({ image = image(beautiful.awesome_icon),
 
 -- {{{ Wibox
 -- Create a textclock widget
-mytextclock = awful.widget.textclock({ align = "right" })
+mytextclock = awful.widget.textclock({align = "right"}, " %a %b %d, %I:%M%p ")
 
 -- Create a systray
 mysystray = widget({ type = "systray" })
+
+-- Battery status
+batterybox = widget({ type = "textbox" })
+batterybox.text = ""
+
+function get_battery_status()
+    local filedescriptor = io.popen('acpi -b | cut -f2 -d"," | sed -e "s/[[:space:]]//g"')
+    local value = filedescriptor:read()
+    filedescriptor:close()
+
+    return value
+end
+
+batterybox.text = get_battery_status()
+
+battery_timer = timer({ timeout = 60 })
+battery_timer:add_signal("timeout", function() batterybox.text = get_battery_status() end)
+battery_timer:start()
 
 -- Create a wibox for each screen and add it
 mywibox = {}
@@ -186,6 +212,7 @@ for s = 1, screen.count() do
         mylayoutbox[s],
         mytextclock,
         s == 1 and mysystray or nil,
+        s == 1 and batterybox or nil,
         mytasklist[s],
         layout = awful.widget.layout.horizontal.rightleft
     }
@@ -206,7 +233,7 @@ globalkeys = awful.util.table.join(
     awful.key({ modkey,           }, "Right",  awful.tag.viewnext       ),
     awful.key({ modkey,           }, "Escape", awful.tag.history.restore),
 
-    awful.key({            }, "F1",    function() scratch.drop("env LIBOVERLAY_SCROLLBAR=0 sakura", "top", "center", 1, 0.40, true) end),
+    awful.key({            }, "F1",    function() scratch.drop("env LIBOVERLAY_SCROLLBAR=0 TMUX= sakura -x \"bash -c 'tmux attach -t quake || tmux new -s quake'\"", 20, "center", 1, 0.40, true) end),
 
     awful.key({ modkey,           }, "j",
         function ()
@@ -342,7 +369,7 @@ awful.rules.rules = {
                      maximized_vertical = false,
                      maximized_horizontal = false,
                      buttons = clientbuttons } },
-    { rule = { class = "vmplayer" },
+    { rule = { class = "Vmplayer" },
       properties = { tag = tags[1][3] } },
     { rule = { class = "Momentics" },
       properties = { tag = tags[1][2] } },
@@ -352,6 +379,10 @@ awful.rules.rules = {
       properties = { tag = ( screen.count() > 1 and tags[2][1] or tags[1][8] ) } },
     { rule = { class = "MPlayer" },
       properties = { floating = true } },
+    { rule = { class = "SMPlayer" },
+      properties = { floating = true } },
+    { rule = { instance = "plugin-container" },
+      properties = { floating = true, focus = true } },
     { rule = { class = "Guake" },
       properties = { floating = true } },
     { rule = { class = "pinentry" },
@@ -394,3 +425,5 @@ end)
 client.add_signal("focus", function(c) c.border_color = beautiful.border_focus end)
 client.add_signal("unfocus", function(c) c.border_color = beautiful.border_normal end)
 -- }}}
+
+-- vim: foldmethod=marker foldmarker={{{,}}}

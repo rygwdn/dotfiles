@@ -85,7 +85,8 @@ function toggle(prog, vert, horiz, width, height, sticky, screen)
 
             if     vert == "bottom" then y = screengeom.height + screengeom.y - height
             elseif vert == "center" then y = screengeom.y+(screengeom.height-height)/2
-            else   y =  screengeom.y - screengeom.y end
+            elseif vert == "top" then  y =  screengeom.y - screengeom.y
+            else   y = vert end
 
             -- Client properties
             c:geometry({ x = x, y = y, width = width, height = height })
