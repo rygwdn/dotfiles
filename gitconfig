@@ -9,6 +9,8 @@
 [core]
 	editor = vim
 	excludesfile = ~/.gitignore
+	page = less -F -X -R
+	pager = less -F -X -R
 [merge]
 	tool = p4merge
 [pack]
@@ -26,6 +28,7 @@
         df = diff
         up = svn rebase
         who = shortlog -s --
+        fixup = commit --amend --no-edit
 
         log1 = log --pretty=oneline --abbrev-commit --decorate
         lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative -n 10
