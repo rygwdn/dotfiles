@@ -90,6 +90,9 @@ function! eclim#lang#CodeComplete(command, findstart, base, ...)
 
     for result in results
       let word = result.completion
+      if stridx(word, a:base) != 0
+          continue
+      endif
 
       " strip off close paren if necessary.
       if word =~ ')$' && close_paren
