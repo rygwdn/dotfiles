@@ -1,11 +1,13 @@
 #!/bin/bash
 
 # Set up ls
+RUNNING_IN_WINDOWS=false
 if [ "$TERM" != "dumb" ]; then
     if [[ "$TERM" == "cygwin" ]] || [[ "$CYGWIN" == "true" ]] || [[ -n "$MSYSTEM" ]]
     then
         alias ls='ls --color'
         export LS_COLORS=
+        RUNNING_IN_WINDOWS=true
     elif which dircolors &> /dev/null
     then
         eval "`dircolors -b`"
@@ -34,9 +36,29 @@ which ack-grep 1>/dev/null 2>/dev/null && alias ack='ack-grep'
 
 #TODO: if windows { .. } else { .. }
 #alias g='&> /dev/null gvim --fork=1'
-function g { ( gvim -f "$@" & ) &>/dev/null ; }
+function g {
+    if $RUNNING_IN_WINDOWS; then
+        ( /dev/null gvim --fork=1 ) &>/dev/null
+    else
+        ( gvim -f "$@" & ) &>/dev/null
+    fi
+}
+function gmod {
+    path=$(git rev-parse --show-toplevel || pwd)
+    # changed files
+    #echo "1: $1"
+    [[ -z "$1" ]] && files="$(cd $path ; git status --porcelain | sed 's/^ *[^ ]* *//' | sort -u)"
+    #echo "f1: $files"
+    # files changed in HEAD
+    [[ -z $files ]] && files="$(cd $path; git diff-tree --no-commit-id --name-only -r ${1:-HEAD})"
+    #echo "f2: $files"
+    files=$(echo "$files" | sed "s!^!$path/!" | grep -v '/images/' | while read line ; do file "$line" | grep -q '\btext\b' && echo $line ; done)
+    #echo "f3: $files"
+    g $(echo "$files" | xargs echo)
+}
 alias gses="g --servername"
 alias gn="gses"
+alias gchanged="gmod"
 
 function vcs()
 {
@@ -89,7 +111,7 @@ __git_shortcut gdc diff --cached
 __git_shortcut br branch
 __git_shortcut show show
 __git_shortcut rb rebase
-__git_shortcut rbi rebase -i
+__git_shortcut rbi rebase "-i --autosquash"
 alias st='git st'
 
 alias gl='lg -n-1 --all'
