@@ -63,6 +63,7 @@ Bundle "mileszs/ack.vim"
 Bundle "bufkill.vim"
 "Bundle "derekwyatt/vim-fswitch"
 Bundle "rygwdn/tagswitch"
+Bundle "tpope/vim-abolish"
 if has("python")
     Bundle "VOoM"
 endif
@@ -102,6 +103,8 @@ Bundle "tpope/vim-fugitive"
 Bundle "tpope/vim-git"
 Bundle "int3/vim-extradite"
 Bundle "sjl/splice.vim"
+Bundle "mhinz/vim-signify"
+Bundle "terryma/vim-multiple-cursors"
 "Bundle 'airblade/vim-gitgutter'
 "Bundle "gitolite.vim"
 

@@ -106,13 +106,13 @@ set mouse=a                     " mouse support in all modes
 set mousehide                   " hide the mouse when typing text
 
 " ,p and shift-insert will paste the X buffer, even on the command line
-nmap <S-Insert> i<S-MiddleMouse><ESC>
-imap <S-Insert> <S-MiddleMouse>
-cmap <S-Insert> <S-MiddleMouse>
+nmap <S-Insert> "+p
+imap <S-Insert> <C-O>:set paste<CR><C-r>+<C-O>:set nopaste<CR>
+cmap <S-Insert> <C-O>:set paste<CR><C-r>+<C-O>:set nopaste<CR>
 
 " this makes the mouse paste a block of text without formatting it 
 " (good for code)
-map <MouseMiddle> <esc>"*p
+map <MouseMiddle> <esc>"+p
 
 " -------------------------------------------------------- }}}
 
@@ -182,7 +182,9 @@ nmap <LocalLeader>lp  :lprevious<CR>
 nmap <LocalLeader>cn  :cnext<CR>
 nmap <LocalLeader>cp  :cprevious<CR>
 nmap <LocalLeader>cc  :cc<CR>
-nmap <LocalLeader>cw  :botright cwindow<CR>
+nmap <LocalLeader>cw  :botright copen<CR>
+nmap <LocalLeader>co  :botright copen<CR>
+nmap <LocalLeader>cl  :cclose<CR>
 
 " use Q for formatting
 map Q gq
@@ -337,7 +339,7 @@ au FileType mail set tw=0 spell colorcolumn=73
 " }}}
 
 " VimOutliner {{{
-"autocmd BufEnter *.otl set ft=vo_base
+autocmd BufEnter *.otl set ft=votl
 au FileType otl map <M-S-j> <M-S-Down>
 au FileType otl map <M-S-k> <M-S-Up>
 let otl_map_tabs = 1
