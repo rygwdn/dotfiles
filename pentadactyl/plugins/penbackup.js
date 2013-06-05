@@ -1,17 +1,14 @@
-/* use strict */
-XML.ignoreWhitespace = false;
-XML.prettyPrinting = false;
+"use strict";
+var INFO
 var INFO =
-<plugin name="penbackup" version="0.1"
-        summary="Backup Firefox info"
-        xmlns={NS}>
-    <author email="rygwdn@gmail.com">Ryan Wooden</author>
-    <license href="http://opensource.org/licenses/mit-license.php">MIT</license>
-    <project name="Pentadactyl" min-version="1.0"/>
-    <p>
-        Allows the ability to backup Firefox data.
-    </p>
-</plugin>;
+["plugin", { name: "penbackup",  version:"0.1",
+        summary:"Backup Firefox info",
+        xmlns:"dactyl"},
+    ["author", {email: "rygwdn@gmail.com"}, "Ryan Wooden"],
+    ["license", {href: "http://opensource.org/licenses/mit-license.php"}, "MIT"],
+    ["project", {name: "Pentadactyl", "min-version": "1.0"}],
+    ["p", {}, "Allows the ability to backup Firefox data."]
+];
 
 function savetabs(outfile){
     let defItem = { parent: { getTitle: function () "" } };
