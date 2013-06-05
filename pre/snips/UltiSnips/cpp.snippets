@@ -54,8 +54,11 @@ endsnippet
 snippet /(qp|Q_PROPERTY|qprop)/ "Q_PROPERTY" ir
 Q_PROPERTY(${1:QVariant} ${2:propName} READ ${2/\*//}${4: WRITE set${2/\*?(.*)/\u$1/}}${5: NOTIFY ${2/\*//}Changed}${6: FINAL})${7:
 // For use below
+// @see ${2/\*//}
 $1 $2() const;}${8:
+// @see ${2/\*//}
 void set${2/\*?(.*)/\u$1/}($1 $2);}${9:
+// @see ${2/\*//}
 void ${2/\*//}Changed();}
 endsnippet
 
@@ -87,4 +90,12 @@ endsnippet
 
 snippet md "method declaration"
 ${2:void} ${1:methodName}(${3});
+endsnippet
+
+clearsnippets ns
+
+snippet '(ns|namespace)' "namespace .. (namespace)" r!
+namespace ${1:`!v expand("%:p:h:t")`} {
+    ${VISUAL}${0}
+}
 endsnippet
