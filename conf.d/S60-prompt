@@ -26,18 +26,17 @@ fi
 [ -n "$SSH_TTY" ] && psprepend="${PR_RED}ssh-${PR_NO_COLOR}"
 
 # tries to keep the directory name short in the prompt
-function getdir
-{
-    DIR=`pwd | sed -e "s!$HOME!~!"`
+function getdir() {
+    DIR="`pwd | sed -e "s!$HOME!~!"`"
 
-    if [ ${#DIR} -gt 20 ]
+    if [[ "${#DIR}" -gt 20 ]]
     then
-        CurDir=`echo $DIR | sed -e "s!\([^/]\{1,2\}\)[^/]*/!\1/!g"`
+        CurDir=`echo "$DIR" | sed -e "s!\([^/]\{1,2\}\)[^/]*/!\1/!g"`
     else
-        CurDir=$DIR
+        CurDir="$DIR"
     fi
 
-    echo $CurDir
+    echo "$CurDir"
 }
 
 export HAS_GIT=$(which git &> /dev/null && echo true || echo false)
@@ -106,7 +105,7 @@ function rePrompt
 
 function setPrompts
 {
-    export PS1_DIR=`getdir`
+    export PS1_DIR="`getdir`"
     rePrompt
 
     if $windows

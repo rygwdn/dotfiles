@@ -6,8 +6,7 @@ setopt prompt_subst
 export ZLE_VIMODE="#"
 export ZLE_COLOR=$PR_NO_COLOR
 
-function zle-line-init zle-keymap-select 
-{
+function zle-line-init zle-keymap-select {
     export ZLE_VIMODE="${${KEYMAP/vicmd/N}/(main|viins)/I}"
     export ZLE_COLOR="${${KEYMAP/vicmd/$PR_BLUE}/(main|viins)/$PR_GREEN}"
     rePrompt
