@@ -1,2 +1,3 @@
 --type-set=haml=.haml
 --type-set=sass=.sass
+--type-set=qml=.qml
