@@ -6,14 +6,19 @@
 bindkey -v "[H" beginning-of-line
 bindkey -v "[F" end-of-line
 
-# fix cursor keys
+# Up key
 bindkey '\e[A'  up-line-or-history
-bindkey '\e[B'  down-line-or-history
-bindkey '\e[C'  forward-char
-bindkey '\e[D'  backward-char
 bindkey '\eOA'  up-line-or-history
+bindkey -v "[A" up-line-or-history
+# Down key
+bindkey '\e[B'  down-line-or-history
 bindkey '\eOB'  down-line-or-history
+bindkey -v "[B" down-line-or-history
+# Right key
+bindkey '\e[C'  forward-char
 bindkey '\eOC'  forward-char
+# Left key
+bindkey '\e[D'  backward-char
 bindkey '\eOD'  backward-char
 
 bindkey -v "[3~" delete-char
@@ -26,10 +31,8 @@ bindkey -v "OF" end-of-line
 bindkey -v "[5~" backward-word
 bindkey -v "[6~" forward-word
 
-bindkey -v "^N" up-line-or-search
-bindkey -v "^P" down-line-or-search
-bindkey -v "[A" up-history
-bindkey -v "[B" down-history
+bindkey -v "^N" history-beginning-search-forward
+bindkey -v "^P" history-beginning-search-backward
 bindkey "." insert-last-word
 
 bindkey -v "^R" history-incremental-search-backward
