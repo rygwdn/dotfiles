@@ -208,6 +208,10 @@ imap <C-Tab>   <Esc>gt
 nmap <C-S-Tab> gT
 imap <C-S-Tab> <Esc>gT
 
+nmap ,,q <Esc>
+imap ,,q <Esc>
+imap jj <Esc>
+
 nmap <leader>f zf%A
 vmap <leader>f zfA
 
