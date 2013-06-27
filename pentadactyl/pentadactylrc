@@ -169,11 +169,15 @@ command updatePlugins
 "command updatePlugins
 "\ stuff here
 
+" TODO: make this handle wikitext on wikis.rim.net
+"autocmd LocationChange !mail.google.com,* :set editor&
+"autocmd LocationChange mail.google.com :set editor=gvim -f -c 'set ft=mail' +<line>
+
 command addbmarks
 \ bmark -title=Acorn             -keyword=ac   http://acorn.acadiau.ca/my/
 \ bmark -title="Search Google"   -keyword=g    http://www.google.ca/search?q=%s
 \ bmark -title="Search PyPI"     -keyword=pypi http://pypi.python.org/pypi?%3Aaction=search&term=%s
-\ bmark -title="Search PPA"      -keyword=ppa  https://launchpad.net/ubuntu/+ppas?name_filter=alsa?name_filter=%s
+\ bmark -title="Search PPA"      -keyword=ppa  https://launchpad.net/ubuntu/+ppas?name_filter=%s
 \ bmark -title="Gmail"           -keyword=gm   https://mail.google.com/mail/?shva=1#inbox
 \ bmark -title="Google Calendar" -keyword=gc   https://www.google.com/calendar/render?gsessionid=tytkp42YyR2FoRo4F9zAGQ
 \ bmark -title="Google Reader"   -keyword=gr   http://www.google.com/reader/view/
