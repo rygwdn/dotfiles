@@ -13,7 +13,8 @@ require("naughty")
 require("debian.menu")
 
 -- scratchpad
-local scratch = require("scratch")
+--local scratch = require("scratch")
+local quake = require("quake")
 
 -- }}}
 
@@ -239,13 +240,26 @@ root.buttons(awful.util.table.join(
 ))
 -- }}}
 
+-- {{{ Quake console
+
+local quakeconsole = {}
+for s = 1, screen.count() do
+   quakeconsole[s] = quake({ terminal = "env LIBOVERLAY_SCROLLBAR=0 TMUX= sakura -x \"bash -c 'tmux attach -t quake || tmux new -s quake'\"",
+                             argname = "--name=%s",
+			     height = 0.4,
+			     screen = s })
+end
+
+-- }}}
+
 -- {{{ Key bindings
 globalkeys = awful.util.table.join(
     awful.key({ modkey,           }, "Left",   awful.tag.viewprev       ),
     awful.key({ modkey,           }, "Right",  awful.tag.viewnext       ),
     awful.key({ modkey,           }, "Escape", awful.tag.history.restore),
 
-    awful.key({            }, "F1",    function() scratch.drop("env LIBOVERLAY_SCROLLBAR=0 TMUX= sakura -x \"bash -c 'tmux attach -t quake || tmux new -s quake'\"", 20, "center", 1, 0.40, true) end),
+    --awful.key({            }, "F1",    function() scratch.drop("env LIBOVERLAY_SCROLLBAR=0 TMUX= sakura -x \"bash -c 'tmux attach -t quake || tmux new -s quake'\"", 20, "center", 1, 0.40, true) end),
+    awful.key({                   }, "F1", function () quakeconsole[mouse.screen]:toggle() end),
 
     awful.key({ modkey,           }, "j",
         function ()
