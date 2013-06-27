@@ -142,6 +142,10 @@ battery_timer = timer({ timeout = 60 })
 battery_timer:add_signal("timeout", function() batterybox.text = get_battery_status() end)
 battery_timer:start()
 
+-- Notification widget
+notification_box = widget({ type = "textbox" })
+notification_box.text = ""
+
 -- Create a wibox for each screen and add it
 mywibox = {}
 mypromptbox = {}
@@ -220,6 +224,7 @@ for s = 1, screen.count() do
         mytextclock,
         s == 1 and mysystray or nil,
         s == 1 and batterybox or nil,
+        s == 1 and notification_box or nil,
         mytasklist[s],
         layout = awful.widget.layout.horizontal.rightleft
     }
