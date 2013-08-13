@@ -3,13 +3,13 @@
 -- {{{ Requires
 
 -- Standard awesome library
-require("awful")
+awful = require("awful")
 require("awful.autofocus")
 require("awful.rules")
 -- Theme handling library
-require("beautiful")
+beautiful = require("beautiful")
 -- Notification library
-require("naughty")
+naughty = require("naughty")
 
 -- Load Debian menu entries
 require("debian.menu")
@@ -32,7 +32,7 @@ end
 -- Handle runtime errors after startup
 do
     local in_error = false
-    awesome.add_signal("debug::error", function (err)
+    awesome.connect_signal("debug::error", function (err)
         -- Make sure we don't go into an endless error loop
         if in_error then return end
         in_error = true
@@ -164,7 +164,7 @@ end
 batterybox.text = get_battery_status()
 
 battery_timer = timer({ timeout = 60 })
-battery_timer:add_signal("timeout", function() batterybox.text = get_battery_status() end)
+battery_timer:connect_signal("timeout", function() batterybox.text = get_battery_status() end)
 battery_timer:start()
 
 -- Notification widget
@@ -468,12 +468,12 @@ awful.rules.rules = {
 
 -- {{{ Signals
 -- Signal function to execute when a new client appears.
-client.add_signal("manage", function (c, startup)
+client.connect_signal("manage", function (c, startup)
     -- Add a titlebar
     -- awful.titlebar.add(c, { modkey = modkey })
 
     -- Enable sloppy focus
-    c:add_signal("mouse::enter", function(c)
+    c:connect_signal("mouse::enter", function(c)
         if awful.layout.get(c.screen) ~= awful.layout.suit.magnifier
             and awful.client.focus.filter(c) then
             client.focus = c
@@ -493,7 +493,7 @@ client.add_signal("manage", function (c, startup)
     end
 end)
 
-client.add_signal("focus", function(c)
+client.connect_signal("focus", function(c)
     if not awful.rules.match_any(c,
         {instance = { "plugin-container" , "copyq"} })
     then
@@ -501,7 +501,7 @@ client.add_signal("focus", function(c)
         c.opacity = 1
     end
 end)
-client.add_signal("unfocus", function(c)
+client.connect_signal("unfocus", function(c)
     if not awful.rules.match_any(c,
         {instance = { "plugin-container" , "copyq"} })
     then
