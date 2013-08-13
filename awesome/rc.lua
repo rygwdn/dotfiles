@@ -1,3 +1,5 @@
+-- TODO: ignore copyq in every way.. don't set transparency, don't focus on mouse move, etc.
+
 -- {{{ Requires
 
 -- Standard awesome library
@@ -62,6 +64,28 @@ editor_cmd = terminal .. " -e " .. editor
 -- However, you can use another modifier like Mod1, but it may interact with others.
 modkey = "Mod4"
 
+-- Change focus_relative to put the mouse in a sane place.
+do
+    local frel = awful.screen.focus_relative
+    awful.screen.focus_relative = function (i)
+        frel(i)
+        --if client.focus and client.focus.screen == mouse.screen then
+        if not (client.focus and client.focus.screen == mouse.screen) then
+            naughty.notify({ preset = naughty.config.presets.low,
+                             title = "WTF?",
+                             text = "Mouse is weird.. moving manually" })
+
+            local g = client.focus:geometry()
+            --g.x = g.x + g.width/2
+            --g.y = g.y + g.height/2
+            if mouse.screen == 1 then
+                g.x = g.x + 900
+            end
+            mouse.coords(g)
+        end
+    end
+end
+
 -- Table of layouts to cover with awful.layout.inc, order matters.
 layouts =
 {
@@ -75,7 +99,7 @@ layouts =
     --awful.layout.suit.fair.horizontal,
     --awful.layout.suit.spiral,
     --awful.layout.suit.spiral.dwindle,
-    awful.layout.suit.max.fullscreen,
+    --awful.layout.suit.max.fullscreen,
     --awful.layout.suit.magnifier
 }
 -- }}}
@@ -256,6 +280,8 @@ end
 globalkeys = awful.util.table.join(
     awful.key({ modkey,           }, "Left",   awful.tag.viewprev       ),
     awful.key({ modkey,           }, "Right",  awful.tag.viewnext       ),
+    awful.key({ modkey, "Control" }, "h",     awful.tag.viewprev       ),
+    awful.key({ modkey, "Control" }, "l",     awful.tag.viewnext       ),
     awful.key({ modkey,           }, "Escape", awful.tag.history.restore),
 
     --awful.key({            }, "F1",    function() scratch.drop("env LIBOVERLAY_SCROLLBAR=0 TMUX= sakura -x \"bash -c 'tmux attach -t quake || tmux new -s quake'\"", 20, "center", 1, 0.40, true) end),
@@ -296,8 +322,8 @@ globalkeys = awful.util.table.join(
     awful.key({ modkey,           }, "h",     function () awful.tag.incmwfact(-0.05)    end),
     awful.key({ modkey, "Shift"   }, "h",     function () awful.tag.incnmaster( 1)      end),
     awful.key({ modkey, "Shift"   }, "l",     function () awful.tag.incnmaster(-1)      end),
-    awful.key({ modkey, "Control" }, "h",     function () awful.tag.incncol( 1)         end),
-    awful.key({ modkey, "Control" }, "l",     function () awful.tag.incncol(-1)         end),
+    --awful.key({ modkey, "Control" }, "h",     function () awful.tag.incncol( 1)         end),
+    --awful.key({ modkey, "Control" }, "l",     function () awful.tag.incncol(-1)         end),
     awful.key({ modkey,           }, "space", function () awful.layout.inc(layouts,  1) end),
     awful.key({ modkey, "Shift"   }, "space", function () awful.layout.inc(layouts, -1) end),
 
@@ -402,7 +428,13 @@ awful.rules.rules = {
     { rule = { class = "Qde" },
       properties = { floating = true, tag = tags[1][2] } },
     { rule = { class = "Pidgin" },
-      properties = { tag = ( screen.count() > 1 and tags[2][1] or tags[1][8] ) } },
+      properties = {
+          tag = ( screen.count() > 1 and tags[2][1] or tags[1][8] )
+          --focus = false
+      } },
+    --{ rule = { class = "Pidgin" },
+    --  except = { role = "buddy_list" }, -- buddy_list is the master
+    --  properties = { }, callback = awful.client.setslave },
     { rule = { class = "MPlayer" },
       properties = { floating = true } },
     { rule = { class = "SMPlayer" },
@@ -423,6 +455,11 @@ awful.rules.rules = {
       properties = { floating = true } },
     { rule = { class = "gimp" },
       properties = { floating = true } },
+    { rule_any = { class = { "Iceweasel", "Firefox", "Chromium", "Conkeror", "Google-chrome" } },
+      callback = function(c)
+          -- All windows should be slaves, except the browser windows.
+          if c.role ~= "browser" then awful.client.setslave(c) end
+      end },
     -- Set Firefox to always map on tags number 2 of screen 1.
     -- { rule = { class = "Firefox" },
     --   properties = { tag = tags[1][2] } },
@@ -456,8 +493,27 @@ client.add_signal("manage", function (c, startup)
     end
 end)
 
-client.add_signal("focus", function(c) c.border_color = beautiful.border_focus end)
-client.add_signal("unfocus", function(c) c.border_color = beautiful.border_normal end)
+client.add_signal("focus", function(c)
+    if not awful.rules.match_any(c,
+        {instance = { "plugin-container" , "copyq"} })
+    then
+        c.border_color = beautiful.border_focus
+        c.opacity = 1
+    end
+end)
+client.add_signal("unfocus", function(c)
+    if not awful.rules.match_any(c,
+        {instance = { "plugin-container" , "copyq"} })
+    then
+        c.border_color = beautiful.border_normal
+        c.opacity = 0.95
+    end
+end)
+
+-- }}}
+
+-- Spawn stuff {{{
+--awful.util.spawn_with_shell("pgrep xcompmgr >/dev/null || xcompmgr || true")
 -- }}}
 
 -- vim: foldmethod=marker foldmarker={{{,}}}
