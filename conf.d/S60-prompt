@@ -1,6 +1,7 @@
 #!/usr/bin/env zsh
 
 setopt TRANSIENT_RPROMPT
+setopt prompt_subst
 
 # get host and set color
 case "$ZHOST" in
@@ -94,34 +95,53 @@ function git_ps1() {
     fi
 }
 
-windows=`echo $OS | grep -iq 'windows' && echo true || echo false`
+export PS1="${psprepend}${Color}$ZHOST:${PR_NO_COLOR}\$(getdir)\$(vi_mode_color)\$${PR_NO_COLOR} "
 
-function rePrompt
-{
-    PS1="${psprepend}${Color}$ZHOST:"
-    PS1+="${PR_NO_COLOR}${PS1_DIR}${ZLE_COLOR}\$${PR_NO_COLOR} "
-    export PS1
+function proj_prompt() {
+    [[ -n "$PROJECT" ]] && echo -n ' ${PR_RED}(${PR_BLUE}${PROJECT}${PR_RED})'
 }
 
-function setPrompts
-{
-    export PS1_DIR="`getdir`"
-    rePrompt
+function env_prompt() {
+    [[ -n "${VIRTUAL_ENV}" ]] && echo -n ' ${PR_GREEN}('`basename "$VIRTUAL_ENV"`')'
+}
 
-    if $windows
-    then
-        git_ps1
-    else
-        DISABLE_CHPWD=true vcs_info
+function vcs_prompt() {
+    [[ -n "${vcs_info_msg_0_}" ]] && echo -n " ${vcs_info_msg_0_}"
+    [[ -n "${VCS_PROMPT}" ]] && echo -n " ${VCS_PROMPT}"
+}
+
+
+function vi_mode_color() {
+    echo "${${KEYMAP/vicmd/$PR_BLUE}/(main|viins)/$PR_GREEN}"
+}
+
+export RPROMPT='$(proj_prompt)$(env_prompt)$(vcs_prompt)${PR_NO_COLOR}'
+
+if echo $OS | grep -iq 'windows'
+then
+    precmd_functions+='git_ps1'
+else
+    precmd_functions+='vcs_info'
+fi
+
+# Ensures that $terminfo values are valid and updates editor information when
+# the keymap changes.
+function zle-keymap-select zle-line-init zle-line-finish {
+    # The terminal must be in application mode when ZLE is active for $terminfo
+    # values to be valid.
+    if (( ${+terminfo[smkx]} )); then
+        printf '%s' ${terminfo[smkx]}
+    fi
+    if (( ${+terminfo[rmkx]} )); then
+        printf '%s' ${terminfo[rmkx]}
     fi
 
-    RPROMPT=""
-    [[ -n "$PROJECT" ]] && RPROMPT+=' ${PR_RED}(${PR_BLUE}${PROJECT}${PR_RED})'
-    [[ -n "${VIRTUAL_ENV}" ]] && RPROMPT+=' ${PR_GREEN}('`basename "$VIRTUAL_ENV"`')'
-    [[ -n "${vcs_info_msg_0_}" ]] && RPROMPT+=" ${vcs_info_msg_0_}"
-    [[ -n "${VCS_PROMPT}" ]] && RPROMPT+=" ${VCS_PROMPT}"
-    [[ -n "${PR_NO_COLOR}" ]] && RPROMPT+='${PR_NO_COLOR}'
-    export RPROMPT
+    zle reset-prompt
+    zle -R
 }
 
-precmd_functions+='setPrompts'
+zle -N zle-line-init
+zle -N zle-line-finish
+zle -N zle-keymap-select
+
+#bindkey -v

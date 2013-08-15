@@ -1,0 +1,10 @@
+#!/bin/zsh
+
+ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets)
+ZSH_HIGHLIGHT_STYLES[path]='fg=cyan,underline'
+ZSH_HIGHLIGHT_STYLES[path_prefix]='fg=cyan,underline'
+ZSH_HIGHLIGHT_STYLES[path_approx]='fg=yellow,underline'
+
+# default to fg=blue, which I cant see..
+ZSH_HIGHLIGHT_STYLES[history-expansion]='fg=cyan,bold'
+ZSH_HIGHLIGHT_STYLES[globbing]='fg=cyan,bold'
