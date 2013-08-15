@@ -173,6 +173,10 @@ command updatePlugins
 "autocmd LocationChange !mail.google.com,* :set editor&
 "autocmd LocationChange mail.google.com :set editor=gvim -f -c 'set ft=mail' +<line>
 
+autocmd LocationChange !newsblur.com,* :set activate+=diverted
+autocmd LocationChange newsblur.com :set activate-=diverted
+set passkeys+=newsblur.com:jk<Up><Down><Left><Right>g<Enter><S-Enter><Space><S-Space>nusrov<S-o><S-e><S-m>x<S-x><S-s><C-Enter><S_u><S-t>+-?a<S-f>c
+
 command addbmarks
 \ bmark -title=Acorn             -keyword=ac   http://acorn.acadiau.ca/my/
 \ bmark -title="Search Google"   -keyword=g    http://www.google.ca/search?q=%s
