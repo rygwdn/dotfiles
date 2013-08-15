@@ -29,7 +29,8 @@ if has("python")
 endif
 
 Bundle "Valloric/YouCompleteMe"
-Bundle "scrooloose/syntastic"
+"Bundle "scrooloose/syntastic"
+Bundle "myusuf3/numbers.vim"
 
 " Colorschemes {{{1
 Bundle "candycode.vim"

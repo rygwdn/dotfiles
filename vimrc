@@ -71,6 +71,7 @@ set encoding=utf-8
 let maplocalleader=','          " all my macros start with ,
 let mapleader=","               " set <Leader> to , instead of \
 
+set number
 if v:version >= 703
     set rnu                     " relative line nums
 endif
