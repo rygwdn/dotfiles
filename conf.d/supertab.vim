@@ -14,7 +14,3 @@ let g:SuperTabCrMapping = 0
 "au BufWinEnter */sc/ta/*/marks call SuperTabSetDefaultCompletionType("<c-x><c-l>")
 
 let g:SuperTabDefaultCompletionType = '<C-Tab>'
-
-let g:ycm_key_list_select_completion = ['<C-TAB>', '<Down>']
-let g:ycm_key_list_previous_completion = ['<C-S-TAB>', '<Up>']
-let g:ycm_extra_conf_globlist = ['~/git/*','!~/*']
