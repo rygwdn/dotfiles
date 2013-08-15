@@ -41,17 +41,18 @@ function g {
     fi
 }
 function gmod {
-    path=$(git rev-parse --show-toplevel || pwd)
+    local _path=$(git rev-parse --show-toplevel || pwd)
+    local _files=
     # changed files
     #echo "1: $1"
-    [[ -z "$1" ]] && files="$(cd $path ; git status --porcelain | sed 's/^ *[^ ]* *//' | sort -u)"
-    #echo "f1: $files"
+    [[ -z "$1" ]] && _files="$(cd $_path ; git status --porcelain | sed 's/^ *[^ ]* *//' | sort -u)"
+    #echo "f1: $_files"
     # files changed in HEAD
-    [[ -z $files ]] && files="$(cd $path; git diff-tree --no-commit-id --name-only -r ${1:-HEAD})"
-    #echo "f2: $files"
-    files=$(echo "$files" | sed "s!^!$path/!" | grep -v '/images/' | while read line ; do file "$line" | grep -q '\btext\b' && echo $line ; done)
-    #echo "f3: $files"
-    g $(echo "$files" | xargs echo)
+    [[ -z $_files ]] && _files="$(cd $_path; git diff-tree --no-commit-id --name-only -r ${1:-HEAD})"
+    #echo "f2: $_files"
+    _files=$(echo "$_files" | sed "s!^!$_path/!" | grep -v '/images/' | while read line ; do file "$line" | grep -q '\btext\b' && echo $line ; done)
+    #echo "f3: $_files"
+    g $(echo "$_files" | xargs echo)
 }
 alias gses="g --servername"
 alias gn="gses"
