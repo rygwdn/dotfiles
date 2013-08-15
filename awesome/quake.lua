@@ -46,7 +46,7 @@ function QuakeConsole:display()
    -- First, we locate the terminal
    local client = nil
    local i = 0
-   for c in awful.client.cycle(function (c)
+   for c in awful.client.iterate(function (c)
 				  -- c.name may be changed!
 				  return c.instance == self.name
 			       end,

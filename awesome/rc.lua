@@ -1,15 +1,17 @@
 -- TODO: ignore copyq in every way.. don't set transparency, don't focus on mouse move, etc.
+-- TODO: diff against new default rc.lua for updates.
 
 -- {{{ Requires
 
 -- Standard awesome library
-awful = require("awful")
-require("awful.autofocus")
-require("awful.rules")
+local awful = require("awful")
+awful.autofocus = require("awful.autofocus")
+awful.rules = require("awful.rules")
 -- Theme handling library
-beautiful = require("beautiful")
+local beautiful = require("beautiful")
+local wibox = require("wibox")
 -- Notification library
-naughty = require("naughty")
+local naughty = require("naughty")
 
 -- Load Debian menu entries
 require("debian.menu")
@@ -138,20 +140,17 @@ mymainmenu = awful.menu({ items = { { "awesome", myawesomemenu, beautiful.awesom
                                   }
                         })
 
-mylauncher = awful.widget.launcher({ image = image(beautiful.awesome_icon),
+mylauncher = awful.widget.launcher({ image = beautiful.awesome_icon,
                                      menu = mymainmenu })
 -- }}}
 
 -- {{{ Wibox
 -- Create a textclock widget
-mytextclock = awful.widget.textclock({align = "right"}, " %a %b %d, %I:%M%p ")
-
--- Create a systray
-mysystray = widget({ type = "systray" })
+mytextclock = awful.widget.textclock(" %a %b %d, %I:%M%p ")
 
 -- Battery status
-batterybox = widget({ type = "textbox" })
-batterybox.text = ""
+batterybox = wibox.widget.textbox()
+batterybox:set_text("")
 
 function get_battery_status()
     local filedescriptor = io.popen('acpi -b | cut -f2 -d"," | sed -e "s/[[:space:]]//g"')
@@ -161,15 +160,15 @@ function get_battery_status()
     return value
 end
 
-batterybox.text = get_battery_status()
+batterybox:set_text(get_battery_status())
 
 battery_timer = timer({ timeout = 60 })
-battery_timer:connect_signal("timeout", function() batterybox.text = get_battery_status() end)
+battery_timer:connect_signal("timeout", function() batterybox:set_text(get_battery_status()) end)
 battery_timer:start()
 
 -- Notification widget
-notification_box = widget({ type = "textbox" })
-notification_box.text = ""
+notification_box = wibox.widget.textbox()
+notification_box:set_text("")
 
 -- Create a wibox for each screen and add it
 mywibox = {}
@@ -218,7 +217,7 @@ mytasklist.buttons = awful.util.table.join(
 
 for s = 1, screen.count() do
     -- Create a promptbox for each screen
-    mypromptbox[s] = awful.widget.prompt({ layout = awful.widget.layout.horizontal.leftright })
+    mypromptbox[s] = awful.widget.prompt()
     -- Create an imagebox widget which will contains an icon indicating which layout we're using.
     -- We need one layoutbox per screen.
     mylayoutbox[s] = awful.widget.layoutbox(s)
@@ -228,31 +227,35 @@ for s = 1, screen.count() do
                            awful.button({ }, 4, function () awful.layout.inc(layouts, 1) end),
                            awful.button({ }, 5, function () awful.layout.inc(layouts, -1) end)))
     -- Create a taglist widget
-    mytaglist[s] = awful.widget.taglist(s, awful.widget.taglist.label.all, mytaglist.buttons)
+    mytaglist[s] = awful.widget.taglist(s, awful.widget.taglist.filter.all, mytaglist.buttons)
 
     -- Create a tasklist widget
-    mytasklist[s] = awful.widget.tasklist(function(c)
-                                              return awful.widget.tasklist.label.currenttags(c, s)
-                                          end, mytasklist.buttons)
+    mytasklist[s] = awful.widget.tasklist(s, awful.widget.tasklist.filter.currenttags, mytasklist.buttons)
 
     -- Create the wibox
     mywibox[s] = awful.wibox({ position = "top", screen = s })
-    -- Add widgets to the wibox - order matters
-    mywibox[s].widgets = {
-        {
-            mylauncher,
-            mytaglist[s],
-            mypromptbox[s],
-            layout = awful.widget.layout.horizontal.leftright
-        },
-        mylayoutbox[s],
-        mytextclock,
-        s == 1 and mysystray or nil,
-        s == 1 and batterybox or nil,
-        s == 1 and notification_box or nil,
-        mytasklist[s],
-        layout = awful.widget.layout.horizontal.rightleft
-    }
+ 
+    -- Widgets that are aligned to the left
+    local left_layout = wibox.layout.fixed.horizontal()
+    left_layout:add(mylauncher)
+    left_layout:add(mytaglist[s])
+    left_layout:add(mypromptbox[s])
+
+    -- Widgets that are aligned to the right
+    local right_layout = wibox.layout.fixed.horizontal()
+    if s == 1 then right_layout:add(batterybox) end
+    if s == 1 then right_layout:add(notification_box) end
+    if s == 1 then right_layout:add(wibox.widget.systray()) end
+    right_layout:add(mytextclock)
+    right_layout:add(mylayoutbox[s])
+
+    -- Now bring it all together (with the tasklist in the middle)
+    local layout = wibox.layout.align.horizontal()
+    layout:set_left(left_layout)
+    layout:set_middle(mytasklist[s])
+    layout:set_right(right_layout)
+
+    mywibox[s]:set_widget(layout)
 end
 -- }}}
 
@@ -284,7 +287,6 @@ globalkeys = awful.util.table.join(
     awful.key({ modkey, "Control" }, "l",     awful.tag.viewnext       ),
     awful.key({ modkey,           }, "Escape", awful.tag.history.restore),
 
-    --awful.key({            }, "F1",    function() scratch.drop("env LIBOVERLAY_SCROLLBAR=0 TMUX= sakura -x \"bash -c 'tmux attach -t quake || tmux new -s quake'\"", 20, "center", 1, 0.40, true) end),
     awful.key({                   }, "F1", function () quakeconsole[mouse.screen]:toggle() end),
 
     awful.key({ modkey,           }, "j",
@@ -422,6 +424,8 @@ awful.rules.rules = {
                      maximized_horizontal = false,
                      buttons = clientbuttons } },
     { rule = { class = "Vmplayer" },
+      properties = { tag = tags[1][3] } },
+    { rule = { class = "VirtualBox" },
       properties = { tag = tags[1][3] } },
     { rule = { class = "Momentics" },
       properties = { tag = tags[1][2] } },
