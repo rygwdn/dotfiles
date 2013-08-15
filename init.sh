@@ -47,7 +47,7 @@ rl() {
 function dolink()
 {
     file=$1
-    hf=$HOME/.`basename $file`
+    [ -n "$2" ] && hf="$2" || hf=$HOME/.`basename $file`
     if $win
     then
         [ $file = "vim" ] && hf="$HOME/vimfiles"
@@ -106,7 +106,7 @@ function dolink()
 
 for lfile in * */bash_aliases
 do
-    if [ $lfile != "init.sh" ] && [ $lfile != "bin" ] && [ -e $lfile ]
+    if [ $lfile != "init.sh" ] && [ $lfile != "bin" ] && [ $lfile != "awesome" ] && [ -e $lfile ]
     then
         dolink $lfile
     fi
@@ -115,3 +115,5 @@ do
         dolink $lfile/"$lfile"rc
     fi
 done
+
+dolink awesome $HOME/.config/awesome
