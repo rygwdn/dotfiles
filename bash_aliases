@@ -2,15 +2,15 @@
 
 # Set up ls
 RUNNING_IN_WINDOWS=false
-if [ "$TERM" != "dumb" ]; then
-    if [[ "$TERM" == "cygwin" ]] || [[ "$CYGWIN" == "true" ]] || [[ -n "$MSYSTEM" ]]
+if [[ "$TERM" != "dumb" ]]; then
+    if [[ "$TERM" == "cygwin" || "$CYGWIN" == "true" || -n "$MSYSTEM" ]]
     then
         alias ls='ls --color'
         export LS_COLORS=
         RUNNING_IN_WINDOWS=true
     elif which dircolors &> /dev/null
     then
-        eval "`dircolors -b`"
+        eval "$(dircolors -b)"
         alias ls='ls --color=auto'
     elif uname -s | grep -iq "Darwin"
     then
@@ -20,7 +20,6 @@ fi
 
 alias cherokee="ssh linode -L 9090:localhost:9090 -t -C 'sudo killall cherokee-admin; sudo cherokee-admin -b'"
 alias psa='ps aux | grep -v grep | grep -e "^USER" -e '
-[[ `hostname` == "cherokee" ]] && alias screen='\screen -e x'
 
 
 alias ll='ls -l'
@@ -34,8 +33,6 @@ alias qmv='\qmv -f destination-only'
 alias upnup='ap update && ap full-upgrade'
 which ack-grep 1>/dev/null 2>/dev/null && alias ack='ack-grep'
 
-#TODO: if windows { .. } else { .. }
-#alias g='&> /dev/null gvim --fork=1'
 function g {
     if $RUNNING_IN_WINDOWS; then
         ( /dev/null gvim --fork=1 ) &>/dev/null

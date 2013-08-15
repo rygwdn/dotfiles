@@ -3,31 +3,14 @@
 # Just for the next bit!
 setopt ALL_EXPORT
 
-[ -z "$HOME" ] && HOME=$(cd ~ ; pwd)
-[ -z "$HOSTNAME" ] && HOSTNAME=$(hostname)
+[[ -z "$HOME" ]] && HOME=$(cd ~ ; pwd)
+[[ -z "$HOSTNAME" ]] && HOSTNAME=$(hostname)
 
 EMAIL="rygwdn@gmail.com"
 FULLNAME="Ryan Wooden"
 TZ="America/Halifax"
 
 [[ -z $CYGWIN ]] && CYGWIN=nodosfilewarning
-
-PATH=/usr/local/bin:$PATH
-PATH=$PATH:/var/lib/gems/1.8/bin
-PATH=$HOME/.cabal/bin:$PATH
-PATH=$PATH:.
-PATH=$PATH:/opt/local/bin
-PATH=$PATH:$HOME/.gem/ruby/1.8/bin/
-PATH=$HOME/Dropbox/bin:$PATH
-PATH=$HOME/bin:$PATH
-PATH=$HOME/src/sage:$PATH
-PATH=$PATH:"/cygdrive/c/Program Files/Git/bin/"
-
-# include junit in java classpath
-CLASSPATH=$CLASSPATH:.:/usr/share/java/junit4.jar
-
-#LD_LIBRARY_PATH=$NXJ_HOME/bin
-#NXJ_HOME=/home/rwooden/src/lejos_nxj
 
 HISTSIZE=10000              # size of history
 SAVEHIST=10000              # maximum of history events to be save
@@ -37,17 +20,22 @@ HISTFILE=$HOME/.zhistory
 
 NULLCMD='less'               # use cat for > null commands
 REPORTTIME=10                # report time if execution exceeds amount of seconds
-watch=(notme)               # watch login/logout
+watch=(notme)                # watch login/logout
 
+# Set up less
 PAGER='less'
 # show colors in less
 LESS="-R"
+# syntax highlight files from less
+#which pygmentize &>/dev/null && LESSOPEN='|pygmentize -g %s'
+
 EDITOR='vim'
 VISUAL='vim'
 VPAGER='vim -R -'
 
 # Set up color vars
 autoload colors zsh/terminfo
+
 if [[ "$terminfo[colors]" -ge 8 ]]
 then
     colors
@@ -79,9 +67,6 @@ LESS_TERMCAP_us=$'\E[01;32m'
 
 # these are the default arguments to exuberant-ctags
 CTAGS="--c++-kinds=+p --fields=+iaS --extra=+q"
-
-# Use distrubute in virtualenv's
-VIRTUALENV_USE_DISTRIBUTE=1
 
 if [[ -n "$SSH_TTY" ]]
 then

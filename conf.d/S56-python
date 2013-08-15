@@ -1,48 +1,12 @@
 #!/usr/bin/env zsh
 
+# NOTE: most stuff for virtualenv wrapper is done through an anitgen plugin
+
 export WORKON_HOME=$HOME/.virtualenvs
-local ve
-ve=/usr/local/bin/virtualenvwrapper_bashrc
-[ -e $ve ] && source $ve
-ve=/usr/local/bin/virtualenvwrapper.sh
-[ -e $ve ] && source $ve
 
 export PIP_VIRTUALENV_BASE=$WORKON_HOME
 export PIP_RESPECT_VIRTUALENV=true
 export PIP_DOWNLOAD_CACHE="$HOME/.pip_download_cache"
 
-
-# Reads a .venv file in the project root with a virtualenv name in it
-function workon_cwd {
-    ENV_DIR=$(
-            dir=`pwd`
-            while [[ $dir != '/' && -n $dir ]]
-            do
-                [[ -e $dir/.venv ]] && echo $dir && break
-                dir=`dirname $dir`
-            done
-        )
-    ENV_NAME=$([[ -n $ENV_DIR ]] && cat $ENV_DIR/.venv) 
-
-    if [[ -n $ENV_NAME ]]
-    then
-        if  [[ $ENV_NAME != "$CD_VIRTUAL_ENV" ]] && \
-            [[ "$VIRTUAL_ENV" != $WORKON_HOME/$ENV_NAME ]]
-        then
-            if [[ -e "$WORKON_HOME/$ENV_NAME/bin/activate" ]]
-            then
-                workon "$ENV_NAME" && export CD_VIRTUAL_ENV="$ENV_NAME"
-            elif [[ -e "$ENV_DIR/$ENV_NAME/bin/activate" ]]
-            then
-                source "$ENV_DIR/$ENV_NAME/bin/activate" && export CD_VIRTUAL_ENV="$ENV_NAME"
-            fi
-        fi
-    elif [ $CD_VIRTUAL_ENV ]
-    then
-        # We've just left the repo, deactivate the environment
-        # Note: this only happens if the virtualenv was activated automatically
-        deactivate && unset CD_VIRTUAL_ENV
-    fi
-}
-
-chpwd_functions+='workon_cwd'
+# Use distrubute in virtualenv's
+export VIRTUALENV_USE_DISTRIBUTE=1

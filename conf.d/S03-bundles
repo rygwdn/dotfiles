@@ -1,0 +1,22 @@
+#!/bin/zsh
+
+export ADOTDIR="$HOME/.zsh/bundle"
+
+logTime "start bundles"
+
+antigen use oh-my-zsh
+logTime "did use"
+
+antigen bundle zsh-users/zsh-syntax-highlighting
+antigen bundle pip
+antigen bundle virtualenvwrapper
+antigen bundle zsh-users/zsh-history-substring-search
+
+logTime "did bundles"
+
+function antigen-selfupdate {
+    curl https://raw.github.com/zsh-users/antigen/master/antigen.zsh > $HOME/.zsh/conf.d/S02-antigen.zsh
+    source $HOME/.zsh/conf.d/S02-antigen.zsh
+    antigen update
+    antigen cleanup
+}
