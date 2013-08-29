@@ -40,6 +40,7 @@ Bundle "kien/rainbow_parentheses.vim"
 " Web dev {{{1
 "Bundle "mephux/vim-javascript.git"
 "Bundle "jQuery"
+Bundle "nono/vim-handlebars"
 
 " Docs {{{1
 "Bundle "rygwdn/latexbox-rubber"
@@ -96,11 +97,19 @@ Bundle "kien/ctrlp.vim"
 if v:version >= 703
     Bundle "sjl/gundo.vim"
 endif
-if has("gui_running")
-    Bundle "Lokaltog/vim-powerline"
-endif
+
+" Replaced by installation through pip
+"if has("gui_running")
+"    Bundle "Lokaltog/vim-powerline"
+"endif
 "Bundle "rygwdn/vim-conque"
 
+Bundle "terryma/vim-expand-region"
+Bundle "matze/vim-move"
+Bundle "takac/vim-hardtime"
+Bundle "Rykka/riv.vim"
+Bundle "xolox/vim-notes"
+Bundle "xolox/vim-misc"
 
 " Git stuff {{{1
 Bundle "tpope/vim-fugitive"
