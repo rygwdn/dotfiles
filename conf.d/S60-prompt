@@ -98,11 +98,12 @@ function git_ps1() {
 export PS1="${psprepend}${Color}$ZHOST:${PR_NO_COLOR}\$(getdir)\$(vi_mode_color)\$${PR_NO_COLOR} "
 
 function proj_prompt() {
-    [[ -n "$PROJECT" ]] && echo -n ' ${PR_RED}(${PR_BLUE}${PROJECT}${PR_RED})'
+    [[ -n "$PROJECT" ]] && echo -n " ${PR_RED}(${PR_BLUE}${PROJECT}${PR_RED})"
 }
 
+export VIRTUAL_ENV_DISABLE_PROMPT=true
 function env_prompt() {
-    [[ -n "${VIRTUAL_ENV}" ]] && echo -n ' ${PR_GREEN}('`basename "$VIRTUAL_ENV"`')'
+    [[ -n "${VIRTUAL_ENV}" ]] && echo -n " ${PR_GREEN}(`basename "$VIRTUAL_ENV"`)"
 }
 
 function vcs_prompt() {

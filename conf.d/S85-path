@@ -10,6 +10,7 @@ PATH=$HOME/Dropbox/bin:$PATH
 PATH=$HOME/bin:$PATH
 PATH=$HOME/src/sage:$PATH
 PATH=$PATH:"/cygdrive/c/Program Files/Git/bin/"
+PATH=$HOME/.local/bin:$PATH
 
 # include junit in java classpath
 CLASSPATH=$CLASSPATH:.:/usr/share/java/junit4.jar
