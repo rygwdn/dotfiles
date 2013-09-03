@@ -1,7 +1,13 @@
 python << EOF
 def SetupPathFromYCM():
-    import ycm.completers.cpp.flags
-    vim.current.buffer.options["path"] = ",".join(ycm.completers.cpp.flags.Flags().UserIncludePaths(vim.current.buffer.name))
+    try:
+        import ycm.completers.cpp.flags
+    except:
+        pass
+    else:
+        flags = ycm.completers.cpp.flags.Flags()
+        pathstr = ",".join(flags.UserIncludePaths(vim.current.buffer.name))
+        vim.current.buffer.options["path"] = pathstr
 EOF
 
 command! SetupPathFromYCM python SetupPathFromYCM()
