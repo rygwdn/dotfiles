@@ -13,114 +13,100 @@ else
     call vundle#rc()
 endif
 
-" Deps {{{1
-Bundle 'L9'
+" Access remote stuff (e.g. :e ssh://me@soemplace/blah)
 Bundle "netrw.vim"
-Bundle "tlib"
+" Universal Text Linking (provide links between files..)
 Bundle "utl.vim"
-"if has("python")
-"    Bundle "rygwdn/vim-async"
-"endif
 
-" Snippets {{{1
+" Smart tab completion
 Bundle "ervandew/supertab"
+
 if has("python")
+    " Snippets
     Bundle "SirVer/ultisnips"
+    " Nice outlining of files
+    Bundle "VOoM"
+    " Auto completion in C/C++/ObjC/Python
+    Bundle "Valloric/YouCompleteMe"
 endif
 
-Bundle "Valloric/YouCompleteMe"
-"Bundle "scrooloose/syntastic"
+" Auto switch between relative and non-relative depending on mode
 Bundle "myusuf3/numbers.vim"
 
-" Colorschemes {{{1
+" Color schemes I use..
 Bundle "candycode.vim"
 Bundle "blackboard.vim"
-Bundle "kien/rainbow_parentheses.vim"
 
-" Web dev {{{1
-"Bundle "mephux/vim-javascript.git"
-"Bundle "jQuery"
 Bundle "nono/vim-handlebars"
 
-" Docs {{{1
-"Bundle "rygwdn/latexbox-rubber"
-
-" Python {{{1
-"Bundle "rygwdn/vim-pylint"
-"if has("python")
-"    Bundle "rygwdn/rope-omni"
-"python << EOF
-"import vim
-"try:
-"    import ropevim
-"except ImportError:
-"    vim.command('''au VimEnter * echomsg "can't import ropevim"''')
-"EOF
-"endif
-
-" QML {{{1
+" Syntax highlighting for QML
 Bundle "omailson/vim-qml"
 
-
-" General {{{1
+" OTL files
 Bundle "vimoutliner/vimoutliner"
+
+" Use Ack from vim..
 Bundle "mileszs/ack.vim"
-Bundle "bufkill.vim"
-"Bundle "derekwyatt/vim-fswitch"
+
+" Kill buffers without closing splits/tabs
+Bundle "moll/vim-bbye"
+
+" My own tag based fswitch.vim
 Bundle "rygwdn/tagswitch"
+
+" I mostly use this for the ":S" command which is awesome
 Bundle "tpope/vim-abolish"
-if has("python")
-    Bundle "VOoM"
-endif
 
-
-" org mode {{{1
-"Bundle "jceb/vim-orgmode"
-"Bundle "utl.vim"
-"Bundle "tpope/vim-repeat"
-"Bundle "tpope/vim-speeddating"
-"Bundle "chrisbra/NrrwRgn"
-"Bundle "calendar.vim"
-
-
-" Navigation {{{1
+" File/dir tree
 Bundle "scrooloose/nerdtree"
+
+" Show tags in the current file in a tree
 Bundle "majutsushi/tagbar"
 
-" Operations {{{1
-Bundle "michaeljsmith/vim-indent-object"
-Bundle "camelcasemotion"
-
-" Utility {{{1
+" Automatic sessions
 Bundle "session.vim--Odding"
+
+" Awesome file finding
 Bundle "kien/ctrlp.vim"
-if v:version >= 703
-    Bundle "sjl/gundo.vim"
-endif
+
+" Unto tree browser
+Bundle "sjl/gundo.vim"
 
 " Replaced by installation through pip
-"if has("gui_running")
-"    Bundle "Lokaltog/vim-powerline"
-"endif
-"Bundle "rygwdn/vim-conque"
+"Bundle "Lokaltog/vim-powerline"
 
+" Use "+" to grow selection
 Bundle "terryma/vim-expand-region"
+
+" Use M-{j,k} to move line/selection up/down
 Bundle "matze/vim-move"
-Bundle "takac/vim-hardtime"
+
+" Restructured text in vim
 Bundle "Rykka/riv.vim"
+
+" For taking notes
 Bundle "xolox/vim-notes"
 Bundle "xolox/vim-misc"
 
-" Git stuff {{{1
-Bundle "tpope/vim-fugitive"
+" Git syntax, etc.
 Bundle "tpope/vim-git"
-Bundle "int3/vim-extradite"
-Bundle "sjl/splice.vim"
-Bundle "mhinz/vim-signify"
-Bundle "terryma/vim-multiple-cursors"
-"Bundle 'airblade/vim-gitgutter'
-"Bundle "gitolite.vim"
 
+" Lots of git functionality
+Bundle "tpope/vim-fugitive"
+
+" Easy management of signs
+Bundle "mhinz/vim-signify"
+
+" Mulitple cursors ala Sublime Text
+Bundle "terryma/vim-multiple-cursors"
+
+" Comment/uncomment
+Bundle "tpope/vim-commentary"
+
+" Allow certain things to be repeated
+Bundle "tpope/vim-repeat"
+
+" Autoinstall if the bundle dir is not present
 if glob(s:bundle_dir) == ""
     au VimEnter * BundleInstall
 endif
