@@ -29,6 +29,9 @@
         up = svn rebase
         who = shortlog -s --
         fixup = commit --amend --no-edit
+        todo = commit --allow-empty --no-verify -m
+        rbi = rebase -i --autosquash
+        rbis = rebase -i --autosquash --autostash
 
         log1 = log --pretty=oneline --abbrev-commit --decorate
         lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative -n 10
