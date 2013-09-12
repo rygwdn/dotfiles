@@ -33,6 +33,9 @@ alias qmv='\qmv -f destination-only'
 alias upnup='ap update && ap full-upgrade'
 which ack-grep 1>/dev/null 2>/dev/null && alias ack='ack-grep'
 
+alias ipy=ipython
+alias nb="ipython notebook"
+
 function g {
     if $RUNNING_IN_WINDOWS; then
         ( /dev/null gvim --fork=1 ) &>/dev/null
@@ -109,7 +112,8 @@ __git_shortcut gdc diff --cached
 __git_shortcut br branch
 __git_shortcut show show
 __git_shortcut rb rebase
-__git_shortcut rbi rebase "-i --autosquash"
+__git_shortcut rbi rbi
+__git_shortcut rbis rbis
 alias st='git st'
 
 alias gl='lg -n-1 --all'
