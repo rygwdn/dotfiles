@@ -41,6 +41,7 @@ Bundle "nono/vim-handlebars"
 
 " Syntax highlighting for QML
 Bundle "omailson/vim-qml"
+Bundle "rygwdn/qmake-syntax-vim"
 
 " OTL files
 Bundle "vimoutliner/vimoutliner"
