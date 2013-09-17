@@ -18,9 +18,6 @@ Bundle "netrw.vim"
 " Universal Text Linking (provide links between files..)
 Bundle "utl.vim"
 
-" Smart tab completion
-Bundle "ervandew/supertab"
-
 if has("python")
     " Snippets
     Bundle "SirVer/ultisnips"
@@ -28,6 +25,9 @@ if has("python")
     Bundle "VOoM"
     " Auto completion in C/C++/ObjC/Python
     Bundle "Valloric/YouCompleteMe"
+else
+    " Smart tab completion
+    Bundle "ervandew/supertab"
 endif
 
 " Auto switch between relative and non-relative depending on mode
