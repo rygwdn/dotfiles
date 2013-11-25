@@ -30,7 +30,7 @@
         who = shortlog -s --
         fixup = commit --amend --no-edit
         todo = commit --allow-empty --no-verify -m
-        rbi = rebase -i --autosquash
+        rbi = rebase -i --autosquash --autostash
         rbis = rebase -i --autosquash --autostash
 
         log1 = log --pretty=oneline --abbrev-commit --decorate

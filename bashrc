@@ -167,17 +167,16 @@ fi
 
 
 
-export PATH=$PATH:.:$HOME/bin
-[ -e /opt/local/bin ] && export PATH=$PATH:/opt/local/bin
-[ -e /usr/local/bin ] && export PATH=/usr/local/bin:$PATH
-[ -e "$HOME/.cabal/bin" ] && export PATH=$HOME/.cabal/bin:$PATH
-export PATH=/var/lib/gems/1.8/bin:$PATH
-export PATH=$PATH:/usr/local/git/bin
-export PATH=/opt/subversion/bin:$PATH
-
-export NXJ_HOME=/home/rwooden/src/lejos_nxj
-export PATH=$PATH:$NXJ_HOME/bin
-export LD_LIBRARY_PATH=$NXJ_HOME/bin
+if ! echo "$PATH" | grep -q -e '/opt/subversion/bin' -e '/usr/local/git/bin' -e 'var/lib/gems'
+then
+    export PATH=$PATH:.:$HOME/bin
+    [ -e /opt/local/bin ] && export PATH=$PATH:/opt/local/bin
+    [ -e /usr/local/bin ] && export PATH=/usr/local/bin:$PATH
+    [ -e "$HOME/.cabal/bin" ] && export PATH=$HOME/.cabal/bin:$PATH
+    export PATH=/var/lib/gems/1.8/bin:$PATH
+    export PATH=$PATH:/usr/local/git/bin
+    export PATH=/opt/subversion/bin:$PATH
+fi
 
 # enable programmable completion features (you don't need to enable
 # this, if it's already enabled in /etc/bash.bashrc and /etc/profile
@@ -206,3 +205,5 @@ if [ -e $vwpth ]; then
     export WORKON_HOME="$HOME/.virtualenvs"
     source $vwpth
 fi
+
+PATH=$PATH:$HOME/.rvm/bin # Add RVM to PATH for scripting
