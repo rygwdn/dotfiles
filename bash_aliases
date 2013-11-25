@@ -151,4 +151,4 @@ function o()
 
 complete -F _aptitude -o default ap
 
-[ -e ~/.bash_aliases_local ] && source ~/.bash_aliases_local
+[ -e ~/.bash_aliases_local ] && . ~/.bash_aliases_local

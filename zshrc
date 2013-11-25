@@ -58,3 +58,5 @@ then
     zmodload -u zsh/zprof
     rm "$logfile"
 fi
+
+PATH=$PATH:$HOME/.rvm/bin # Add RVM to PATH for scripting
