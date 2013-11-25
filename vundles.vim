@@ -30,6 +30,16 @@ else
     Bundle "ervandew/supertab"
 endif
 
+"Bundle "sukima/xmledit"
+"Bundle "Raimondi/delimitMate"
+Bundle "tpope/vim-liquid"
+Bundle "tpope/vim-ragtag"
+Bundle 'groenewege/vim-less'
+Bundle "aklt/plantuml-syntax"
+
+" Temporary (hopefully) to speed up yaml..
+Bundle "stephpy/vim-yaml"
+
 " Auto switch between relative and non-relative depending on mode
 Bundle "myusuf3/numbers.vim"
 

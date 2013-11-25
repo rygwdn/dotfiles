@@ -60,4 +60,6 @@ let g:ycm_filetype_blacklist = {
     \ 'text' : 1,
     \ 'ruby' : 1,
     \ 'votl' : 1,
+    \ 'yaml' : 1,
+    \ 'rst' : 1,
     \}

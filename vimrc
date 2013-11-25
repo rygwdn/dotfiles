@@ -131,7 +131,7 @@ set foldlevel=99999
 set autowrite                   " write before :make
 
 if v:version >= 703
-    set colorcolumn=80
+    set colorcolumn=+1
 endif
 
 set splitright                  " vertical split opens new window on right
@@ -187,6 +187,9 @@ nmap <LocalLeader>cw  :botright copen<CR>
 nmap <LocalLeader>co  :botright copen<CR>
 nmap <LocalLeader>cl  :cclose<CR>
 
+" Add support for new versions of make
+let &efm.= ",%D%*\\a[%*\\d]: Entering directory '%f',%X%*\\a[%*\\d]: Leaving directory '%f',%D%*\\a: Entering directory '%f',%X%*\\a: Leaving directory '%f',%DMaking %*\\a in %f,%f|%l| %m"
+
 " use Q for formatting
 map Q gq
 
@@ -198,7 +201,7 @@ nmap <c-j> j
 "map <C-a> 
 
 " Auto close braces
-inoremap { {}O
+"inoremap { {}O
 
 " Handy commands
 command! W w
