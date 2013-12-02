@@ -1,0 +1,12 @@
+#!/bin/bash
+
+PATH="/usr/local/bin:$PATH"
+SESS=quake
+isrunning=$(tmux ls 2>&1 | grep -q "^$SESS:" && echo "true" || echo "false")
+
+if $isrunning
+then
+    tmux attach -t $SESS
+else
+    tmux new -s $SESS
+fi
