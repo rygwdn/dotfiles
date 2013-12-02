@@ -1,0 +1,56 @@
+#!/usr/bin/env zsh
+
+autoload -Uz vcs_info
+
+zstyle ':vcs_info:*' enable git bzr svn #hg
+zstyle ':vcs_info:(hg*|git*|bzr*):*' get-revision true
+zstyle ':vcs_info:(hg*|git*|bzr*):*' check-for-changes true
+zstyle ':vcs_info:*' use-quilt false
+
+zstyle ':vcs_info:*:*'   stagedstr "${PR_GREEN}✚"
+zstyle ':vcs_info:*:*'   unstagedstr "${PR_RED}✱"
+zstyle ':vcs_info:hg*:*' hgrevformat "%r" # only show local rev.
+zstyle ':vcs_info:*:*'   branchformat "%b:%r"
+
+VCS_FMT="${PR_BLUE}[%c%u${PR_GREEN}%b${PR_BLUE}]${PR_NO_COLOR}%m (%s)"
+zstyle ':vcs_info:*' formats "${VCS_FMT}"
+zstyle ':vcs_info:*' actionformats "${PR_RED}(%a)${PR_NO_COLOR} ${VCS_FMT}"
+zstyle ':vcs_info:bzr*' use-simple true
+
+zstyle ':vcs_info:hg*:*' get-bookmarks true
+zstyle ':vcs_info:hg*:*' get-mq true
+zstyle ':vcs_info:hg*:*' get-unapplied true
+zstyle ':vcs_info:hg*:*' patch-format "mq(%g):%n/%c %p"
+zstyle ':vcs_info:hg*:*' nopatch-format "mq(%g):%n/%c %p"
+
+
+
+zstyle ':vcs_info:git*+set-message:*' hooks git-untracked git-stash vspacing
+zstyle ':vcs_info:hg*+set-message:*' hooks vspacing
+zstyle ':vcs_info:svn*+set-message:*' hooks vspacing
+zstyle ':vcs_info:bzr*+set-message:*' hooks vspacing
+
+function +vi-git-untracked()
+{
+    if [[ `git ls-files --other --exclude-standard 2>| /dev/null | wc -l` > 0 ]]
+    then
+        hook_com[unstaged]="${PR_YELLOW}+${hook_com[unstaged]}"
+    fi
+}
+function +vi-git-stash()
+{
+    local -a stashes
+
+    if [[ -s ${hook_com[base]}/.git/refs/stash ]] ; then
+        stashes=$(git stash list 2>/dev/null | wc -l)
+        hook_com[misc]+=" (${stashes} stashed)"
+    fi
+}
+
+function +vi-vspacing()
+{
+    if [[ -n "${hook_com[unstaged]}" ]] || [[ -n "${hook_com[staged]}" ]]
+    then
+        hook_com[unstaged]+=" "
+    fi
+}

@@ -1,0 +1,49 @@
+#!/usr/bin/env zsh
+
+SESS=zsh
+
+go=false
+if echo "$OS" | grep -qi "windows"
+then
+    : # running windows
+    echo "no multiplex, on windows"
+elif which tmux &> /dev/null
+then
+    go=true
+    list='tmux ls'
+    sess=`tmux ls 2>&1 | grep "^$SESS:"`
+    isattached='(attached) *$'
+    attach="tmux attach -t $SESS"
+    new="tmux new -s $SESS"
+elif which screen &> /dev/null
+then
+    go=true
+    list=$(echo -n "screen -ls | sed '"; echo -n '1d;N;$!P;$!D;$d;/^$/d'; echo -n "'")
+    sess=`screen -ls 2>&1 | grep "$SESS"`
+    isattached='Multi.*detached'
+    attach="screen -x $SESS"
+    new="screen -S $SESS"
+else
+    echo "No terminal multiplexer available"
+fi
+
+if $go
+then
+    if [[ -n "$SSH_TTY" ]]
+    then
+        eval $list
+    elif [[ "$TERM" != "screen" && "$TERM" != "tmux" ]]
+    then
+        #if [[ -n "$sess" ]]
+        #then
+            #if echo "$sess" | grep -q $isattached
+            #then
+                eval $list
+            #else
+                #eval $attach
+            #fi
+        #else
+            #eval $new && exit
+        #fi
+    fi
+fi

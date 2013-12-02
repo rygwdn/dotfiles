@@ -1,0 +1,75 @@
+#!/usr/bin/env zsh
+
+#autoload -U compinit
+#compinit
+
+#[ Generic ]############################################
+#Trying without cache for now
+#zstyle ':completion::complete:*' use-cache on
+#zstyle ':completion::complete:*' cache-path ~/.zsh/cache/$HOST
+
+zstyle ':completion:*' add-space true # add space at end of completions
+zstyle ':completion:*' completer _expand _complete _match _prefix _ignored _list # _approximate
+zstyle ':completion:*' menu select=1
+zstyle ':completion:*' file-sort name
+zstyle ':completion:*' list-colors ${(s.:.)ZLS_COLORS}
+# normal, then case insensitive, then partial-word
+zstyle ':completion:*' matcher-list ''  'm:{a-zA-Z}={A-Za-z}' 'l:|=** r:|=**'
+zstyle ':completion:*' menu select
+
+# I like error matching, but it's annoying sometimes
+#zstyle ':completion:*:approximate:*' max-errors 'reply=( $(( ($#PREFIX+$#SUFFIX)/2 )) numeric )'
+
+#[ Formats ]####################################################################
+zstyle ':completion:*' group 1
+zstyle ':completion:*' format '%B---- %d%b'
+zstyle ':completion:*:corrections' format '%B---- %d (errors %e)%b'
+zstyle ':completion:*:descriptions' format "%B---- %d%b"
+zstyle ':completion:*:messages' format '%B%U---- %d%u%b' 
+zstyle ':completion:*:warnings' format "%B$fg[red]%}---- no match for: $fg[white]%d%b"
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*' list-prompt '%SAt %p: Hit TAB for more, or the character to insert%s'
+zstyle ':completion:*' select-prompt '%SScrolling active: current selection at %p%s'
+
+# insert all expansions for expand completer
+zstyle ':completion:*:expand:*' tag-order all-expansions
+
+# formatting and messages
+zstyle ':completion:*' verbose yes
+zstyle ':completion:*:descriptions' format '%B%d%b'
+zstyle ':completion:*:messages' format '%d'
+zstyle ':completion:*:warnings' format 'No matches for: %d'
+zstyle ':completion:*:corrections' format '%B%d (errors: %e)%b'
+zstyle ':completion:*' group-name ''
+
+# match uppercase from lowercase (or don't)
+#zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
+
+# offer indexes before parameters in subscripts
+zstyle ':completion:*:*:-subscript-:*' tag-order indexes parameters
+
+
+#[ Kill ]#######################################################################
+zstyle ':completion:*:processes' command 'ps -au$USER -o pid,time,cmd|grep -v "ps -au$USER -o pid,time,cmd"'
+zstyle ':completion:*:*:kill:*:processes' list-colors '=(#b) #([0-9]#)*=0=01;31'
+zstyle ':completion:*:*:kill:*:processes' command 'ps --forest -A -o pid,user,cmd'
+zstyle ':completion:*:processes-names' command 'ps axho command' 
+
+
+#[ hosts and users ]############################################################
+
+[[ -f ~/.ssh/known_hosts ]] && hosts=(`awk '{print $1}' ~/.ssh/known_hosts | tr ',' '\n' `)
+[[ -f ~/.ssh/config ]] && hosts=($hosts `grep '^[Hh]ost' ~/.ssh/config | sed 's/[Hh]ost\ //' | egrep -v '^\*$'`)
+[[ -f /var/lib/misc/ssh_known_hosts ]] && hosts=($hosts `awk -F "[, ]" '{print $1}' /var/lib/misc/ssh_known_hosts | sort -u`)
+[[ -n "$hosts" ]] && zstyle ':completion:*:hosts' hosts $hosts
+
+#[ Ignores ]#########################################
+zstyle '*' single-ignored show
+# ignore completion functions (until the _ignored completer)
+zstyle ':completion:*:functions' ignored-patterns '_*'
+# Filename suffixes to ignore during completion (except after rm command)
+zstyle ':completion:*:*:(^rm):*:*files' ignored-patterns '*?.o' '*?.c~' '*?.old'
+# Ignores for vim
+zstyle ':completion:*:*:vim(m|):*:*' ignored-patterns '*?.(aux|dvi|ps|pdf|bbl|toc|lot|lof|o|zwc|class|pyc|cm?)'
+# Suggested for git
+zstyle ':completion::*:git-{name-rev,add,rm}:*' ignore-line true
