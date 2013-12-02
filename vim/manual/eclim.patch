@@ -1,0 +1,14 @@
+diff --git i/manual/eclim/eclim/autoload/eclim/lang.vim w/manual/eclim/eclim/autoload/eclim/lang.vim
+index 9b60e44..0cbac6f 100644
+--- i/manual/eclim/eclim/autoload/eclim/lang.vim
++++ w/manual/eclim/eclim/autoload/eclim/lang.vim
+@@ -90,6 +90,9 @@ function! eclim#lang#CodeComplete(command, findstart, base, ...)
+ 
+     for result in results
+       let word = result.completion
++      if stridx(word, a:base) != 0
++          continue
++      endif
+ 
+       " strip off close paren if necessary.
+       if word =~ ')$' && close_paren
