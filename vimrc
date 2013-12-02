@@ -64,7 +64,11 @@ set linebreak                   " wrap on words, not in the middle of them
 set wrap                        " ...
 set guioptions-=T               " no toolbar
 "set formatoptions=l            " don't insert eols, just wrap
-set clipboard=unnamedplus       " use "* as the default register
+if has(mac) || has(macunix)
+    set clipboard=unnamed           " use "* as the default register
+else
+    set clipboard=unnamedplus       " use "+ as the default register
+endif
 
 set encoding=utf-8
 
