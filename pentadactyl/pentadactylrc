@@ -80,8 +80,6 @@ loadplugins
 "set tabopen=external:end,link:right,orphan:right
 "set fbw+=alpha.glitch.com
 "set fbw+=rdio.com
-set fbw+=rim.net
-set fbw+=zoho.com
 
 command! gonew -nargs=1 js var args=<q-args>.split(","); var search = args[0].replace('"', "", 'g'); var open = args[1]; var matches = completion.runCompleter("buffer", search); if (matches.length > 0) { tabs.select(matches[0].id - 1, false); } else { dactyl.execute("tabopen " + open); }
 
@@ -158,11 +156,11 @@ command downloadPlugin -nargs=1 js plugins.pluginDl.downloadPlugin(<q-args>)
 command updatePlugins
 \ downloadPlugin browser-improvements-dev
 \ downloadPlugin curl-dev
-\ downloadPlugin flashblock-dev
 \ downloadPlugin http-headers-dev
 \ downloadPlugin jscompletion-dev
 \ downloadPlugin useragent-dev
 \ rehash
+" \ downloadPlugin flashblock-dev
 
 "command! updatePlugin -nargs=1 
 "
