@@ -52,8 +52,9 @@ else
 endif
 
 let g:ycm_key_list_previous_completion = ['<S-TAB>', '<Up>']
-let g:ycm_extra_conf_globlist = ['~/git/*','!~/*']
+"let g:ycm_extra_conf_globlist = ['~/git/*','!~/*']
 
+let g:ycm_confirm_extra_conf = 0
 let g:ycm_filetype_blacklist = {
     \ 'notes' : 1,
     \ 'markdown' : 1,
