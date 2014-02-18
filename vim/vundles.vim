@@ -24,6 +24,7 @@ Bundle "aklt/plantuml-syntax"
 Bundle "nono/vim-handlebars"
 Bundle "omailson/vim-qml"
 Bundle "rygwdn/qmake-syntax-vim"
+Bundle "rodjek/vim-puppet"
 
 " Restructured text in vim
 Bundle "Rykka/riv.vim"
