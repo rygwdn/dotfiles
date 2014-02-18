@@ -9,13 +9,13 @@ fi
 # for examples
 
 # If not running interactively, don't do anything
-[ -z "$PS1" ] && return
+[[ -z "$PS1" ]] && return
 
-[ -e /c/cygwin/bin ] && export CYGWIN=true || CYGWIN=false
+[[ -e /c/cygwin/bin ]] && export CYGWIN=true || CYGWIN=false
 
 $CYGWIN && export PATH="$PATH":"/c/cygwin/bin"
 
-SHELL=`which bash`
+SHELL=$(which bash)
 
 # don't put duplicate lines in the history. See bash(1) for more options
 export HISTCONTROL=ignoredups
@@ -50,12 +50,10 @@ shopt -s checkwinsize
 #PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 
 # deal with stupid hostnames
-hostname=`hostname`
-hostname=`echo "$hostname" | sed 's/\.acadiau\.ca//'`
-hostname=`echo "$hostname" | sed 's/^CI[0-9]*$/Work/'`
+hostname=$(hostname | sed 's/\.acadiau\.ca//;s/^CI[0-9]*$/Work/')
 
 # get host and set color
-if [ "`id -u`" -eq 0 ]; then
+if [ "$(id -u)" -eq 0 ]; then
         Color='\[\033[1;31m\]'  # red background for root
 else
         case "$hostname" in
@@ -187,8 +185,8 @@ fi
 
 # virtualenv stuff
 
-vwpth=`which virtualenvwrapper.sh 2>/dev/null`
-[ -z $vwpth ] && vwpth=`dirname $(which python 2>/dev/null)`/Scripts/virtualenvwrapper.sh
+vwpth=$(which virtualenvwrapper.sh 2>/dev/null)
+[ -z $vwpth ] && vwpth=$(dirname $(which python 2>/dev/null))/Scripts/virtualenvwrapper.sh
 if [ -e $vwpth ]; then
     export MSYS_HOME=`python -c "import sys; print sys.argv[1]" $(dirname $(which git))`
     export TMPDIR=$TEMP
