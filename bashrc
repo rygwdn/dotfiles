@@ -1,4 +1,8 @@
-[ -e ~/.bash_profile ] && source ~/.bash_profile
+if [[ -e ~/.bash_profile && -z "$SOURCED_PROFILE" ]]
+then
+    export SOURCED_PROFILE=1
+    source ~/.bash_profile
+fi
 
 # ~/.bashrc: executed by bash(1) for non-login shells.
 # see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
