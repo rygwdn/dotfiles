@@ -51,12 +51,26 @@ Bundle "blackboard.vim"
 
 " }}}
 
-if has("python")
-    " Snippets
-    Bundle "SirVer/ultisnips"
+if ! exists("g:light_bundles") || g:light_bundles == 0
+    if has("python")
+        " Snippets
+        Bundle "SirVer/ultisnips"
 
-    " Auto completion in C/C++/ObjC/Python
-    Bundle "Valloric/YouCompleteMe"
+        " Auto completion in C/C++/ObjC/Python
+        Bundle "Valloric/YouCompleteMe"
+    endif
+
+    " Lots of git functionality
+    Bundle "tpope/vim-fugitive"
+
+    " Easy management of signs
+    Bundle "mhinz/vim-signify"
+
+    " Automatic sessions
+    Bundle "session.vim--Odding"
+
+    " Mulitple cursors ala Sublime Text. Provides "Ctrl-N"
+    Bundle "terryma/vim-multiple-cursors"
 endif
 
 " Add surround commands
@@ -70,9 +84,6 @@ Bundle "terryma/vim-expand-region"
 
 " Use M-{j,k} to move line/selection up/down
 Bundle "matze/vim-move"
-
-" Mulitple cursors ala Sublime Text. Provides "Ctrl-N"
-Bundle "terryma/vim-multiple-cursors"
 
 " Comment/uncomment. Provdes "gcc" (among others)
 Bundle "tpope/vim-commentary"
@@ -104,8 +115,6 @@ Bundle "rygwdn/tagswitch"
 " Show tags in the current file in a tree
 Bundle "majutsushi/tagbar"
 
-" Automatic sessions
-Bundle "session.vim--Odding"
 if v:version >= 704
     " Auto switch between relative and non-relative depending on mode
     Bundle "myusuf3/numbers.vim"
@@ -113,12 +122,6 @@ endif
 
 " Awesome file finding. Provies Ctrl-P and <Space>
 Bundle "kien/ctrlp.vim"
-
-" Lots of git functionality
-Bundle "tpope/vim-fugitive"
-
-" Easy management of signs
-Bundle "mhinz/vim-signify"
 
 " Allow certain things to be repeated
 Bundle "tpope/vim-repeat"
