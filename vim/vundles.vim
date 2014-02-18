@@ -59,6 +59,12 @@ if has("python")
     Bundle "Valloric/YouCompleteMe"
 endif
 
+" Add surround commands
+Bundle "tpope/vim-surround"
+
+" Tabular
+Bundle "godlygeek/tabular"
+
 " Use "+" to grow selection
 Bundle "terryma/vim-expand-region"
 
