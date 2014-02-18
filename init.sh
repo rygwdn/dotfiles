@@ -106,7 +106,7 @@ function dolink()
 
 for lfile in * */bash_aliases
 do
-    if [ $lfile != "init.sh" ] && [ $lfile != "bin" ] && [ $lfile != "awesome" ] && [ -e $lfile ]
+    if [ $lfile != "init.sh" ] && [ $lfile != "bin" ] && [ $lfile != "awesome" ] && [ $lfile != "README.md" ] && [ -e $lfile ]
     then
         dolink $lfile
     fi
