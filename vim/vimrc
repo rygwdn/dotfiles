@@ -92,7 +92,6 @@ for dir in ["~/tmp/.vim", "~/.vim/tmp", "/tmp", "~/vimfiles/tmp", "C:\\Temp"]
         let g:temp_path = dir
         break
     endif
-    echom "Failed to find valid temp path"
 endfor
 
 exec "set directory=" . g:temp_path
