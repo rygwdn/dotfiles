@@ -1,11 +1,12 @@
 #!/usr/bin/env zsh
 
 PATH=/usr/local/bin:$PATH
+PATH=/usr/local/sbin:$PATH
 PATH=$PATH:/var/lib/gems/1.8/bin
+PATH=$PATH:$HOME/.gem/ruby/1.8/bin
 PATH=$HOME/.cabal/bin:$PATH
 PATH=$PATH:.
 PATH=$PATH:/opt/local/bin
-PATH=$PATH:$HOME/.gem/ruby/1.8/bin/
 PATH=$HOME/Dropbox/bin:$PATH
 PATH=$HOME/bin:$PATH
 PATH=$HOME/src/sage:$PATH
