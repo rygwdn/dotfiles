@@ -18,6 +18,13 @@ set rtp+=~/.vim
 
 " Bundles & pathogen {{{
 
+" Disable some vim bundles if requested
+if $VIM_LIGHT_BUNDLES == 1
+    let g:light_bundles = 1
+else
+    let g:light_bundles = 0
+endif
+
 filetype indent plugin off
 filetype off
 
