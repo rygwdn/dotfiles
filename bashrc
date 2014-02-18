@@ -11,20 +11,6 @@
 
 $CYGWIN && export PATH="$PATH":"/c/cygwin/bin"
 
-# I choose ZSH!!
-if ! $CYGWIN && which zsh &> /dev/null && ! echo $SHELL | grep -q zsh
-then
-    if zsh
-    then
-        exit
-    else
-        echo clean bash
-        return
-    fi
-else
-    echo Bash
-fi
-
 SHELL=`which bash`
 
 # don't put duplicate lines in the history. See bash(1) for more options
