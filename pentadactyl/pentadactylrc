@@ -16,8 +16,20 @@ map <C-t> <Pass>
 map <C-w> <Pass>
 
 
-js config.guioptions['D'] = ['Delicious Toolbar',['ybToolbar']];
 set go+=TrB
+
+" set up the editor
+js <<EOM
+switch (services.runtime.OS) {
+   case "Darwin": 
+     //options.editor = 'open -a macvim -f +<line> +"sil! call cursor(0, <column>)" <file>';
+     options.editor = '/usr/local/bin/gvim -f +<line> +"sil! call cursor(0, <column>)" <file>';
+     break;
+   case "Linux":
+     options.editor = 'gvim -f +<line> +"sil! call cursor(0, <column>)" <file>';
+     break;
+}
+EOM
 
 command! lastpasslogin javascript LP.lpOpenLogin()
 command! lp lastpasslogin
