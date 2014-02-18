@@ -41,12 +41,8 @@
         kompare = difftool -t kompare
         vmerge = mergetool -y --tool=vimdiff
         gmerge = mergetool -y --tool=gvimdiff
-[url "git@ryanwooden.com:"]
-    insteadOf = gitolite:
 [url "git@github.com:rygwdn/"]
     insteadOf = github:
-[url "git@panther.colibri-software.com:"]
-    insteadOf = colibri:
 [rerere]
 	enabled = 1
 [branch]
