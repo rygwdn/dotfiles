@@ -98,11 +98,12 @@ Bundle "rygwdn/tagswitch"
 " Show tags in the current file in a tree
 Bundle "majutsushi/tagbar"
 
-" Auto switch between relative and non-relative depending on mode
-Bundle "myusuf3/numbers.vim"
-
 " Automatic sessions
 Bundle "session.vim--Odding"
+if v:version >= 704
+    " Auto switch between relative and non-relative depending on mode
+    Bundle "myusuf3/numbers.vim"
+endif
 
 " Awesome file finding. Provies Ctrl-P and <Space>
 Bundle "kien/ctrlp.vim"
