@@ -60,7 +60,10 @@ bindkey -M vicmd "^N" history-substring-search-down
 
 bindkey "." insert-last-word
 
-bindkey -v "^R" history-incremental-search-backward
+bindkey -v "^R" history-incremental-pattern-search-backward
+bindkey -M isearch "^P" history-incremental-pattern-search-backward
+bindkey -M isearch "^N" history-incremental-pattern-search-forward
+
 bindkey -v ' ' magic-space    # also do history expansion on space
 bindkey -v '^I' expand-or-complete-prefix
 bindkey -v "^A" beginning-of-line
