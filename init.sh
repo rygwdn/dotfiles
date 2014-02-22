@@ -117,3 +117,5 @@ do
 done
 
 test -d $HOME/.config && dolink awesome $HOME/.config/awesome
+
+exit 0
