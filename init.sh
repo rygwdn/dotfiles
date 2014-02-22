@@ -116,4 +116,4 @@ do
     fi
 done
 
-dolink awesome $HOME/.config/awesome
+test -d $HOME/.config && dolink awesome $HOME/.config/awesome
