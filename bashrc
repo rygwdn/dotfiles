@@ -1,15 +1,13 @@
+# If not running interactively, don't do anything
+[[ -z "$PS1" ]] && return
+
+[[ -z "$TRIED_ZSH" ]] && which zsh &>/dev/null && export TRIED_ZSH=true && zsh && exit
+
 if [[ -e ~/.bash_profile && -z "$SOURCED_PROFILE" ]]
 then
     export SOURCED_PROFILE=1
     source ~/.bash_profile
 fi
-
-# ~/.bashrc: executed by bash(1) for non-login shells.
-# see /usr/share/doc/bash/examples/startup-files (in the package bash-doc)
-# for examples
-
-# If not running interactively, don't do anything
-[[ -z "$PS1" ]] && return
 
 [[ -e /c/cygwin/bin ]] && export CYGWIN=true || CYGWIN=false
 
