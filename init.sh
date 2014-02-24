@@ -106,7 +106,7 @@ function dolink()
 
 for lfile in * */bash_aliases
 do
-    if [ $lfile != "init.sh" ] && [ $lfile != "bin" ] && [ $lfile != "awesome" ] && [ $lfile != "README.md" ] && [ -e $lfile ]
+    if [ $lfile != "init.sh" ] && [ $lfile != "bin" ] && [ $lfile != "awesome" ] && [ $lfile != "README.md" ] && [ $lfile != "Vagrantfile.d" ] && [ -e $lfile ]
     then
         dolink $lfile
     fi
@@ -117,5 +117,6 @@ do
 done
 
 test -d $HOME/.config && dolink awesome $HOME/.config/awesome
+test -d $HOME/.vagrant.d && dolink Vagrantfile.d $HOME/.vagrant.d/Vagrantfile
 
 exit 0
