@@ -17,8 +17,8 @@ elif [[ $ZHOST =~ "CI000" ]]; then
     ZHOST="work"
 elif [[ $ZHOST =~ "Ryans-MacBook-Pro" || $ZHOST =~ "aio-tv.com" ]]; then
     ZHOST="work"
-elif [[ $ZHOST =~ "vm-test-.*\.aio-tv.com" ]]; then
-    ZHOST="work-vm"
+elif [[ $ZHOST =~ "vm-test-" ]]; then
+    ZHOST="$(echo $ZHOST | sed 's/\(vm-test[^.]*\)\..*/\1/')"
 elif [[ $ZHOST =~ ".vagrant." ]]; then
     ZHOST="$(echo $ZHOST | sed 's/\(.*\)\.vagrant\..*/vagrant-\1/')"
 else

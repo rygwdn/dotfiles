@@ -73,7 +73,7 @@ then
     PULSE_SERVER="tcp:`echo $SSH_CLIENT | sed 's/ .*//'`:4713 ssh"
 fi
 
-if [[ $ZHOST =~ "vagrant-" || $ZHOST =~ "work-vm" ]]
+if [[ $ZHOST =~ "vagrant-" || $ZHOST =~ "vm-test" ]]
 then
     # only use "light" vim bundles on vagrant
     VIM_LIGHT_BUNDLES=1
