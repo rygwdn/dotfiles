@@ -13,7 +13,7 @@ then
 fi
 
 # backup bashrc
-su -c "test -f /home/vagrant/.bashrc -a ! -f /home/vagrant.bashrc.bak && mv /home/vagrant/.bashrc{,.bak}" vagrant
+su -c "test -f /home/vagrant/.bashrc -a ! -L /home/vagrant/.bashrc -a ! -f /home/vagrant/.bashrc.bak && mv /home/vagrant/.bashrc{,.bak}" vagrant
 # link in my config files
 su -c "cd /home/vagrant/conf && ./init.sh" vagrant
 SCRIPT
