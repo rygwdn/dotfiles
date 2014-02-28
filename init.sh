@@ -69,7 +69,7 @@ function dolink()
             prn clean up linked
             rm $hf
         else
-            prn already linked
+            #prn already linked
             return
         fi
     elif [ -e "$hf" ]
