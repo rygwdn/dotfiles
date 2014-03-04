@@ -7,22 +7,12 @@ if [[ "$ZHOST" == "razz" ]]; then
     :
 elif [[ "$ZHOST" == "jazz" ]]; then
     :
-elif [[ $ZHOST == "cherokee" ]]; then
-    :
-elif [[ $ZHOST =~ "linode" ]]; then
-    ZHOST="linode"
-elif [[ $ZHOST =~ "acadiau\.ca" ]]; then
-    ZHOST="acadia"
-elif [[ $ZHOST =~ "CI000" ]]; then
-    ZHOST="work"
-elif [[ $ZHOST =~ "Ryans-MacBook-Pro" || $ZHOST =~ "aio-tv.com" ]]; then
-    ZHOST="work"
+elif [[ $ZHOST =~ ".vagrant." ]] || [[ $ZHOST == "mysql1" ]] || [[ $ZHOST == "www1" ]]; then
+    ZHOST="$(echo $ZHOST | sed 's/\(.*\)\.vagrant\..*/vagrant-\1/')"
 elif [[ $ZHOST =~ "vm-test-" ]]; then
     ZHOST="$(echo $ZHOST | sed 's/\(vm-test[^.]*\)\..*/\1/')"
-elif [[ $ZHOST =~ ".vagrant." ]]; then
-    ZHOST="$(echo $ZHOST | sed 's/\(.*\)\.vagrant\..*/vagrant-\1/')"
-else
-    #ZHOST="other"
+elif [[ $ZHOST =~ "Ryans-MacBook-Pro" || $ZHOST =~ "aio-tv.com" ]]; then
+    ZHOST="work"
 fi
 
 export ZHOST
