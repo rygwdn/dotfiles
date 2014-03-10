@@ -53,11 +53,16 @@ Bundle "blackboard.vim"
 
 if ! exists("g:light_bundles") || g:light_bundles == 0
     if has("python")
-        " Snippets
+        " Snippet engine
         Bundle "SirVer/ultisnips"
+        " Snippets
+        Bundle 'honza/vim-snippets'
 
         " Auto completion in C/C++/ObjC/Python
         Bundle "Valloric/YouCompleteMe"
+
+        " OTF syntax checking
+        Bundle "scrooloose/syntastic"
     endif
 
     " Lots of git functionality
