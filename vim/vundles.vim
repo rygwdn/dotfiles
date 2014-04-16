@@ -66,7 +66,7 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
     endif
 
     " JS Completion with nodejs
-    " Plugin "marijnh/tern_for_vim"
+    " Plugin 'marijnh/tern_for_vim'
 
     " Lots of git functionality
     Plugin 'tpope/vim-fugitive'
@@ -99,8 +99,12 @@ Plugin 'tpope/vim-commentary'
 " Provdes :BD
 Plugin 'moll/vim-bbye'
 
-" Provides :Ack
+" Provides :Ack, :Ag
 Plugin 'mileszs/ack.vim'
+Plugin 'rking/ag.vim'
+
+" Provides :Remove :Move, :Chmod, :Find, :Locate, :SudoWrite, :SudoEdit, :W
+Plugin 'tpope/vim-eunuch'
 
 " I mostly use this for the ":S" command which is awesome
 Plugin 'tpope/vim-abolish'
