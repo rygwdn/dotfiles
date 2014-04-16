@@ -9,7 +9,6 @@
 [core]
 	editor = vim
 	excludesfile = ~/.gitignore
-	page = less -F -X -R
 	pager = less -F -X -R
 [merge]
 	tool = p4merge
@@ -41,6 +40,8 @@
         kompare = difftool -t kompare
         vmerge = mergetool -y --tool=vimdiff
         gmerge = mergetool -y --tool=gvimdiff
+        pr = pull-request
+        fpr = "!fpr() { git fetch -f origin pull/$1/merge:refs/pr/origin/$1/merge ; } ; fpr"
 [url "git@github.com:rygwdn/"]
     insteadOf = github:
 [rerere]
@@ -77,3 +78,5 @@
 	trustExitCode = true
 [fetch]
 	prune = true
+[hub]
+	protocol = https
