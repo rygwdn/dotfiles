@@ -119,6 +119,7 @@ alias st='git st'
 alias gl='lg -n-1 --all'
 alias gk='gitk --all'
 
+which hub &>/dev/null && alias git=hub
 
 # annoyances
 alias c='cd'
