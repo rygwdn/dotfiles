@@ -65,6 +65,9 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
         Plugin 'scrooloose/syntastic'
     endif
 
+    " JS Completion with nodejs
+    " Plugin "marijnh/tern_for_vim"
+
     " Lots of git functionality
     Plugin 'tpope/vim-fugitive'
 
