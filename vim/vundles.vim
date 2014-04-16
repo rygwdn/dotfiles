@@ -17,119 +17,119 @@ endif
 
 " File types {{{
 
-Bundle "tpope/vim-liquid"
-Bundle "tpope/vim-ragtag"
-Bundle 'groenewege/vim-less'
-Bundle "aklt/plantuml-syntax"
-Bundle "nono/vim-handlebars"
-Bundle "omailson/vim-qml"
-Bundle "rygwdn/qmake-syntax-vim"
-Bundle "rodjek/vim-puppet"
+Plugin "tpope/vim-liquid"
+Plugin "tpope/vim-ragtag"
+Plugin 'groenewege/vim-less'
+Plugin "aklt/plantuml-syntax"
+Plugin "nono/vim-handlebars"
+Plugin "omailson/vim-qml"
+Plugin "rygwdn/qmake-syntax-vim"
+Plugin "rodjek/vim-puppet"
 
 " Restructured text in vim
-Bundle "Rykka/riv.vim"
+Plugin "Rykka/riv.vim"
 
 " Git syntax, etc.
-Bundle "tpope/vim-git"
+Plugin "tpope/vim-git"
 
 " Temporary (hopefully) to speed up yaml..
-Bundle "stephpy/vim-yaml"
+Plugin "stephpy/vim-yaml"
 
 " OTL files
-Bundle "vimoutliner/vimoutliner"
+Plugin "vimoutliner/vimoutliner"
 
 " For taking notes
-Bundle "xolox/vim-notes"
-Bundle "xolox/vim-misc"
+Plugin "xolox/vim-notes"
+Plugin "xolox/vim-misc"
 
 " }}}
 
 " Color schemes {{{
 
-Bundle "candycode.vim"
-Bundle "blackboard.vim"
+Plugin "candycode.vim"
+Plugin "blackboard.vim"
 
 " }}}
 
 if ! exists("g:light_bundles") || g:light_bundles == 0
     if has("python")
         " Snippet engine
-        Bundle "SirVer/ultisnips"
+        Plugin "SirVer/ultisnips"
         " Snippets
-        Bundle 'honza/vim-snippets'
+        Plugin 'honza/vim-snippets'
 
         " Auto completion in C/C++/ObjC/Python
-        Bundle "Valloric/YouCompleteMe"
+        Plugin "Valloric/YouCompleteMe"
 
         " OTF syntax checking
-        Bundle "scrooloose/syntastic"
+        Plugin "scrooloose/syntastic"
     endif
 
     " Lots of git functionality
-    Bundle "tpope/vim-fugitive"
+    Plugin "tpope/vim-fugitive"
 
     " Easy management of signs
-    Bundle "mhinz/vim-signify"
+    Plugin "mhinz/vim-signify"
 
     " Automatic sessions
-    Bundle "session.vim--Odding"
+    Plugin "session.vim--Odding"
 
     " Mulitple cursors ala Sublime Text. Provides "Ctrl-N"
-    Bundle "terryma/vim-multiple-cursors"
+    Plugin "terryma/vim-multiple-cursors"
 endif
 
 " Add surround commands
-Bundle "tpope/vim-surround"
+Plugin "tpope/vim-surround"
 
 " Tabular
-Bundle "godlygeek/tabular"
+Plugin "godlygeek/tabular"
 
 " Use "+" to grow selection
-Bundle "terryma/vim-expand-region"
+Plugin "terryma/vim-expand-region"
 
 " Use M-{j,k} to move line/selection up/down
-Bundle "matze/vim-move"
+Plugin "matze/vim-move"
 
 " Comment/uncomment. Provdes "gcc" (among others)
-Bundle "tpope/vim-commentary"
+Plugin "tpope/vim-commentary"
 
 " Provdes :BD
-Bundle "moll/vim-bbye"
+Plugin "moll/vim-bbye"
 
 " Provides :Ack
-Bundle "mileszs/ack.vim"
+Plugin "mileszs/ack.vim"
 
 " I mostly use this for the ":S" command which is awesome
-Bundle "tpope/vim-abolish"
+Plugin "tpope/vim-abolish"
 
 " Undo tree browser. :Gundo
-Bundle "sjl/gundo.vim"
+Plugin "sjl/gundo.vim"
 
 " Access remote stuff (e.g. :e ssh://me@soemplace/blah)
-Bundle "netrw.vim"
+Plugin "netrw.vim"
 
 " Universal Text Linking (provide links between files..)
-Bundle "utl.vim"
+Plugin "utl.vim"
 
 " File/dir tree. Provides "-"
-Bundle "tpope/vim-vinegar"
+Plugin "tpope/vim-vinegar"
 
 " My own tag based fswitch.vim. Provides ,f{fhljk}
-Bundle "rygwdn/tagswitch"
+Plugin "rygwdn/tagswitch"
 
 " Show tags in the current file in a tree
-Bundle "majutsushi/tagbar"
+Plugin "majutsushi/tagbar"
 
 if v:version >= 704
     " Auto switch between relative and non-relative depending on mode
-    Bundle "myusuf3/numbers.vim"
+    Plugin "myusuf3/numbers.vim"
 endif
 
 " Awesome file finding. Provies Ctrl-P and <Space>
-Bundle "kien/ctrlp.vim"
+Plugin "kien/ctrlp.vim"
 
 " Allow certain things to be repeated
-Bundle "tpope/vim-repeat"
+Plugin "tpope/vim-repeat"
 
 " Autoinstall if the bundle dir is not present
 if glob(s:bundle_dir) == ""
