@@ -3,15 +3,11 @@
 set nocompatible               " be iMproved
 filetype off                   " required!
 
-let s:bundle_dir=expand("~/.vim/bundle")
-if has("win32") || has("win64")
-    set rtp+=~/vimfiles/lib/vundle
-    call vundle#rc("~/vimfiles/bundle")
-    let s:bundle_dir=expand("~/vimfiles/bundle")
-else
-    set rtp+=~/.vim/lib/vundle
-    call vundle#rc()
-endif
+let s:win_shell = (has('win32') || has('win64')) && &shellcmdflag =~ '/'
+let s:bundle_dir = s:win_shell ? '$HOME/vimfiles/bundle' : '$HOME/.vim/bundle'
+let &runtimepath .= ',' . expand(s:bundle_dir . '/Vundle.vim')
+
+call vundle#begin(s:bundle_dir)
 
 " }}}
 
@@ -138,9 +134,10 @@ Plugin 'kien/ctrlp.vim'
 " Allow certain things to be repeated
 Plugin 'tpope/vim-repeat'
 
-" Autoinstall if the bundle dir is not present
-if glob(s:bundle_dir) == ""
-    au VimEnter * BundleInstall
-endif
+" Manual plugins
+Plugin 'snips', {'name': '../pre/snips'}
+Plugin 'voom_cust', {'name': '../pre/voom_cust'}
+
+call vundle#end()
 
 "vim: fdm=marker fdl=0

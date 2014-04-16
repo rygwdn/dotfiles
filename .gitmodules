@@ -1,12 +1,3 @@
-[submodule "zsh"]
-	path = zsh
-	url = https://github.com/rygwdn/zshfiles.git
-[submodule "vim"]
-	path = vim
-	url = https://github.com/rygwdn/vimfiles.git
-[submodule "vim/lib/pathogen"]
-	path = vim/lib/pathogen
-	url = https://github.com/tpope/vim-pathogen.git
 [submodule "vim/lib/vundle"]
-	path = vim/lib/vundle
+	path = vim/bundle/Vundle.vim
 	url = https://github.com/gmarik/vundle.git
