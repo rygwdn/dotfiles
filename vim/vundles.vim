@@ -135,8 +135,8 @@ Plugin 'kien/ctrlp.vim'
 Plugin 'tpope/vim-repeat'
 
 " Manual plugins
-Plugin 'snips', {'name': '../pre/snips'}
-Plugin 'voom_cust', {'name': '../pre/voom_cust'}
+Plugin 'snips', {'name': '../pre/snips', 'pinned': 1}
+Plugin 'voom_cust', {'name': '../pre/voom_cust', 'pinned': 1}
 
 call vundle#end()
 
