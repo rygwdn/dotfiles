@@ -184,10 +184,10 @@ let &efm.= ",%D%*\\a[%*\\d]: Entering directory '%f',%X%*\\a[%*\\d]: Leaving dir
 map Q gq
 
 " Move around windows
-nmap <c-l> l
-nmap <c-h> h
-nmap <c-k> k
-nmap <c-j> j
+"nmap <c-l> l
+"nmap <c-h> h
+"nmap <c-k> k
+"nmap <c-j> j
 "map <C-a> 
 
 " Auto close braces

@@ -123,6 +123,9 @@ Plugin 'rygwdn/tagswitch'
 " Show tags in the current file in a tree
 Plugin 'majutsushi/tagbar'
 
+" Add tmux-compatible C-{hjkl} mappings
+Plugin 'christoomey/vim-tmux-navigator'
+
 if v:version >= 704
     " Auto switch between relative and non-relative depending on mode
     Plugin 'myusuf3/numbers.vim'
