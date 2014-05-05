@@ -64,6 +64,10 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
         Plugin 'scrooloose/syntastic'
     endif
 
+    " Unite all the things
+    Plugin 'Shougo/unite.vim'
+    Plugin 'Shougo/vimproc'
+
     " JS Completion with nodejs
     " Plugin 'marijnh/tern_for_vim'
 
@@ -135,7 +139,7 @@ if v:version >= 704
 endif
 
 " Awesome file finding. Provies Ctrl-P and <Space>
-Plugin 'kien/ctrlp.vim'
+"Plugin 'kien/ctrlp.vim'
 
 " Allow certain things to be repeated
 Plugin 'tpope/vim-repeat'
