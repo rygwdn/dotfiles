@@ -57,6 +57,9 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
         " Auto completion in C/C++/ObjC/Python
         Plugin 'Valloric/YouCompleteMe'
 
+        " Extra functionality for python
+        Plugin 'davidhalter/jedi-vim'
+
         " OTF syntax checking
         Plugin 'scrooloose/syntastic'
     endif
