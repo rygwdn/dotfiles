@@ -309,6 +309,7 @@ au BufNewFile,BufRead *.as set ft=actionscript
 au BufNewFile,BufRead *.m set ft=objc
 let filetype_m='objc'
 au BufNewFile,BufRead *.pl set ft=prolog
+au BufNewFile,BufRead *.md set ft=markdown
 " }}}
 
 "" C, C++ stuff {{{

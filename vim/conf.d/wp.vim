@@ -10,7 +10,6 @@ fun! Wp()
     nnoremap $ g$
     nnoremap <Home> g0
     nnoremap <End> g$
-    set nonumber nornu
     set spell spelllang=en_us
     set display+=lastline
 endfu

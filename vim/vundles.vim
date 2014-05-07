@@ -21,6 +21,7 @@ Plugin 'nono/vim-handlebars'
 Plugin 'omailson/vim-qml'
 Plugin 'rygwdn/qmake-syntax-vim'
 Plugin 'rodjek/vim-puppet'
+Plugin 'plasticboy/vim-markdown'
 
 " Restructured text in vim
 Plugin 'Rykka/riv.vim'
