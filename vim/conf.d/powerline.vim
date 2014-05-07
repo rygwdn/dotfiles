@@ -1,6 +1,11 @@
 let g:Powerline_stl_path_style='short'
+let g:airline#extensions#whitespace#enabled = 1
 
 if has("gui_running")
+    let g:airline_powerline_fonts = 1
+endif
+
+if index(keys(g:bundle_names), 'vim-airline') == -1 && has("gui_running")
     python <<EOF
 import vim
 try:

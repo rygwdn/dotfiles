@@ -84,6 +84,9 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
     Plugin 'terryma/vim-multiple-cursors'
 endif
 
+" Nice status line..
+Plugin 'bling/vim-airline'
+
 " Add surround commands
 Plugin 'tpope/vim-surround'
 

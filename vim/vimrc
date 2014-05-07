@@ -119,6 +119,7 @@ set updatecount=100             " write swap file to disk every 100 chars
 set foldenable
 set foldlevel=99999
 set autowrite                   " write before :make
+set ttimeoutlen=50
 
 if v:version >= 703
     set colorcolumn=+1
@@ -260,7 +261,10 @@ autocmd InsertLeave * if pumvisible() == 0|pclose|endif
 
 " visual/gui stuff -------------------------- {{{
 
-set cmdheight=2                 " make command line two lines high
+if has("gui_running")
+    set cmdheight=2                 " make command line two lines high
+endif
+
 set ruler		" show the cursor position all the time
 "set lazyredraw                  " don't redraw when running macros
 set showcmd		" display incomplete commands
