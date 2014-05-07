@@ -1,15 +1,12 @@
 " Unite
-let g:unite_enable_start_insert = 1
+let g:unite_enable_start_insert = 0
 let g:unite_source_history_yank_enable = 1
 
-"let g:unite_split_rule = "botright"
-"let g:unite_force_overwrite_statusline = 0
-"let g:unite_winheight = 10
-
-"call unite#custom_source('file_rec,file_rec/async,file_mru,file,buffer,grep',
-"      \ 'ignore_pattern', join([
-"      \ '\.git/',
-"      \ ], '\|'))
+if executable('ag')
+    let g:unite_source_grep_command = 'ag'
+    let g:unite_source_grep_default_opts = '--nogroup --nocolor --column'
+    let g:unite_source_grep_recursive_opt = ''
+endif
 
 function! s:config_unite()
     if exists('g:loaded_unite')
@@ -24,10 +21,11 @@ if index(keys(g:bundle_names), 'unite.vim') > -1
 endif
 
 nnoremap <C-S-p> :<C-u>Unite -no-split -buffer-name=files   -start-insert file_rec/async:!<cr>
-nnoremap <Space> :<C-u>Unite -no-split -buffer-name=buffer  buffer<cr>
+nnoremap <Space> :<C-u>Unite -no-split -buffer-name=buffer  -start-insert buffer<cr>
+nnoremap <C-g>   :<C-u>Unite -no-split -buffer-name=grep    -auto-preview grep:.<cr>
 
-nnoremap <leader>o :<C-u>Unite -no-split -buffer-name=outline -start-insert outline<cr>
-nnoremap <leader>y :<C-u>Unite -no-split -buffer-name=yank    history/yank<cr>
+nnoremap <leader>o :<C-u>Unite -no-split -buffer-name=outline -auto-preview -start-insert outline<cr>
+nnoremap <leader>y :<C-u>Unite -no-split -buffer-name=yank    -start-insert history/yank<cr>
 
 "nnoremap <leader>r :<C-u>Unite -no-split -buffer-name=mru     -start-insert file_mru<cr>
 "nnoremap <leader>e :<C-u>Unite -no-split -buffer-name=buffer  buffer<cr>
@@ -49,4 +47,5 @@ function! s:unite_settings()
 
   nmap <buffer> <ESC> <Plug>(unite_exit)
   imap <silent><buffer> <C-o> <Plug>(unite_exit)
+  nmap <silent><buffer> <C-o> <Plug>(unite_exit)
 endfunction

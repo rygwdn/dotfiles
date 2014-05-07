@@ -67,6 +67,7 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
     " Unite all the things
     Plugin 'Shougo/unite.vim'
     Plugin 'Shougo/vimproc'
+    Plugin 'Shougo/unite-outline'
 
     " JS Completion with nodejs
     " Plugin 'marijnh/tern_for_vim'
