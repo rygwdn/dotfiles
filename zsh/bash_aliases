@@ -18,6 +18,8 @@ if [[ "$TERM" != "dumb" ]]; then
     fi
 fi
 
+alias rs="rsync -a --progress --stats"
+
 alias cherokee="ssh linode -L 9090:localhost:9090 -t -C 'sudo killall cherokee-admin; sudo cherokee-admin -b'"
 alias psa='ps aux | grep -v grep | grep -e "^USER" -e '
 
