@@ -9,6 +9,9 @@ let &runtimepath .= ',' . expand(s:bundle_dir . '/Vundle.vim')
 
 call vundle#begin(s:bundle_dir)
 
+" let Vundle manage Vundle, required
+Plugin 'gmarik/Vundle.vim'
+
 " }}}
 
 " File types {{{
