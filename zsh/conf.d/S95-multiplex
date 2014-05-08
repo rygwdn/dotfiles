@@ -1,49 +1,34 @@
 #!/usr/bin/env zsh
 
 SESS=zsh
+[[ -n "$SSH_TTY" ]] && SESS=ssh
 
-go=false
 if echo "$OS" | grep -qi "windows"
 then
-    : # running windows
-    echo "no multiplex, on windows"
-elif which tmux &> /dev/null
-then
-    go=true
-    list='tmux ls'
-    sess=`tmux ls 2>&1 | grep "^$SESS:"`
-    isattached='(attached) *$'
-    attach="tmux attach -t $SESS"
-    new="tmux new -s $SESS"
-elif which screen &> /dev/null
-then
-    go=true
-    list=$(echo -n "screen -ls | sed '"; echo -n '1d;N;$!P;$!D;$d;/^$/d'; echo -n "'")
-    sess=`screen -ls 2>&1 | grep "$SESS"`
-    isattached='Multi.*detached'
-    attach="screen -x $SESS"
-    new="screen -S $SESS"
-else
-    echo "No terminal multiplexer available"
-fi
+    echo "No multiplex, on windows"
 
-if $go
+elif which tmux &> /dev/null && ! [[ "$TERM" =~ "screen" || "$TERM" =~ "tmux" ]]
 then
-    if [[ -n "$SSH_TTY" ]]
+    first=$(tmux ls -F '#{session_created} #{session_name}' | sort -n | head -1 | sed 's/^[0-9]* //')
+
+    tmux ls
+    echo
+    if [[ -n "${first}" ]]
     then
-        eval $list
-    elif [[ "$TERM" != "screen" && "$TERM" != "tmux" ]]
-    then
-        #if [[ -n "$sess" ]]
-        #then
-            #if echo "$sess" | grep -q $isattached
-            #then
-                eval $list
-            #else
-                #eval $attach
-            #fi
-        #else
-            #eval $new && exit
-        #fi
+        echo "$ tm # to attach to ${first}"
+    else
+        echo "$ tm # for new session"
     fi
 fi
+
+tm() {
+    if [[ -n "$@" ]]
+    then
+        tmux "$@"
+    elif [[ -n "${first}" ]]
+    then
+        tmux attach -t "${first}"
+    else
+        tmux new
+    fi
+}
