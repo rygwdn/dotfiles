@@ -14,13 +14,13 @@ function title()
     TITLE=${PRE}${TITLE}
     [ -z "$REST" ] && REST=$PWD
 
-    if [[ $TERM == "screen" ]]
+    if [[ $TERM =~ "screen" ]]
     then
         # Use these two for GNU Screen:
         print -nR $'\033k'$TITLE$'\033'\\
         print -nR $'\033]0;'$REST$'\a'
 
-    elif [[ $TERM == "xterm" || $TERM == "rxvt" ]]
+    elif [[ $TERM =~ "xterm" || $TERM =~ "rxvt" ]]
     then
         # Use this one instead for XTerms:
         print -nR $'\033]0;'$PRE$*$'\a'
