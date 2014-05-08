@@ -7,7 +7,7 @@ if echo "$OS" | grep -qi "windows"
 then
     echo "No multiplex, on windows"
 
-elif which tmux &> /dev/null && ! [[ "$TERM" =~ "screen" || "$TERM" =~ "tmux" ]]
+elif which tmux &> /dev/null && ! [[ $SESS == "zsh" && ( "$TERM" =~ "screen" || "$TERM" =~ "tmux" ) ]]
 then
     first=$(tmux ls -F '#{session_created} #{session_name}' | sort -n | head -1 | sed 's/^[0-9]* //')
 
@@ -19,16 +19,16 @@ then
     else
         echo "$ tm # for new session"
     fi
-fi
 
-tm() {
-    if [[ -n "$@" ]]
-    then
-        tmux "$@"
-    elif [[ -n "${first}" ]]
-    then
-        tmux attach -t "${first}"
-    else
-        tmux new
-    fi
-}
+    tm() {
+        if [[ -n "$@" ]]
+        then
+            tmux "$@"
+        elif [[ -n "${first}" ]]
+        then
+            tmux attach -t "${first}"
+        else
+            tmux new
+        fi
+    }
+fi
