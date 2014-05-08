@@ -3,8 +3,6 @@
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
 
-# Let me know my shell!
-echo Zsh
 export SHELL="`which zsh`"
 
 # this should compile/recompile all the files here..
