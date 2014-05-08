@@ -7,14 +7,14 @@ function title()
     TITLE=$1
     REST=$2
 
-    PRE=""
-    [ -n "$SSH_TTY" ] && PRE+="${ZHOST} - "
-    [ -n "$PROJECT" ] && TITLE+="$PROJECT"
-
-    TITLE=${PRE}${TITLE}
+    [ -n "$SSH_TTY" ] && TITLE+="@${ZHOST}"
     [ -z "$REST" ] && REST=$PWD
 
-    if [[ $TERM =~ "screen" ]]
+    if [[ $TERM =~ tmux ]]
+    then
+        print -nR $'\033k'$TITLE$'\033\a'
+
+    elif [[ $TERM =~ "screen" ]]
     then
         # Use these two for GNU Screen:
         print -nR $'\033k'$TITLE$'\033'\\
