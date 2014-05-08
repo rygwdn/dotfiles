@@ -5,43 +5,43 @@
 	diff = auto
 	status = auto
 	branch = auto
-        ui = auto
+	ui = auto
 [core]
 	editor = vim
 	excludesfile = ~/.gitignore
 	pager = less -F -X -R
 [pack]
-        threads = 4
+	threads = 4
 [giggle]
 	main-window-maximized = false
 	main-window-geometry = 700x550+235+179
 	main-window-view = FileView
 [alias]
-        serve = daemon --reuseaddr --verbose --base-path=. --export-all ./.git
-        st = status
-        ci = commit
-        br = branch
-        co = checkout
-        df = diff
-        up = svn rebase
-        who = shortlog -s --
-        fixup = commit --amend --no-edit
-        todo = commit --allow-empty --no-verify -m
-        rbi = rebase -i --autosquash --autostash
-        rbis = rebase -i --autosquash --autostash
+	serve = daemon --reuseaddr --verbose --base-path=. --export-all ./.git
+	st = status
+	ci = commit
+	br = branch
+	co = checkout
+	df = diff
+	up = svn rebase
+	who = shortlog -s --
+	fixup = commit --amend --no-edit
+	todo = commit --allow-empty --no-verify -m
+	rbi = rebase -i --autosquash --autostash
+	rbis = rebase -i --autosquash --autostash
 
-        log1 = log --pretty=oneline --abbrev-commit --decorate
-        lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative -n 10
+	log1 = log --pretty=oneline --abbrev-commit --decorate
+	lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative -n 10
 
-        vimdiff = difftool -t vimdiff
-        gvimdiff = difftool -t gvimdiff
-        kompare = difftool -t kompare
-        vmerge = mergetool -y --tool=vimdiff
-        gmerge = mergetool -y --tool=gvimdiff
-        pr = pull-request
-        fpr = "!fpr() { git fetch -f origin pull/$1/merge:refs/pr/origin/$1/merge ; } ; fpr"
+	vimdiff = difftool -t vimdiff
+	gvimdiff = difftool -t gvimdiff
+	kompare = difftool -t kompare
+	vmerge = mergetool -y --tool=vimdiff
+	gmerge = mergetool -y --tool=gvimdiff
+	pr = pull-request
+	fpr = "!fpr() { git fetch -f origin pull/$1/merge:refs/pr/origin/$1/merge ; } ; fpr"
 [url "git@github.com:rygwdn/"]
-    insteadOf = github:
+	insteadOf = github:
 [rerere]
 	enabled = 1
 [branch]
@@ -50,8 +50,8 @@
 	renames = copies
 	mnemonicprefix = true
 [mergetool "splice"]
-    cmd = "gvim -f $BASE $LOCAL $REMOTE $MERGED -c 'SpliceInit'"
-    trustExitCode = true
+	cmd = "gvim -f $BASE $LOCAL $REMOTE $MERGED -c 'SpliceInit'"
+	trustExitCode = true
 [difftool]
 	prompt = false
 	keepTemporaries = false
@@ -64,7 +64,7 @@
 	default = current
 [difftool "sourcetree"]
 	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
-	path = 
+	path =
 [mergetool "sourcetree"]
 	cmd = /Applications/SourceTree.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
 	trustExitCode = true
@@ -79,3 +79,5 @@
 	protocol = https
 [include]
 	path = ~/.gitconfig.local
+	path = ~/_gitconfig.local
+# vim: sts=8 sw=8 noet
