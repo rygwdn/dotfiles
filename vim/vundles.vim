@@ -51,6 +51,17 @@ Plugin 'blackboard.vim'
 
 " }}}
 
+" Tags {{{
+
+" THESE DO NOT PROVIDE PLUGINS. They provide bins
+Plugin 'jszakmeister/rst2ctags'
+Plugin 'jszakmeister/markdown2ctags'
+
+" Note: requires phpctags to be build (run make)
+Plugin 'vim-php/tagbar-phpctags.vim'
+
+" }}}
+
 if ! exists("g:light_bundles") || g:light_bundles == 0
     if has("python")
         " Snippet engine
