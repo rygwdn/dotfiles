@@ -19,4 +19,3 @@ setenv() { export $1=$2 }
 
 autoload -U bashcompinit
 bashcompinit
-
