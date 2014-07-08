@@ -1,7 +1,7 @@
 # If not running interactively, don't do anything
 [[ -z "$PS1" ]] && return
 
-[[ -z "$TRIED_ZSH" ]] && which zsh &>/dev/null && export TRIED_ZSH=true && zsh && exit
+[[ -z "$TRIED_ZSH" && "${SHELL##*/}" != zsh ]] && which zsh &>/dev/null && export TRIED_ZSH=true && zsh && exit
 
 if [[ -e ~/.bash_profile && -z "$SOURCED_PROFILE" ]]
 then
@@ -129,14 +129,6 @@ bind '"\C-n": " > /dev/null"'
 
 # cycle tab completes
 bind '"\C-t": menu-complete'
-
-# check history file
-max_hist_lines=`[ -n $HISTSIZE ] && echo $HISTSIZE || echo 10000`
-hist_line_count=$(wc -l < ~/.bash_history)
-
-if (($hist_line_count > $max_hist_lines)); then
-    echo "History file is getting big!"
-fi
 
 # Alias definitions.
 # You may want to put all your additions into a separate file like
