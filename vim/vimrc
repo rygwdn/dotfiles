@@ -81,7 +81,7 @@ for dir in ["~/tmp/.vim", "~/.vim/tmp", "/tmp", "~/vimfiles/tmp", "C:\\Temp"]
     endif
 endfor
 
-exec "set directory=" . g:temp_path
+exec "set directory=" . g:temp_path . "//"
 exec "set backupdir=" . g:temp_path
 
 if v:version >= 703
