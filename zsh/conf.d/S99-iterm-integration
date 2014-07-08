@@ -1,0 +1,4 @@
+#!/usr/bin/env zsh
+
+iterm_zsh="$HOME/.iterm2_shell_integration.zsh"
+[[ -e "${iterm_zsh}" ]] && source "${iterm_zsh}"
