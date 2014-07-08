@@ -26,6 +26,9 @@ Plugin 'rygwdn/qmake-syntax-vim'
 Plugin 'rodjek/vim-puppet'
 Plugin 'plasticboy/vim-markdown'
 
+" Try to autodetect whitespace options
+Plugin 'tpope/vim-sleuth'
+
 " Restructured text in vim
 Plugin 'Rykka/riv.vim'
 
