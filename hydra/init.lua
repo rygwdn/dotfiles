@@ -1,5 +1,5 @@
 -- require "grid"
-hydra.douserfile("grid")
+require "ext.grid.init"
 
 ext.grid.MARGINX = 2
 ext.grid.MARGINY = 2
@@ -9,19 +9,14 @@ hydra.alert("Hydra running", 1.5)
 
 -- Watch for changes to these files..
 pathwatcher.new(os.getenv("HOME") .. "/.hydra/", hydra.reload):start()
-autolaunch.set(true)
+hydra.autolaunch.set(true)
 
 -- show a helpful menu
-menu.show(function()
-    local updatetitles = {[true] = "Install Update", [false] = "Check for Update..."}
-    local updatefns = {[true] = updates.install, [false] = updates.check}
-    local hasupdate = (updates.newversion ~= nil)
-
+hydra.menu.show(function()
     return {
       {title = "Reload Config", fn = hydra.reload},
       {title = "-"},
       {title = "About", fn = hydra.showabout},
-      {title = updatetitles[hasupdate], fn = updatefns[hasupdate]},
       {title = "Quit Hydra", fn = os.exit},
     }
 end)
@@ -178,4 +173,13 @@ function showkeys()
 end
 bind_help(hyper, "/", "show key help", showkeys)
 
-updates.check()
+function check_update()
+  hydra.updates.check(function(is)
+    if is then
+      notify.show("Hydra update available", "", "Go download it!")
+    end
+  end)
+end
+check_update()
+
+timer.new(timer.hours(2), check_update):start()
