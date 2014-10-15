@@ -1,0 +1,5 @@
+*.log*
+*.sqlite
+/received
+secrets.yml
+temp

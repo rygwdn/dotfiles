@@ -1,0 +1,77 @@
+secrets: secrets.yml
+
+tasks:
+  sort_episodes:
+    priority: 100
+    disable_builtins: [seen, backlog]
+    metainfo_series: yes
+    series:
+      - 'Doctor Who (2005)':
+          alternate_name:
+            - Doctor Who
+            - Doctor Who 2005
+    accept_all: yes
+    thetvdb_lookup: yes
+    require_field:
+      - series_name
+    find:
+      path: "/home/rwooden/media/downloads/unsorted/"
+      recursive: yes
+    move:
+      clean_source: 50
+      to: "/home/rwooden/media/downloads/sorted/{{ series_name }}"
+      filename: '{{ series_name }}{% if series_id %} - {{ series_id }}{% endif %}{% if tvdb_ep_name %} - {{ tvdb_ep_name }}{% endif %}{% if proper %} - {{ proper }}{% endif %}{% if quality %} - {{ quality }}{% endif %}{{location | pathext}}'
+
+  download_rss:
+    priority: 10
+    rss: "{{ secrets.rss.showrss }}"
+    thetvdb_lookup: yes
+    accept_all: yes
+
+    all_series:
+      assume_special: True
+      tracking: backfill
+
+    transmission:
+      host: localhost
+      port: 50150
+      username: "{{ secrets.transmission.user }}"
+      password: "{{ secrets.transmission.pass }}"
+      addpaused: no
+      path: '/home/rwooden/media/downloads/unsorted/'
+
+    clean_transmission:
+      host: localhost
+      port: 50150
+      username: "{{ secrets.transmission.user }}"
+      password: "{{ secrets.transmission.pass }}"
+      finished_for: 6 hours
+
+    email:
+      to:
+        - "{{ secrets.email.email_one }}"
+        - "{{ secrets.email.email_two }}"
+      template: "html-mine"
+      subject: |
+        FlexGet:
+        {%- if task.aborted %} Was aborted
+        {%- elif task.failed %} {{task.failed|length}} entries have failed.
+        {%- elif task.accepted -%}
+          {%- set j = joiner(", ") %} Got {{task.accepted|length}} new entries (
+          {%- for entry in task.accepted -%}
+            {%- if entry.series_name -%}
+              {{ j() }}{{ entry.series_name }}
+            {%- else -%}
+              {{ j() }}{{entry.title}}
+            {%- endif -%}
+          {%- endfor -%})
+        {%- endif -%}
+
+      # Mailgun
+      from: "{{ secrets.email.from }}"
+      smtp_host: smtp.mailgun.org
+      smtp_username: "{{ secrets.email.username }}"
+      smtp_password: "{{ secrets.email.password }}"
+      smtp_port: 587
+
+# vim: sw=2 sts=2
