@@ -34,7 +34,9 @@ Plugin 'mustache/vim-mustache-handlebars'
 Plugin 'tpope/vim-sleuth'
 
 " Restructured text in vim
+Plugin 'rykka/clickable.vim'
 Plugin 'Rykka/riv.vim'
+Plugin 'rykka/os.vim'
 
 " Git syntax, etc.
 Plugin 'tpope/vim-git'
@@ -84,6 +86,9 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
 
         " OTF syntax checking
         Plugin 'scrooloose/syntastic'
+
+        " Virtualenv support
+        Plugin 'jmcantrell/vim-virtualenv'
     endif
 
     " Unite all the things
@@ -96,6 +101,7 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
 
     " Lots of git functionality
     Plugin 'tpope/vim-fugitive'
+    Plugin 'int3/vim-extradite'
 
     " Easy management of signs
     Plugin 'mhinz/vim-signify'
@@ -106,6 +112,9 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
     " Mulitple cursors ala Sublime Text. Provides "Ctrl-N"
     Plugin 'terryma/vim-multiple-cursors'
 endif
+
+" Add :Pytest
+Plugin 'alfredodeza/pytest.vim'
 
 " Nice status line..
 Plugin 'bling/vim-airline'
