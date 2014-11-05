@@ -10,7 +10,7 @@ base = sys.argv[2] if len(sys.argv) > 2 else None
 
 if not base:
     branches = subprocess.check_output("git for-each-ref --format='%(refname)' {refs}".format(
-            refs=" ".join("refs/remotes/origin/" + b for b in ["develop", "master", "client/"])
+            refs=" ".join("refs/remotes/origin/" + b for b in ["topic/project-zero", "develop", "master", "client/"])
         ), shell=True).splitlines()
     commits = None
     for maybe_base in branches:
@@ -29,6 +29,10 @@ lines = [l.strip() for l in lines.splitlines() if l.startswith("+")]
 
 print "Added from {base} to {topic} (total added lines: {lines})".format(base=base, topic=topic, lines=len(lines))
 
+commit_lines = subprocess.check_output("git log --format=format:%%B %s...%s" % (merge_base, topic), shell=True)
+lines += ['+++ b/Commit Messages']
+lines += ['+ ' + l.strip() for l in commit_lines.splitlines()]
+
 file = ""
 printed = True
 for line in lines:
@@ -43,3 +47,15 @@ for line in lines:
             print file
             printed = True
         print line[line.index("TODO"):]
+    if "XXX" in line:
+        if not printed:
+            print
+            print file
+            printed = True
+        print line[line.index("XXX"):]
+    if "pylint: disable=" in line:
+        if not printed:
+            print
+            print file
+            printed = True
+        print line[line.index("pylint: disable="):]
