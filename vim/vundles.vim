@@ -179,6 +179,9 @@ endif
 " Allow certain things to be repeated
 Plugin 'tpope/vim-repeat'
 
+" Nice incsearch
+Plugin 'haya14busa/incsearch.vim'
+
 " Manual plugins
 Plugin 'snips', {'name': '../pre/snips', 'pinned': 1}
 Plugin 'voom_cust', {'name': '../pre/voom_cust', 'pinned': 1}

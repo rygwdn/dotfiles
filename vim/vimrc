@@ -149,8 +149,8 @@ nmap <LocalLeader><space> :noh<cr>
 "nnoremap <esc> :noh<cr><esc>
 
 " very magic searching
-nnoremap / /\v
-vnoremap / /\v
+"nnoremap / /\v
+"vnoremap / /\v
 
 " ---------------------------------------------------- }}}
 
