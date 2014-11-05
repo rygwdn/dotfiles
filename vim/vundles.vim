@@ -25,6 +25,10 @@ Plugin 'omailson/vim-qml'
 Plugin 'rygwdn/qmake-syntax-vim'
 Plugin 'rodjek/vim-puppet'
 Plugin 'plasticboy/vim-markdown'
+Plugin 'elzr/vim-json'
+Plugin 'hynek/vim-python-pep8-indent'
+Plugin 'derekwyatt/vim-scala'
+Plugin 'mustache/vim-mustache-handlebars'
 
 " Try to autodetect whitespace options
 Plugin 'tpope/vim-sleuth'
