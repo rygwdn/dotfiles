@@ -110,7 +110,7 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
     Plugin 'session.vim--Odding'
 
     " Mulitple cursors ala Sublime Text. Provides "Ctrl-N"
-    Plugin 'terryma/vim-multiple-cursors'
+    Plugin 'kristijanhusak/vim-multiple-cursors'
 endif
 
 " Add :Pytest
@@ -151,7 +151,7 @@ Plugin 'tpope/vim-abolish'
 Plugin 'sjl/gundo.vim'
 
 " Access remote stuff (e.g. :e ssh://me@soemplace/blah)
-Plugin 'netrw.vim'
+Plugin 'eiginn/netrw'
 
 " Universal Text Linking (provide links between files..)
 Plugin 'utl.vim'
