@@ -58,8 +58,8 @@ setopt hist_find_no_dups    # don't show dups even if not contiguous
 setopt hist_ignore_all_dups # ignore all -- even non contiguous -- dups
 setopt hist_save_no_dups    # no dups on history saving
 setopt inc_appendhistory    # append incrementally
-setopt share_history        # traditional bash-history
-setopt no_extended_history  # regular history
+#setopt share_history        # traditional bash-history
+#setopt no_extended_history  # regular history
 
 
 # other
