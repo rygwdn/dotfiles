@@ -6,6 +6,9 @@ if executable('ag')
     let g:unite_source_grep_command = 'ag'
     let g:unite_source_grep_default_opts = '--nogroup --nocolor --column'
     let g:unite_source_grep_recursive_opt = ''
+    let g:unite_source_rec_async_command='ag --nocolor --nogroup --hidden -g "" --ignore "build" --ignore "aioWebsite/src" --ignore "*/.*venvs"'
+    "let g:unite_source_rec_max_cache_files = 0
+    "call unite#custom#source('file_rec,file_rec/async', 'max_candidates', 0)
 endif
 
 function! s:config_unite()
@@ -23,6 +26,7 @@ endif
 nnoremap <C-S-p> :<C-u>Unite -no-split -buffer-name=files   -start-insert file_rec/async:!<cr>
 nnoremap <Space> :<C-u>Unite -no-split -buffer-name=buffer  -start-insert buffer<cr>
 nnoremap <C-g>   :<C-u>Unite -no-split -buffer-name=grep    -auto-preview grep:.<cr>
+nmap <leader>ug <C-g>
 
 nnoremap <leader>o :<C-u>Unite -no-split -buffer-name=outline -auto-preview -start-insert outline<cr>
 nnoremap <leader>y :<C-u>Unite -no-split -buffer-name=yank    -start-insert history/yank<cr>
