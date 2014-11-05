@@ -80,4 +80,6 @@
 [include]
 	path = ~/.gitconfig.local
 	path = ~/_gitconfig.local
+[tag]
+	sort = version:refname
 # vim: sts=8 sw=8 noet
