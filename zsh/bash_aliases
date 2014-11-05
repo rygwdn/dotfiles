@@ -120,7 +120,11 @@ alias st='git st'
 
 alias gl='lg -n-1 --all'
 alias gk='gitk --all'
-alias cor='co $(recent_branches | selecta)'
+
+function cor {
+    br=$(recent_branches | fzf --no-sort --reverse)
+    [[ -n $br ]] && co $br
+}
 
 which hub &>/dev/null && alias git=hub
 
@@ -156,14 +160,18 @@ function o()
 complete -F _aptitude -o default ap
 
 recent_branches() {
+    hash gsed && sed=gsed || sed=sed
+
     python <(cat <<"EOF"
 import sys
 
-recent = [line.strip() for line in open(sys.argv[1]).readlines()]
 branches = [line.strip() for line in open(sys.argv[2]).readlines()]
+recent = list(reversed([line.strip() for line in open(sys.argv[1]).readlines()]))
+
+missing_branches = [b for b in branches if b not in recent]
 
 seen = set()
-for branch in recent:
+for branch in missing_branches + recent:
     if branch in seen:
         continue
     seen.add(branch)
@@ -171,7 +179,7 @@ for branch in recent:
         continue
     print branch
 EOF
-    ) <(git reflog | grep ': checkout:' | sed 's/.*moving from .* to //') <(git branch -a | cut -c 3- | sed 's/^remotes\///')
+    ) <(git reflog | grep ': checkout:' | $sed 's/.*moving from \(.*\) to \(.*\)/\2\n\1/') <(git branch -a | cut -c 3- | grep -v '^remotes/')
 }
 
 [ -e ~/.bash_aliases_local ] && . ~/.bash_aliases_local
