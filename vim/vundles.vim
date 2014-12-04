@@ -33,11 +33,6 @@ Plugin 'mustache/vim-mustache-handlebars'
 " Try to autodetect whitespace options
 Plugin 'tpope/vim-sleuth'
 
-" Restructured text in vim
-Plugin 'rykka/clickable.vim'
-Plugin 'Rykka/riv.vim'
-Plugin 'rykka/os.vim'
-
 " Git syntax, etc.
 Plugin 'tpope/vim-git'
 
@@ -89,6 +84,13 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
 
         " Virtualenv support
         Plugin 'jmcantrell/vim-virtualenv'
+
+        Plugin 'Lokaltog/powerline', {'rtp': 'powerline/bindings/vim/'}
+
+        " Restructured text in vim
+        Plugin 'rykka/clickable.vim'
+        Plugin 'Rykka/riv.vim'
+        Plugin 'rykka/os.vim'
     endif
 
     " Unite all the things
@@ -111,13 +113,18 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
 
     " Mulitple cursors ala Sublime Text. Provides "Ctrl-N"
     Plugin 'kristijanhusak/vim-multiple-cursors'
+
+    " Nice incsearch
+    Plugin 'haya14busa/incsearch.vim'
+endif
+
+if index(keys(g:bundle_names), 'powerline') == -1
+    " Nice status line..
+    Plugin 'bling/vim-airline'
 endif
 
 " Add :Pytest
 Plugin 'alfredodeza/pytest.vim'
-
-" Nice status line..
-Plugin 'bling/vim-airline'
 
 " Add surround commands
 Plugin 'tpope/vim-surround'
@@ -150,9 +157,6 @@ Plugin 'tpope/vim-abolish'
 " Undo tree browser. :Gundo
 Plugin 'sjl/gundo.vim'
 
-" Access remote stuff (e.g. :e ssh://me@soemplace/blah)
-Plugin 'eiginn/netrw'
-
 " Universal Text Linking (provide links between files..)
 Plugin 'utl.vim'
 
@@ -171,6 +175,9 @@ Plugin 'christoomey/vim-tmux-navigator'
 if v:version >= 704
     " Auto switch between relative and non-relative depending on mode
     Plugin 'myusuf3/numbers.vim'
+
+    " Access remote stuff (e.g. :e ssh://me@soemplace/blah)
+    Plugin 'eiginn/netrw'
 endif
 
 " Awesome file finding. Provies Ctrl-P and <Space>
@@ -178,9 +185,6 @@ endif
 
 " Allow certain things to be repeated
 Plugin 'tpope/vim-repeat'
-
-" Nice incsearch
-Plugin 'haya14busa/incsearch.vim'
 
 " Manual plugins
 Plugin 'snips', {'name': '../pre/snips', 'pinned': 1}
