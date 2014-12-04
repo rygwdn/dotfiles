@@ -14,6 +14,7 @@ PATH=$HOME/src/sage:$PATH
 PATH=$HOME/.local/bin:$PATH
 PATH=/usr/local/share/python:$PATH
 PATH=$PATH:$HOME/.rvm/bin
+PATH=$PATH:$HOME/conf/bin
 
 # include junit in java classpath
 CLASSPATH=$CLASSPATH:.:/usr/share/java/junit4.jar
