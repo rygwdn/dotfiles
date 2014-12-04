@@ -16,11 +16,13 @@ map g# <Plug>(incsearch-nohl-g#)
 " very magic by default
 let g:incsearch#magic = '\v'
 
-"augroup incsearch-keymap
-"    autocmd!
-"    autocmd VimEnter call s:incsearch_keymap()
-"augroup END
-"function! s:incsearch_keymap()
-"    IncSearchNoreMap <C-n> <Over>(incsearch-next)
-"    IncSearchNoreMap <C-p> <Over>(incsearch-prev)
-"endfunction
+augroup incsearch-keymap
+    autocmd!
+    autocmd VimEnter call s:incsearch_keymap()
+augroup END
+function! s:incsearch_keymap()
+    IncSearchNoreMap <C-n> <Over>(incsearch-next)
+    IncSearchNoreMap <C-p> <Over>(incsearch-prev)
+    IncSearchNoreMap <C-f> <Over>(incsearch-scroll-f)
+    IncSearchNoreMap <C-b> <Over>(incsearch-scroll-b)
+endfunction
