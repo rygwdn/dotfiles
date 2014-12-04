@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+# encoding: utf-8
+
+import sys
+from subprocess import check_output
+import re
+
+reflog_match = re.compile(r".*moving from (.*) to (.*)")
+
+reflog = check_output("git reflog", shell=True).splitlines()
+recent = []
+for line in reflog:
+    match = reflog_match.match(line)
+    if match:
+        recent.append(match.group(1).strip())
+        recent.append(match.group(2).strip())
+
+all_heads = check_output(
+    "git for-each-ref refs/heads --format='%(refname)'",
+    shell=True).splitlines()
+current_branch = check_output("git symbolic-ref HEAD", shell=True).strip()
+branches = []
+for head in all_heads:
+    if head == current_branch:
+        continue
+    branches.append(head[len("refs/heads/"):])
+
+missing_branches = [b for b in branches if b not in recent]
+
+seen = set()
+sorted_recent = []
+for branch in recent + missing_branches:
+    if branch in seen:
+        continue
+    seen.add(branch)
+    if branch not in branches:
+        continue
+    sorted_recent.append(branch)
+
+print "\n".join(reversed(sorted_recent))
