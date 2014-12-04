@@ -1,3 +1,8 @@
+if index(keys(g:bundle_names), 'YouCompleteMe') == -1
+    finish
+endif
+
+
 nnoremap <leader>jd :YcmCompleter GoTo<CR>
 autocmd FileType python nnoremap <buffer> <CR> :YcmCompleter GoTo<CR>
 

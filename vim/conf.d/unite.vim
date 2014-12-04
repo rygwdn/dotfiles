@@ -1,3 +1,8 @@
+if index(keys(g:bundle_names), 'unite.vim') == -1
+    finish
+endif
+
+
 " Unite
 let g:unite_enable_start_insert = 0
 let g:unite_source_history_yank_enable = 1
