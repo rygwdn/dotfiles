@@ -16,7 +16,7 @@ endif
 set rtp+=~/.vim
 
 augroup vimrc
-  autocmd!
+    autocmd!
 augroup END
 
 " ------------------------------------------- }}}
