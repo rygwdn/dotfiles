@@ -98,9 +98,9 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
         Plugin 'Lokaltog/powerline', {'rtp': 'powerline/bindings/vim/'}
 
         " Restructured text in vim
-        Plugin 'rykka/clickable.vim'
         Plugin 'Rykka/riv.vim'
         Plugin 'rykka/os.vim'
+        "Plugin 'rykka/clickable.vim'
     endif
 
     " Unite all the things
