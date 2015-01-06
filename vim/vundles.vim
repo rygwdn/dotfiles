@@ -25,6 +25,7 @@ Plugin 'omailson/vim-qml'
 Plugin 'rygwdn/qmake-syntax-vim'
 Plugin 'rodjek/vim-puppet'
 Plugin 'plasticboy/vim-markdown'
+"Plugin 'tpope/vim-markdown'
 Plugin 'elzr/vim-json'
 Plugin 'hynek/vim-python-pep8-indent'
 Plugin 'derekwyatt/vim-scala'
@@ -125,6 +126,9 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
 
     " Nice incsearch
     Plugin 'haya14busa/incsearch.vim'
+
+    " Live markdown editing, requires `npm install -g livedown`
+    Plugin 'shime/vim-livedown'
 endif
 
 if index(keys(g:bundle_names), 'powerline') == -1
