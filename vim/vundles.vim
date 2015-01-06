@@ -174,7 +174,8 @@ Plugin 'sjl/gundo.vim'
 Plugin 'utl.vim'
 
 " File/dir tree. Provides "-"
-Plugin 'tpope/vim-vinegar'
+Plugin 'dhruvasagar/vim-vinegar'
+Plugin 'scrooloose/nerdtree'
 
 " My own tag based fswitch.vim. Provides ,f{fhljk}
 Plugin 'rygwdn/tagswitch'
