@@ -95,7 +95,7 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
         " Virtualenv support
         Plugin 'jmcantrell/vim-virtualenv'
 
-        Plugin 'Lokaltog/powerline', {'rtp': 'powerline/bindings/vim/'}
+        Plugin 'powerline/powerline', {'rtp': 'powerline/bindings/vim/'}
 
         " Restructured text in vim
         Plugin 'Rykka/riv.vim'
