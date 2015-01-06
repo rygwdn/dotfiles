@@ -46,6 +46,15 @@ Plugin 'vimoutliner/vimoutliner'
 Plugin 'xolox/vim-notes'
 Plugin 'xolox/vim-misc'
 
+" JS
+Plugin 'othree/yajs.vim'
+Plugin 'othree/javascript-libraries-syntax.vim'
+Plugin 'dsawardekar/portkey'
+Plugin 'dsawardekar/ember.vim'
+
+" sass/scss
+Plugin 'cakebaker/scss-syntax.vim'
+
 " }}}
 
 " Color schemes {{{
