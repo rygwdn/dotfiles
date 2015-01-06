@@ -1,5 +1,7 @@
 #!/usr/bin/env zsh
 
+[[ -f /usr/libexec/path_helper ]] && eval `/usr/libexec/path_helper -s`
+
 PATH=/usr/local/bin:$PATH
 PATH=/usr/local/sbin:$PATH
 PATH=$PATH:/var/lib/gems/1.8/bin
