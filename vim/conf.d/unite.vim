@@ -25,7 +25,7 @@ endfunction
 
 " Unite should be installed..
 if index(keys(g:bundle_names), 'unite.vim') > -1
-    au VimEnter * call s:config_unite()
+    autocmd vimrc VimEnter * call s:config_unite()
 endif
 
 nnoremap <C-S-p> :<C-u>Unite -no-split -buffer-name=files   -start-insert file_rec/async:!<cr>
@@ -40,7 +40,7 @@ nnoremap <leader>y :<C-u>Unite -no-split -buffer-name=yank    -start-insert hist
 "nnoremap <leader>e :<C-u>Unite -no-split -buffer-name=buffer  buffer<cr>
 
 " Custom mappings for the unite buffer
-autocmd FileType unite call s:unite_settings()
+autocmd vimrc FileType unite call s:unite_settings()
 function! s:unite_settings()
   " Play nice with supertab
   let b:SuperTabDisabled=1

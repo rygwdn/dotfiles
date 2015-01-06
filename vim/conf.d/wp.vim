@@ -16,4 +16,4 @@ endfu
 
 command! Wp call Wp()
 
-au FileType tex,pdc,mail Wp
+autocmd vimrc FileType tex,pdc,mail Wp

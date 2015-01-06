@@ -1,1 +1,1 @@
-au FileType votl :set cc=
+autocmd vimrc FileType votl :set cc=

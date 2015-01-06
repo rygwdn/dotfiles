@@ -14,6 +14,11 @@ endif
 
 " hack for windows :S
 set rtp+=~/.vim
+
+augroup vimrc
+  autocmd!
+augroup END
+
 " ------------------------------------------- }}}
 
 " Bundles & pathogen {{{
@@ -59,8 +64,8 @@ endif
 
 set encoding=utf-8
 
-let maplocalleader=','          " all my macros start with ,
-let mapleader=","               " set <Leader> to , instead of \
+let g:maplocalleader=','          " all my macros start with ,
+let g:mapleader=","               " set <Leader> to , instead of \
 
 set number
 if v:version >= 703
@@ -130,7 +135,7 @@ set splitright                  " vertical split opens new window on right
 " When editing a file, always jump to the last known cursor position.
 " Don't do it when the position is invalid or when inside an event handler
 " (happens when dropping a file on gvim).
-autocmd BufReadPost *
+autocmd vimrc BufReadPost *
             \ if line("'\"") > 0 && line("'\"") <= line("$") |
             \   exe "normal g`\"" |
             \ endif
@@ -246,16 +251,12 @@ inoremap <expr> <Up>       pumvisible() ? "\<C-p>" : "\<Up>"
 inoremap <expr> <PageDown> pumvisible() ? "\<PageDown>\<C-p>\<C-n>" : "\<PageDown>"
 inoremap <expr> <PageUp>   pumvisible() ? "\<PageUp>\<C-p>\<C-n>" : "\<PageUp>"
 
-" used with CTRL-X CTRL-K
-"au BufRead,BufNew *.txt,*.tex,*.pdc set dictionary=/usr/share/dict/words
-
 "set complete=.,w,b,u,U,t,i,d    " do lots of scanning on tab completion
 "set complete-=k complete+=k
 "set ofu=syntaxcomplete#Complete
 
 " Close preview window automatically
-"autocmd CursorMovedI * if pumvisible() == 0|pclose|endif
-autocmd InsertLeave * if pumvisible() == 0|pclose|endif
+autocmd vimrc InsertLeave * if pumvisible() == 0|pclose|endif
 
 " ------------------------------------------------}}}
 
@@ -291,8 +292,8 @@ if has("gui_running")
     let g:Powerline_symbols="fancy"
 
     set cursorline cursorcolumn
-    au WinLeave * set nocursorline nocursorcolumn
-    au WinEnter * set cursorline cursorcolumn
+    autocmd vimrc WinLeave * set nocursorline nocursorcolumn
+    autocmd vimrc WinEnter * set cursorline cursorcolumn
 
     set go-=TLr " Toolbar, scrollbars
 else
@@ -305,70 +306,69 @@ endif
 set diffopt=filler,iwhite       " ignore all whitespace and sync
 
 " detection {{{
-au BufNewFile,BufRead *.as set ft=actionscript
-au BufNewFile,BufRead *.m set ft=objc
-let filetype_m='objc'
-au BufNewFile,BufRead *.pl set ft=prolog
-au BufNewFile,BufRead *.md set ft=markdown
+autocmd vimrc BufNewFile,BufRead *.as set ft=actionscript
+autocmd vimrc BufNewFile,BufRead *.m set ft=objc
+let g:filetype_m='objc'
+autocmd vimrc BufNewFile,BufRead *.pl set ft=prolog
+autocmd vimrc BufNewFile,BufRead *.md set ft=mkd
 " }}}
 
 "" C, C++ stuff {{{
-au filetype c,cpp set spell
+autocmd vimrc filetype c,cpp set spell
 set tags+=./tags;$HOME      " add tags files from current dir up to $HOME
 set tags+=./.git/tags;$HOME " add tags in parent git dir from current dir up to $HOME
 let g:load_doxygen_syntax=1
 " }}}
 
 " help files, make return jump to tag {{{
-autocmd FileType help nmap <buffer> <Return> <C-]>
+autocmd vimrc FileType help nmap <buffer> <Return> <C-]>
 " }}}
 
 " Latex {{{
 let g:tex_flavor='latex'
-"au BufWritePost *.tex Rubber
 
 function! LatexEvinceSearch()
     execute "!cd " . LatexBox_GetTexRoot() . '; evince_dbus.py "`basename ' . LatexBox_GetOutputFile(). '`" ' . line('.') . ' "%:p"'
 endfun
 command! LatexEvinceSearch call LatexEvinceSearch()
 
-au FileType tex map <Leader>ls :silent LatexEvinceSearch<CR>
-au FileType tex imap <buffer> ]] <Plug>LatexCloseCurEnv
+autocmd vimrc FileType tex map <Leader>ls :silent LatexEvinceSearch<CR>
+autocmd vimrc FileType tex imap <buffer> ]] <Plug>LatexCloseCurEnv
 
 " }}}
 
 " Mail {{{
-au FileType mail set tw=0 spell colorcolumn=73
+autocmd vimrc FileType mail set tw=0 spell colorcolumn=73
 " }}}
 
 " VimOutliner {{{
-autocmd BufEnter *.otl set ft=votl
-au FileType otl map <M-S-j> <M-S-Down>
-au FileType otl map <M-S-k> <M-S-Up>
-let otl_map_tabs = 1
-au FileType otl set tw=100 ts=3 sts=3 sw=3 fo-=t foldlevel=10 colorcolumn=0
-let no_otl_insert_maps = 1
+autocmd vimrc BufEnter *.otl set ft=votl
+autocmd vimrc FileType otl map <M-S-j> <M-S-Down>
+autocmd vimrc FileType otl map <M-S-k> <M-S-Up>
+let g:otl_map_tabs = 1
+autocmd vimrc FileType otl set tw=100 ts=3 sts=3 sw=3 fo-=t foldlevel=10 colorcolumn=0
+let g:no_otl_insert_maps = 1
 " }}}
 
 " html {{{
 augroup html
-    let xml_use_xhtml = 1
-    au BufWinEnter *.html,*.php imap <S-CR> <br /><Right><CR>
+    let g:xml_use_xhtml = 1
+    autocmd vimrc BufWinEnter *.html,*.php imap <S-CR> <br /><Right><CR>
 augroup END
 " }}}
 
 " omnicomplete {{{
-autocmd FileType javascript set omnifunc=javascriptcomplete#CompleteJS
-autocmd FileType html set omnifunc=htmlcomplete#CompleteTags
-autocmd FileType css set omnifunc=csscomplete#CompleteCSS
-autocmd FileType xml set omnifunc=xmlcomplete#CompleteTags
-autocmd FileType php set omnifunc=phpcomplete#CompletePHP
-autocmd FileType c set omnifunc=ccomplete#Complete
+autocmd vimrc FileType javascript set omnifunc=javascriptcomplete#CompleteJS
+autocmd vimrc FileType html set omnifunc=htmlcomplete#CompleteTags
+autocmd vimrc FileType css set omnifunc=csscomplete#CompleteCSS
+autocmd vimrc FileType xml set omnifunc=xmlcomplete#CompleteTags
+autocmd vimrc FileType php set omnifunc=phpcomplete#CompletePHP
+autocmd vimrc FileType c set omnifunc=ccomplete#Complete
 " }}}
 
 "" Python stuff {{{
-autocmd FileType python if &rtp =~ "pylint" | compiler pylint | endif
-autocmd FileType python setlocal foldmethod=indent
+autocmd vimrc FileType python if &rtp =~ "pylint" | compiler pylint | endif
+autocmd vimrc FileType python setlocal foldmethod=indent
 " }}}
 
 " --------------------------------------------------- }}}

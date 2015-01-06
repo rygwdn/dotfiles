@@ -4,7 +4,7 @@ endif
 
 
 nnoremap <leader>jd :YcmCompleter GoTo<CR>
-autocmd FileType python nnoremap <buffer> <CR> :YcmCompleter GoTo<CR>
+autocmd vimrc FileType python nnoremap <buffer> <CR> :YcmCompleter GoTo<CR>
 
 let g:ycm_key_list_select_completion = ['<TAB>', '<Down>']
 let g:ycm_key_list_previous_completion = ['<S-TAB>', '<Up>']

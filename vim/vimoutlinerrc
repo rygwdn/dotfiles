@@ -17,7 +17,7 @@ let g:vo_modules_load .= ":math"
 "let g:vo_modules_load .= ":smart_paste"
 
 "User Preferences ***************************************************
-"let maplocalleader = ",,"		" this is prepended to VO key mappings
+"let g:maplocalleader = ",,"		" this is prepended to VO key mappings
 
 setlocal ignorecase			" searches ignore case
 "setlocal smartcase			" searches use smart case

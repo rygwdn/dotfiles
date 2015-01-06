@@ -1,1 +1,1 @@
-autocmd FileType python nnoremap <buffer> ,m :Pytest file<CR>
+autocmd vimrc FileType python nnoremap <buffer> ,m :Pytest file<CR>

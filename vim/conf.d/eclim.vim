@@ -12,8 +12,6 @@ augroup java
     autocmd FileType java let b:jcommenter_file_author='Ryan Wooden, 100079872'
 augroup END
 
-"au FileType cpp call EnableEclim()
-
 let g:EclimProjectProblemsUpdateOnSave=0
 let g:EclimCValidate=0
 
@@ -43,7 +41,7 @@ function! EnableEclim()
         nmap <F11> :call EVimPluginFeedKey("F11", 1)<CR>
         nnoremap <silent> <buffer> <cr> :CSearchContext<cr>
         runtime! plugin/eclim.vim
-        au BufWinEnter *.cpp,*.hpp,*.c,*.h call SuperTabSetDefaultCompletionType("<c-x><c-u>")
+        autocmd java BufWinEnter *.cpp,*.hpp,*.c,*.h call SuperTabSetDefaultCompletionType("<c-x><c-u>")
         call SuperTabSetDefaultCompletionType("<c-x><c-u>")
         " HACK!!!!!
 python << EOF
@@ -64,6 +62,3 @@ let g:EclimShowCurrentError = 0
 "command! EclimStart silent !eclipse &> /dev/null &
 command! PR ProjectRefresh
 command! EclimEnable call EnableEclim()
-" Only enable eclim for filtypes listed here!
-"autocmd FileType java EnableEclim
-
