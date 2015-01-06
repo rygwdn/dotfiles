@@ -2,7 +2,7 @@
 # encoding: utf-8
 
 import sys
-from subprocess import check_output
+from subprocess import check_output, CalledProcessError
 import re
 
 reflog_match = re.compile(r".*moving from (.*) to (.*)")
@@ -18,7 +18,12 @@ for line in reflog:
 all_heads = check_output(
     "git for-each-ref refs/heads --format='%(refname)'",
     shell=True).splitlines()
-current_branch = check_output("git symbolic-ref HEAD", shell=True).strip()
+
+try:
+    current_branch = check_output("git symbolic-ref HEAD 2>/dev/null", shell=True).strip()
+except CalledProcessError:
+    current_branch = ""
+
 branches = []
 for head in all_heads:
     if head == current_branch:
