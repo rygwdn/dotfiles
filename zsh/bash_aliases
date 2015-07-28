@@ -123,7 +123,8 @@ alias gk='gitk --all'
 
 function cor {
     br=$(recent_branches | fzf --no-sort --reverse)
-    [[ -n $br ]] && co $br
+    [[ ${SHELL##*/} == zsh ]] && print -s "git checkout $br"
+    [[ -n $br ]] && git checkout $br
 }
 
 which hub &>/dev/null && alias git=hub
