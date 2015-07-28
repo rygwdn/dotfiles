@@ -117,6 +117,7 @@ __git_shortcut rb rebase
 __git_shortcut rbi rbi
 __git_shortcut rbis rbis
 alias st='git st'
+alias stf='git st | fpp'
 
 alias gl='lg -n-1 --all'
 alias gk='gitk --all'
@@ -159,5 +160,8 @@ function o()
 }
 
 complete -F _aptitude -o default ap
+
+alias e='ember'
+alias vssh='vagrant ssh'
 
 [ -e ~/.bash_aliases_local ] && . ~/.bash_aliases_local
