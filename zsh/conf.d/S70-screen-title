@@ -1,24 +1,17 @@
 #!/usr/bin/env zsh
 
+# Disable Oh-My-ZSH title setting
+export DISABLE_AUTO_TITLE=true
 
 # Decide whether to set a screen title
-function title()
-{
+function title() {
     TITLE=$1
-    REST=$2
 
     [ -n "$SSH_TTY" ] && TITLE+="@${ZHOST}"
-    [ -z "$REST" ] && REST=$PWD
 
-    if [[ $TERM =~ tmux ]]
+    if [[ $TERM =~ "screen" ]]
     then
-        print -nR $'\033k'$TITLE$'\033\a'
-
-    elif [[ $TERM =~ "screen" ]]
-    then
-        # Use these two for GNU Screen:
-        print -nR $'\033k'$TITLE$'\033'\\
-        print -nR $'\033]0;'$REST$'\a'
+        print -Pn "\ek${TITLE}\e\\"
 
     elif [[ $TERM =~ "xterm" || $TERM =~ "rxvt" ]]
     then
@@ -27,8 +20,7 @@ function title()
     fi
 }
 
-function zsh-title()
-{
+function zsh-title() {
     emulate -L zsh
     local -a cmd
     cmd=(${(z)1})
@@ -53,12 +45,12 @@ function zsh-title()
             # exec'd. Note the ;& to fall through.
 
         "")
-            title "zsh" "$PWD"           # Not resuming a job
+            title "zsh"           # Not resuming a job
             return
             ;;                     # so we're all done
 
         *)
-            title $cmd[1]:t "$cmd[2,-1]" # Not resuming a job
+            title $cmd[1]:t # Not resuming a job
             return
             ;;                     # so we're all done
     esac
@@ -71,7 +63,7 @@ function zsh-title()
     $cmd >>(
         read num rest
         cmd=(${(z)${(e):-\$jt$num}})
-        title $cmd[1]:t "$cmd[2,-1]"
+        title $cmd[1]:t
         ) 2>/dev/null
 }
 
