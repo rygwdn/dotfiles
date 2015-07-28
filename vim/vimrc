@@ -12,6 +12,11 @@ if v:progname =~? "evim"
     finish
 endif
 
+" Set python program to be the homebrew version
+if executable("/usr/local/bin/python") == 1
+    let g:python_host_prog='/usr/local/bin/python'
+endif
+
 " hack for windows :S
 set rtp+=~/.vim
 
@@ -124,7 +129,11 @@ set updatecount=100             " write swap file to disk every 100 chars
 set foldenable
 set foldlevel=99999
 set autowrite                   " write before :make
-set ttimeoutlen=50
+if has("nvim")
+    set ttimeoutlen=-1
+else
+    set ttimeoutlen=50
+endif
 
 if v:version >= 703
     set colorcolumn=+1
@@ -160,6 +169,12 @@ nmap <LocalLeader><space> :noh<cr>
 " ---------------------------------------------------- }}}
 
 " handy commands & mappings ---------------------------- {{{
+
+if has("nvim")
+    nmap <BS> <C-h>
+    tnoremap <Esc> <C-\><C-n>
+    tnoremap <S-Esc> <Esc>
+endif
 
 " insert mode paste (like esc p i)
 imap  "
@@ -280,12 +295,12 @@ set winminheight=1
 
 set laststatus=2
 
+set background=dark
+
 if has("gui_running")
-    " window size
-    "set lines=40
-    "set columns=80
     if stridx(&rtp, "candycode") != -1
         colorscheme candycode
+        "autocmd vimrc VimEnter * set background=dark
     endif
 
     set guifont=DejaVu\ Sans\ Mono\ for\ Powerline\ 9
@@ -296,8 +311,6 @@ if has("gui_running")
     autocmd vimrc WinEnter * set cursorline cursorcolumn
 
     set go-=TLr " Toolbar, scrollbars
-else
-    set bg=dark
 endif
 " --------------------------------------- }}}
 
