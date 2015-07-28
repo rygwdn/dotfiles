@@ -19,6 +19,8 @@ export NULLCMD='less'               # use cat for > null commands
 export REPORTTIME=10                # report time if execution exceeds amount of seconds
 watch=(notme)                # watch login/logout
 
+# include junit in java classpath
+export CLASSPATH=$CLASSPATH:.:/usr/share/java/junit4.jar
 
 # Set up color vars
 autoload colors zsh/terminfo
