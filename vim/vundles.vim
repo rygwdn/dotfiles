@@ -194,10 +194,4 @@ Plug 'tmux-plugins/vim-tmux-focus-events'
 
 " }}}
 
-" Manual plugins {{{
-Plug 'snips', {'dir': 'pre/snips', 'frozen': 1}
-Plug 'voom_cust', {'dir': 'pre/voom_cust', 'frozen': 1}
-Plug 'handlebars_cust', {'dir': 'pre/handlebars', 'frozen': 1}
-" }}}
-
 call plug#end()
