@@ -1,4 +1,4 @@
-if index(keys(g:bundle_names), 'YouCompleteMe') == -1
+if index(keys(g:plugs), 'YouCompleteMe') == -1
     finish
 endif
 

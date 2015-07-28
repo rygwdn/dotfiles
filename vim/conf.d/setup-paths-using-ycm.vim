@@ -1,3 +1,7 @@
+if index(keys(g:plugs), 'YouCompleteMe') == -1
+    finish
+endif
+
 python << EOF
 def SetupPathFromYCM():
     try:

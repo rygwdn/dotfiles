@@ -1,4 +1,4 @@
-if index(keys(g:bundle_names), 'unite.vim') == -1
+if index(keys(g:plugs), 'unite.vim') == -1
     finish
 endif
 
@@ -24,7 +24,7 @@ function! s:config_unite()
 endfunction
 
 " Unite should be installed..
-if index(keys(g:bundle_names), 'unite.vim') > -1
+if index(keys(g:plugs), 'unite.vim') > -1
     autocmd vimrc VimEnter * call s:config_unite()
 endif
 

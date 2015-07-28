@@ -1,4 +1,4 @@
-if index(keys(g:bundle_names), 'powerline') == -1
+if index(keys(g:plugs), 'powerline') == -1
     finish
 endif
 
