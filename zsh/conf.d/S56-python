@@ -6,7 +6,6 @@ export WORKON_HOME=$HOME/.virtualenvs
 
 export PIP_VIRTUALENV_BASE=$WORKON_HOME
 export PIP_RESPECT_VIRTUALENV=true
-export PIP_DOWNLOAD_CACHE="$HOME/.pip_download_cache"
 
 # Use distrubute in virtualenv's
 export VIRTUALENV_USE_DISTRIBUTE=1
