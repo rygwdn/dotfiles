@@ -36,10 +36,13 @@
 	vimdiff = difftool -t vimdiff
 	gvimdiff = difftool -t gvimdiff
 	kompare = difftool -t kompare
-	vmerge = mergetool -y --tool=vimdiff
-	gmerge = mergetool -y --tool=gvimdiff
+	vmerge = mergetool --tool=vimdiff
+	gmerge = mergetool --tool=gvimdiff
 	pr = pull-request
 	fpr = "!fpr() { git fetch -f origin pull/$1/merge:refs/pr/origin/$1/merge ; } ; fpr"
+	conflicts = "!conflicts() { git merge-tree $(git merge-base $1 $2) $1 $2 | gsed -n '/+<<<<<<< .our/,/+>>>>>>> .their/p;/^changed in both/{n;N;N;s/^/#/mg;p}' | cdiff; } ; conflicts"
+	noconflicts = "!noconflicts() { ! git merge-tree $(git merge-base $1 $2) $1 $2 | gsed -n '/+<<<<<<< .our/,/+>>>>>>> .their/p;/^changed in both/{n;N;N;s/^/#/mg;p}' | grep -q '+<<<<<<< .our'; } ; noconflicts"
+
 [url "git@github.com:rygwdn/"]
 	insteadOf = github:
 [rerere]
@@ -64,7 +67,7 @@
 	default = current
 [difftool "sourcetree"]
 	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
-	path =
+	path = 
 [mergetool "sourcetree"]
 	cmd = /Applications/SourceTree.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
 	trustExitCode = true
