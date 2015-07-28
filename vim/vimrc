@@ -414,4 +414,8 @@ elseif has("macunix")
 elseif has("win32")
     runtime win.vimrc
 endif
+
+if filereadable(expand("~/.vimrc.local"))
+    source $HOME/.vimrc.local
+endif
 " ---------------------------------------------- }}}
