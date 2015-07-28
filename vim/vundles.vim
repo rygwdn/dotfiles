@@ -41,9 +41,15 @@ Plug 'xolox/vim-notes'
 Plug 'xolox/vim-misc'
 
 " JS
+Plug 'kchmck/vim-coffee-script'
+Plug 'pangloss/vim-javascript'
 Plug 'othree/javascript-libraries-syntax.vim', {'for': 'javascript'}
 Plug 'dsawardekar/portkey', {'for': 'javascript'}
 Plug 'dsawardekar/ember.vim', {'for': 'javascript'}
+Plug 'matthewsimo/angular-vim-snippets', {'for': ['javascript', 'html']}
+Plug 'burnettk/vim-angular', {'for': ['javascript', 'html']}
+Plug 'mattn/emmet-vim', {'for': 'html'}
+Plug 'othree/html5.vim', {'for': 'html'}
 
 " sass/scss
 Plug 'cakebaker/scss-syntax.vim'
