@@ -80,7 +80,11 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
         Plug 'jmcantrell/vim-virtualenv', {'for': ['python', 'rst']}
 
         " OTF syntax checking
+        if has("nvim")
+            Plug 'benekastah/neomake'
+        else
             Plug 'scrooloose/syntastic'
+        endif
 
         if has("nvim")
             " Auto completion in C/C++/ObjC/Python
