@@ -1,0 +1,9 @@
+#!/usr/bin/env zsh
+
+echo "X: $PATH"
+
+# include junit in java classpath
+export CLASSPATH=$CLASSPATH:.:/usr/share/java/junit4.jar
+
+#LD_LIBRARY_PATH=$NXJ_HOME/bin
+#NXJ_HOME=/home/rwooden/src/lejos_nxj

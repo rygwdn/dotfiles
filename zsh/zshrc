@@ -29,10 +29,6 @@ fi
 
 logTime "start zshrc"
 
-source /etc/profile
-
-logTime "did profile"
-
 # update the function path to include custom stuff
 fpath=(~/.zsh/completion $fpath) 
 
