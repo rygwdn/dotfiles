@@ -125,6 +125,17 @@ else
     precmd_functions+='vcs_info'
 fi
 
+
+function update_tmux_environment() {
+    eval $(tmux switch-client \; show-environment -s)
+}
+
+if [[ -n $TMUX ]] || [[ -n $TMUX_PANE ]]
+then
+    precmd_functions+='update_tmux_environment'
+fi
+
+
 # Ensures that $terminfo values are valid and updates editor information when
 # the keymap changes.
 function zle-keymap-select zle-line-init zle-line-finish {
