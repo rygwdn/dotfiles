@@ -23,7 +23,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", inline: $script
 
   if Vagrant.has_plugin?("vagrant-vbguest")
-    config.vbguest.auto_update = false
+    config.vbguest.no_install = true
   end
 end
 
