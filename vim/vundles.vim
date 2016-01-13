@@ -18,11 +18,13 @@ Plug 'aklt/plantuml-syntax'
 Plug 'omailson/vim-qml'
 Plug 'rygwdn/qmake-syntax-vim'
 Plug 'rodjek/vim-puppet'
-Plug 'plasticboy/vim-markdown'
+"Plug 'plasticboy/vim-markdown'
 Plug 'elzr/vim-json'
 Plug 'derekwyatt/vim-scala'
 Plug 'mustache/vim-mustache-handlebars'
 Plug 'hynek/vim-python-pep8-indent', {'for': 'python'}
+Plug 'vim-pandoc/vim-pandoc'
+Plug 'vim-pandoc/vim-pandoc-syntax' 
 
 " Try to autodetect whitespace options
 Plug 'tpope/vim-sleuth'
@@ -60,6 +62,7 @@ Plug 'cakebaker/scss-syntax.vim'
 
 Plug 'candycode.vim'
 Plug 'blackboard.vim'
+Plug 'chriskempson/base16-vim'
 
 " }}}
 
@@ -107,7 +110,10 @@ if ! exists("g:light_bundles") || g:light_bundles == 0
 
     " Unite all the things
     Plug 'Shougo/vimproc', {'do': 'make'}
-    Plug 'Shougo/unite.vim' | Plug 'Shougo/unite-outline'
+    Plug 'mattn/webapi-vim'
+    Plug 'Shougo/unite.vim'
+    Plug 'Shougo/unite-outline'
+    Plug 'kmnk/vim-unite-giti'
 
     " Lots of git functionality
     Plug 'tpope/vim-fugitive' | Plug 'int3/vim-extradite'
@@ -167,7 +173,10 @@ Plug 'tpope/vim-eunuch'
 Plug 'tpope/vim-abolish', {'on': ['S', 'Subvert', 'Abolish']}
 
 " Undo tree browser. :Gundo
-Plug 'sjl/gundo.vim'
+" Plug 'sjl/gundo.vim'
+"
+" Fork of Gundo
+Plug 'simnalamburt/vim-mundo'
 
 " Universal Text Linking (provide links between files..)
 Plug 'utl.vim'
