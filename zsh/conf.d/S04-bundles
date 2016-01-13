@@ -1,37 +1,36 @@
 #!/bin/zsh
 
-export ADOTDIR="$HOME/.zsh/bundle"
-
-logTime "start bundles"
-
-antigen use oh-my-zsh
-logTime "did use"
+function log-zplug() {
+    zplug "$@"
+    logTime "did zplug $@"
+}
 
 # zsh plugins
-antigen bundle zsh-users/zsh-syntax-highlighting
-antigen bundle zsh-users/zsh-history-substring-search
+log-zplug "zsh-users/zsh-syntax-highlighting"
+log-zplug "zsh-users/zsh-history-substring-search"
 
 # python stuff
-antigen bundle pip
-which virtualenvwrapper_lazy.sh &>/dev/null \
-    && antigen bundle virtualenvwrapper
-#antigen bundle pep8
-antigen bundle django
-antigen bundle fabric
-
-# android/java stuff
-antigen bundle ant
-antigen bundle gradle
+log-zplug plugins/pip, from:oh-my-zsh, if:"which pip"
+log-zplug plugins/django, from:oh-my-zsh
 
 # general stuff
-antigen bundle brew
-antigen bundle vagrant
+log-zplug plugins/brew, from:oh-my-zsh
+log-zplug plugins/vagrant, from:oh-my-zsh
 
-logTime "did bundles"
+if ! log-zplug check; then
+    log-zplug install
+fi
 
-function antigen-selfupdate {
-    curl https://raw.github.com/zsh-users/antigen/master/antigen.zsh > $HOME/.zsh/conf.d/S02-antigen
-    source $HOME/.zsh/conf.d/S02-antigen
-    antigen update
-    antigen cleanup
+# source and add to the PATH
+log-zplug load
+
+function zplug-selfupdate {
+    curl https://raw.githubusercontent.com/b4b4r07/zplug/master/zplug > $HOME/.zsh/conf.d/S02-zplug
+    source $HOME/.zsh/conf.d/S02-zplug
+    source $HOME/.zsh/conf.d/S04-bundles
+    zplug clear
+    zplug clean
+    zplug install --verbose
+    zplug load --verbose
+    zplug update --verbose
 }
