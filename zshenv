@@ -9,7 +9,6 @@ path=(
     $HOME/conf/bin
     $HOME/.cabal/bin
     $HOME/.rvm/bin
-    /usr/local/share/python
     /usr/local/sbin
     /usr/local/bin
     /opt/local/bin
