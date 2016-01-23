@@ -42,4 +42,4 @@ for branch in recent + missing_branches:
         continue
     sorted_recent.append(branch)
 
-print "\n".join(reversed(sorted_recent))
+print "\n".join(sorted_recent)

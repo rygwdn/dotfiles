@@ -41,13 +41,13 @@ for line in lines:
     if line.startswith("+++"):
         file = line[len("+++ b/"):].strip()
         printed = False
-    if "TODO" in line:
+    if "#" in line and "TODO" in line:
         if not printed:
             print
             print file
             printed = True
         print line[line.index("TODO"):]
-    if "XXX" in line:
+    if "#" in line and "XXX" in line:
         if not printed:
             print
             print file

@@ -19,16 +19,8 @@ export NULLCMD='less'               # use cat for > null commands
 export REPORTTIME=10                # report time if execution exceeds amount of seconds
 watch=(notme)                # watch login/logout
 
-# Set up less
-export PAGER='less'
-# show colors in less
-export LESS="-R"
-# syntax highlight files from less
-#which pygmentize &>/dev/null && export LESSOPEN='|pygmentize -g %s'
-
-export EDITOR='vim'
-export VISUAL='vim'
-export VPAGER='vim -R -'
+# include junit in java classpath
+export CLASSPATH=$CLASSPATH:.:/usr/share/java/junit4.jar
 
 # Set up color vars
 autoload colors zsh/terminfo
@@ -45,13 +37,7 @@ then
     export PR_NO_COLOR="%{$terminfo[sgr0]%}"
 fi
 
-# Enable colors in grep
-#export GREP_OPTIONS="--color=auto"
 
-# local stuff
-export LC_ALL='en_US.UTF-8'
-export LANG='en_US.UTF-8'
-export LC_CTYPE='C'
 
 # this makes man pages look nicer...
 export LESS_TERMCAP_mb=$'\E[01;31m'
@@ -75,3 +61,6 @@ then
     # only use "light" vim bundles on vagrant
     export VIM_LIGHT_BUNDLES=1
 fi
+
+export WORKON_HOME="$HOME/.virtualenvs"
+export PROJECT_HOME="$HOME/git"

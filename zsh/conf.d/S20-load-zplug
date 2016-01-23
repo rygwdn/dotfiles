@@ -1,0 +1,8 @@
+#!/bin/zsh
+
+if ! zplug check; then
+    zplug install
+fi
+
+# source and add to the PATH
+zplug load

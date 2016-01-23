@@ -1,4 +1,4 @@
-if index(keys(g:bundle_names), 'incsearch.vim') == -1
+if index(keys(g:plugs), 'incsearch.vim') == -1
     finish
 endif
 

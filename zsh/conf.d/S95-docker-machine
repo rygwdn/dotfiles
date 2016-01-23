@@ -1,0 +1,14 @@
+#!/usr/bin/env zsh
+
+dmset() {
+    if hash docker-machine &>/dev/null && [[ -z $DOCKER_MACHINE_NAME ]]
+    then
+        machine=$(docker-machine ls --filter state=running --timeout 1 --quiet | head -n1)
+        if [[ -n $machine ]]
+        then
+            eval $(docker-machine env $machine)
+        fi
+    fi
+}
+
+precmd_functions+='dmset'

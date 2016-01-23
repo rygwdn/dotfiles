@@ -1,209 +1,216 @@
 " setup {{{1
-
-set nocompatible               " be iMproved
-filetype off                   " required!
+"vim: fdm=marker fdl=0
 
 let s:win_shell = (has('win32') || has('win64')) && &shellcmdflag =~ '/'
-let s:bundle_dir = s:win_shell ? '$HOME/vimfiles/bundle' : '$HOME/.vim/bundle'
-let &runtimepath .= ',' . expand(s:bundle_dir . '/Vundle.vim')
+let s:vim_dir = s:win_shell ? '$HOME/vimfiles' : '$HOME/.vim'
+let s:bundle_dir = s:vim_dir . '/bundle'
 
-call vundle#begin(s:bundle_dir)
-
-" let Vundle manage Vundle, required
-Plugin 'gmarik/Vundle.vim'
+call plug#begin(s:bundle_dir)
 
 " }}}
 
 " File types {{{
 
-Plugin 'tpope/vim-liquid'
-Plugin 'tpope/vim-ragtag'
-Plugin 'groenewege/vim-less'
-Plugin 'aklt/plantuml-syntax'
-Plugin 'nono/vim-handlebars'
-Plugin 'omailson/vim-qml'
-Plugin 'rygwdn/qmake-syntax-vim'
-Plugin 'rodjek/vim-puppet'
-Plugin 'plasticboy/vim-markdown'
-"Plugin 'tpope/vim-markdown'
-Plugin 'elzr/vim-json'
-Plugin 'hynek/vim-python-pep8-indent'
-Plugin 'derekwyatt/vim-scala'
-Plugin 'mustache/vim-mustache-handlebars'
+Plug 'tpope/vim-liquid'
+Plug 'tpope/vim-ragtag'
+Plug 'groenewege/vim-less'
+Plug 'aklt/plantuml-syntax'
+Plug 'omailson/vim-qml'
+Plug 'rygwdn/qmake-syntax-vim'
+Plug 'rodjek/vim-puppet'
+"Plug 'plasticboy/vim-markdown'
+Plug 'elzr/vim-json'
+Plug 'derekwyatt/vim-scala'
+Plug 'mustache/vim-mustache-handlebars'
+Plug 'hynek/vim-python-pep8-indent', {'for': 'python'}
+Plug 'vim-pandoc/vim-pandoc'
+Plug 'vim-pandoc/vim-pandoc-syntax' 
 
 " Try to autodetect whitespace options
-Plugin 'tpope/vim-sleuth'
+Plug 'tpope/vim-sleuth'
 
 " Git syntax, etc.
-Plugin 'tpope/vim-git'
+Plug 'tpope/vim-git'
 
 " Temporary (hopefully) to speed up yaml..
-Plugin 'stephpy/vim-yaml'
+Plug 'stephpy/vim-yaml'
 
 " OTL files
-Plugin 'vimoutliner/vimoutliner'
+Plug 'vimoutliner/vimoutliner'
 
 " For taking notes
-Plugin 'xolox/vim-notes'
-Plugin 'xolox/vim-misc'
+Plug 'xolox/vim-notes'
+Plug 'xolox/vim-misc'
 
 " JS
-Plugin 'othree/yajs.vim'
-Plugin 'othree/javascript-libraries-syntax.vim'
-Plugin 'dsawardekar/portkey'
-Plugin 'dsawardekar/ember.vim'
+Plug 'kchmck/vim-coffee-script'
+Plug 'pangloss/vim-javascript'
+Plug 'othree/javascript-libraries-syntax.vim', {'for': 'javascript'}
+Plug 'dsawardekar/portkey', {'for': 'javascript'}
+Plug 'dsawardekar/ember.vim', {'for': 'javascript'}
+Plug 'matthewsimo/angular-vim-snippets', {'for': ['javascript', 'html']}
+Plug 'burnettk/vim-angular', {'for': ['javascript', 'html']}
+Plug 'mattn/emmet-vim', {'for': 'html'}
+Plug 'othree/html5.vim', {'for': 'html'}
 
 " sass/scss
-Plugin 'cakebaker/scss-syntax.vim'
+Plug 'cakebaker/scss-syntax.vim'
 
 " }}}
 
 " Color schemes {{{
 
-Plugin 'candycode.vim'
-Plugin 'blackboard.vim'
+Plug 'candycode.vim'
+Plug 'blackboard.vim'
+Plug 'chriskempson/base16-vim'
 
 " }}}
 
 " Tags {{{
 
 " THESE DO NOT PROVIDE PLUGINS. They provide bins
-Plugin 'jszakmeister/rst2ctags'
-Plugin 'jszakmeister/markdown2ctags'
+Plug 'jszakmeister/rst2ctags'
+Plug 'jszakmeister/markdown2ctags'
 
 " Note: requires phpctags to be build (run make)
-Plugin 'vim-php/tagbar-phpctags.vim'
+Plug 'vim-php/tagbar-phpctags.vim', {'do': 'make'}
 
 " }}}
 
+" Heavy bundles {{{
 if ! exists("g:light_bundles") || g:light_bundles == 0
+    " Python-based bundles {{{
     if has("python")
         " Snippet engine
-        Plugin 'SirVer/ultisnips'
-        " Snippets
-        Plugin 'honza/vim-snippets'
-
-        " Auto completion in C/C++/ObjC/Python
-        Plugin 'Valloric/YouCompleteMe'
+        Plug 'SirVer/ultisnips' | Plug 'honza/vim-snippets'
 
         " Extra functionality for python
-        Plugin 'davidhalter/jedi-vim'
+        Plug 'davidhalter/jedi-vim', {'for': 'python'}
+        Plug 'jmcantrell/vim-virtualenv', {'for': ['python', 'rst']}
 
         " OTF syntax checking
-        Plugin 'scrooloose/syntastic'
+        if has("nvim")
+            Plug 'benekastah/neomake'
+        else
+            Plug 'scrooloose/syntastic'
+        endif
 
-        " Virtualenv support
-        Plugin 'jmcantrell/vim-virtualenv'
-
-        Plugin 'powerline/powerline', {'rtp': 'powerline/bindings/vim/'}
+        if has("nvim")
+            " Auto completion in C/C++/ObjC/Python
+            Plug 'Valloric/YouCompleteMe', {'do': 'env TERM=dumb ./install.sh'}
+        else
+            Plug 'powerline/powerline', {'rtp': 'powerline/bindings/vim/'}
+        endif
 
         " Restructured text in vim
-        Plugin 'Rykka/riv.vim'
-        Plugin 'rykka/os.vim'
-        "Plugin 'rykka/clickable.vim'
+        " Use winged's fork for now to get the neovim fix
+        Plug 'winged/riv.vim' | Plug 'rykka/os.vim'
     endif
+    " }}}
 
     " Unite all the things
-    Plugin 'Shougo/unite.vim'
-    Plugin 'Shougo/vimproc'
-    Plugin 'Shougo/unite-outline'
-
-    " JS Completion with nodejs
-    " Plugin 'marijnh/tern_for_vim'
+    Plug 'Shougo/vimproc', {'do': 'make'}
+    Plug 'mattn/webapi-vim'
+    Plug 'Shougo/unite.vim'
+    Plug 'Shougo/unite-outline'
+    Plug 'kmnk/vim-unite-giti'
 
     " Lots of git functionality
-    Plugin 'tpope/vim-fugitive'
-    Plugin 'int3/vim-extradite'
+    Plug 'tpope/vim-fugitive' | Plug 'int3/vim-extradite'
 
     " Easy management of signs
-    Plugin 'mhinz/vim-signify'
-
-    " Automatic sessions
-    Plugin 'session.vim--Odding'
+    Plug 'mhinz/vim-signify'
 
     " Mulitple cursors ala Sublime Text. Provides "Ctrl-N"
-    Plugin 'kristijanhusak/vim-multiple-cursors'
+    Plug 'kristijanhusak/vim-multiple-cursors'
 
     " Nice incsearch
-    Plugin 'haya14busa/incsearch.vim'
+    Plug 'haya14busa/incsearch.vim'
 
     " Live markdown editing, requires `npm install -g livedown`
-    Plugin 'shime/vim-livedown'
+    Plug 'shime/vim-livedown', {'for': ['markdown', 'mkd']}
 endif
 
-if index(keys(g:bundle_names), 'powerline') == -1
+" }}}
+
+
+" General utils {{{
+
+if index(keys(g:plugs), 'powerline') == -1
     " Nice status line..
-    Plugin 'bling/vim-airline'
+    Plug 'bling/vim-airline'
 endif
 
 " Add :Pytest
-Plugin 'alfredodeza/pytest.vim'
+Plug 'alfredodeza/pytest.vim', {'for': 'python'}
 
 " Add surround commands
-Plugin 'tpope/vim-surround'
+Plug 'tpope/vim-surround'
 
 " Tabular
-Plugin 'godlygeek/tabular'
+Plug 'godlygeek/tabular'
 
 " Use "+" to grow selection
-Plugin 'terryma/vim-expand-region'
+Plug 'terryma/vim-expand-region'
 
 " Use M-{j,k} to move line/selection up/down
-Plugin 'matze/vim-move'
+Plug 'matze/vim-move'
 
 " Comment/uncomment. Provdes "gcc" (among others)
-Plugin 'tpope/vim-commentary'
+Plug 'tpope/vim-commentary'
 
 " Provdes :BD
-Plugin 'moll/vim-bbye'
+Plug 'moll/vim-bbye'
 
 " Provides :Ack, :Ag
-Plugin 'mileszs/ack.vim'
-Plugin 'rking/ag.vim'
+Plug 'mileszs/ack.vim'
+Plug 'rking/ag.vim'
 
 " Provides :Remove :Move, :Chmod, :Find, :Locate, :SudoWrite, :SudoEdit, :W
-Plugin 'tpope/vim-eunuch'
+Plug 'tpope/vim-eunuch'
 
 " I mostly use this for the ":S" command which is awesome
-Plugin 'tpope/vim-abolish'
+Plug 'tpope/vim-abolish', {'on': ['S', 'Subvert', 'Abolish']}
 
 " Undo tree browser. :Gundo
-Plugin 'sjl/gundo.vim'
+" Plug 'sjl/gundo.vim'
+"
+" Fork of Gundo
+Plug 'simnalamburt/vim-mundo'
 
 " Universal Text Linking (provide links between files..)
-Plugin 'utl.vim'
+Plug 'utl.vim'
 
 " File/dir tree. Provides "-"
-Plugin 'dhruvasagar/vim-vinegar'
-Plugin 'scrooloose/nerdtree'
+Plug 'dhruvasagar/vim-vinegar'
+Plug 'scrooloose/nerdtree'
 
 " My own tag based fswitch.vim. Provides ,f{fhljk}
-Plugin 'rygwdn/tagswitch'
+Plug 'rygwdn/tagswitch'
 
 " Show tags in the current file in a tree
-Plugin 'majutsushi/tagbar'
+Plug 'majutsushi/tagbar'
 
 " Add tmux-compatible C-{hjkl} mappings
-Plugin 'christoomey/vim-tmux-navigator'
+Plug 'christoomey/vim-tmux-navigator'
 
 if v:version >= 704
     " Auto switch between relative and non-relative depending on mode
-    Plugin 'myusuf3/numbers.vim'
+    Plug 'myusuf3/numbers.vim'
 
     " Access remote stuff (e.g. :e ssh://me@soemplace/blah)
-    Plugin 'eiginn/netrw'
+    Plug 'eiginn/netrw'
 endif
 
-" Awesome file finding. Provies Ctrl-P and <Space>
-"Plugin 'kien/ctrlp.vim'
-
 " Allow certain things to be repeated
-Plugin 'tpope/vim-repeat'
+Plug 'tpope/vim-repeat'
 
-" Manual plugins
-Plugin 'snips', {'name': '../pre/snips', 'pinned': 1}
-Plugin 'voom_cust', {'name': '../pre/voom_cust', 'pinned': 1}
+" Allow opening files with /path/file:line:col
+Plug 'kopischke/vim-fetch'
 
-call vundle#end()
+" Handle focus events from tmux
+Plug 'tmux-plugins/vim-tmux-focus-events'
 
-"vim: fdm=marker fdl=0
+" }}}
+
+call plug#end()

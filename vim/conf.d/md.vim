@@ -1,4 +1,4 @@
-if index(keys(g:bundle_names), 'vim-livedown') == -1
+if index(keys(g:plugs), 'vim-livedown') == -1
     finish
 endif
 

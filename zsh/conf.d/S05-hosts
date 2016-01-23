@@ -11,7 +11,7 @@ elif [[ $ZHOST =~ ".vagrant." ]] || [[ $ZHOST == "mysql1" ]] || [[ $ZHOST == "ww
     ZHOST="$(echo $ZHOST | sed 's/\(.*\)\.vagrant\..*/vagrant-\1/')"
 elif [[ $ZHOST =~ "vm-test-" ]]; then
     ZHOST="$(echo $ZHOST | sed 's/\(vm-test[^.]*\)\..*/\1/')"
-elif [[ $ZHOST =~ "Ryans-MacBook-Pro" || $ZHOST =~ "aio-tv.com" ]]; then
+elif [[ $ZHOST =~ "Ryans-MacBook-Pro" || $ZHOST =~ "aio-tv.com" || $ZHOST =~ "Ryans-MBP" ]]; then
     ZHOST="work"
 fi
 

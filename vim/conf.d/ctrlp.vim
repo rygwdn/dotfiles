@@ -1,4 +1,4 @@
-if index(keys(g:bundle_names), 'ctrlp.vim') > -1
+if index(keys(g:plugs), 'ctrlp.vim') > -1
     let g:ctrlp_extensions = ['buffertag', 'tag', 'mixed']
 
     nmap <Space> :CtrlPBuffer<CR>

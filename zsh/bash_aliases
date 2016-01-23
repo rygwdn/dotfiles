@@ -36,16 +36,16 @@ alias upnup='ap update && ap full-upgrade'
 which ack-grep 1>/dev/null 2>/dev/null && alias ack='ack-grep'
 
 alias ipy=ipython
-alias nb="ipython notebook"
+alias nb="jupyter notebook"
 
 function g {
     if $RUNNING_IN_WINDOWS; then
         ( /dev/null gvim --fork=1 ) &>/dev/null
     else
-        ( gvim -f "$@" & ) &>/dev/null
+        ( gvim -f "$@" & ) &>/tmp/vim_out
     fi
 }
-function gmod {
+function _git_mod_files {
     local _path=$(git rev-parse --show-toplevel || pwd)
     local _files=
     # changed files
@@ -57,8 +57,16 @@ function gmod {
     #echo "f2: $_files"
     _files=$(echo "$_files" | sed "s!^!$_path/!" | grep -v '/images/' | while read line ; do file "$line" | grep -q '\btext\b' && echo $line ; done)
     #echo "f3: $_files"
-    g $(echo "$_files" | xargs echo)
+    echo "$_files"
 }
+
+function gmod {
+    g $(_git_mod_files "$@" | xargs echo)
+}
+function vmod {
+    vim $(_git_mod_files "$@" | xargs echo)
+}
+
 alias gses="g --servername"
 alias gn="gses"
 alias gchanged="gmod"
@@ -117,13 +125,15 @@ __git_shortcut rb rebase
 __git_shortcut rbi rbi
 __git_shortcut rbis rbis
 alias st='git st'
+alias stf='git st | fpp'
 
 alias gl='lg -n-1 --all'
 alias gk='gitk --all'
 
 function cor {
     br=$(recent_branches | fzf --no-sort --reverse)
-    [[ -n $br ]] && co $br
+    [[ ${SHELL##*/} == zsh ]] && print -s "git checkout $br"
+    [[ -n $br ]] && git checkout $br
 }
 
 which hub &>/dev/null && alias git=hub
@@ -141,10 +151,12 @@ alias ...='cd ../..'
 # better gnome open command
 function o()
 {
+    # special case
     op_prg=`for op in gnome-open open cygstart start explorer.exe
     do
         which $op &>/dev/null && echo $op && break
     done | tail -n 1`
+    which reattach-to-user-namespace &>/dev/null && attach_prg=reattach-to-user-namespace
 
     for file in "$@"
     do
@@ -152,11 +164,15 @@ function o()
             $op_prg "`cygpath -w "$file"`"
         else
             file=`echo "$file" | sed 's/\/$//'`
-            $op_prg "$file"
+            $attach_prg $op_prg "$file"
         fi
     done
 }
 
 complete -F _aptitude -o default ap
+
+alias e='ember'
+alias vssh='vagrant ssh'
+alias gu='gitup commit'
 
 [ -e ~/.bash_aliases_local ] && . ~/.bash_aliases_local

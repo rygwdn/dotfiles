@@ -1,0 +1,16 @@
+#!/bin/bash
+
+if echo "$1" | grep -q '\.\(pu\|plantuml\)$'
+then
+    args="-tsvg $@"
+    open=true
+    file="$(echo $@ | gsed 's/\.[^.]*$//').svg"
+else
+    args="$@"
+    open=false
+fi
+
+set -x
+
+java -Djava.awt.headless=true -jar $HOME/Desktop/plantuml.jar $args
+$open && open -g "$file"
