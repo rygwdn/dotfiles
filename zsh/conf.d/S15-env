@@ -61,3 +61,6 @@ then
     # only use "light" vim bundles on vagrant
     export VIM_LIGHT_BUNDLES=1
 fi
+
+export WORKON_HOME="$HOME/.virtualenvs"
+export PROJECT_HOME="$HOME/git"
