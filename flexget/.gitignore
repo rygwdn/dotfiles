@@ -3,3 +3,5 @@
 /received
 secrets.yml
 temp
+.??*
+log-config.json
