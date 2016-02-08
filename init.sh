@@ -104,19 +104,39 @@ function dolink()
 }
     
 
+xdg_configs="awesome pgcli"
+skip_files="init.sh bin README.md Vagrantfile.d"
+
+function contains() {
+    for x in $1; do
+        [[ "$x" == "$2" ]] && return 0
+    done
+    return 1
+}
+
+
 for lfile in * */bash_aliases
 do
-    if [ $lfile != "init.sh" ] && [ $lfile != "bin" ] && [ $lfile != "awesome" ] && [ $lfile != "README.md" ] && [ $lfile != "Vagrantfile.d" ] && [ -e $lfile ]
-    then
+    if contains $xdg_configs $lfile || ! contains $skip_files $lfile; then
+        continue
+    fi
+
+    if [[ -e $lfile ]]; then
         dolink $lfile
     fi
-    if [ -e $lfile/"$lfile"rc ]
-    then
+
+    if [[ -e $lfile/"$lfile"rc ]]; then
         dolink $lfile/"$lfile"rc
     fi
 done
 
-test -d $HOME/.config && dolink awesome $HOME/.config/awesome
+test -d $HOME/.config || mkdir $HOME/.config
+
+for lfile in $xdg_configs
+do
+    dolink $lfile $HOME/.config/$lfile
+done
+
 test -d $HOME/.vagrant.d && dolink Vagrantfile.d $HOME/.vagrant.d/Vagrantfile
 
 exit 0
