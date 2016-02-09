@@ -173,6 +173,25 @@ complete -F _aptitude -o default ap
 
 alias e='ember'
 alias vssh='vagrant ssh'
+alias dc='docker-compose'
 alias gu='gitup commit'
+
+function ds {
+    [[ -z "$@" ]] && 1='.*'
+    services="$(
+        docker inspect \
+            -f '{{.Id}} {{range $k, $v := .Config.Labels}}{{ if eq $k "com.docker.compose.service"}}{{$v}}{{end}}{{end}}' \
+            $(docker-compose ps -q)
+        )"
+    container=$(echo "$services" | grep -m1 " $1$" | awk '{ print $1 }')
+    if [[ -z $container ]]; then
+        echo "Unable to find container, possible options:"
+        echo "$services" | awk '{print $2}'
+        return 1
+    fi
+    shift
+    [[ -z "$@" ]] && 1=bash
+    docker exec $([[ -t 0 ]] && echo "-it") $container env TERM=$TERM LANG=$LANG "$@"
+}
 
 [ -e ~/.bash_aliases_local ] && . ~/.bash_aliases_local
