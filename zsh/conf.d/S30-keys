@@ -76,8 +76,18 @@ bindkey -v "^W" backward-kill-word
 bindkey -v "^O" push-line # push current command into buffer, then pull back
 bindkey -v "^S" push-line # (stash) push current command into buffer, then pull back
 
+# Like backspace=2
+bindkey -v '^?' backward-delete-char
+
 # alow for editing of the command line with $EDITOR
 # http://zshwiki.org/home/examples/zlewidgets
 autoload -U    edit-command-line
 zle -N         edit-command-line
 bindkey -a 'v' edit-command-line
+
+
+if [[ "$TERM_PROGRAM" == "iTerm.app" ]]
+then
+    bindkey -v '^[a' beginning-of-line
+    bindkey -v '^[e' end-of-line
+fi
