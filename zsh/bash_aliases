@@ -131,7 +131,7 @@ alias gk='gitk --all'
 
 function cor {
     br=$(recent_branches | fzf --no-sort --reverse)
-    [[ ${SHELL##*/} == zsh ]] && print -s "git checkout $br"
+    [[ ${SHELL##*/} == zsh ]] && print -s git checkout $br
     [[ -n $br ]] && git checkout $br
 }
 
