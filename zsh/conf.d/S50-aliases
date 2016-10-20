@@ -3,3 +3,10 @@
 [ -e ~/.bash_aliases ] && bash_source ~/.bash_aliases
 #[ -e ~/.bash_aliases_local ] && bash_source ~/.bash_aliases_local
 [ -e ~/.zsh_aliases ] && source ~/.zsh_aliases
+
+
+function qf {
+    cmd=$(fc -rnlIL -m '[ar]g*' -2 2>/dev/null | head -n1 | sed 's/^rg/rg --vimgrep/')
+    [[ -z $cmd ]] && return 1
+    vim -q =(eval ${cmd}) -c 'copen'
+}

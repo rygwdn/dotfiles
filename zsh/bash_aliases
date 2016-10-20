@@ -30,9 +30,12 @@ alias l='ls -CF'
 alias pp='popd'
 alias pd='pushd'
 alias ap='sudo aptitude'
-alias qmv='\qmv -f destination-only'
-alias upnup='ap update && ap full-upgrade'
-which ack-grep 1>/dev/null 2>/dev/null && alias ack='ack-grep'
+
+function qmv {
+    echo "Should use massren" 1>&2
+    echo "massren $@" 1>&2
+    exit 1
+}
 
 alias ipy=ipython
 alias nb="jupyter notebook"
@@ -123,6 +126,7 @@ __git_shortcut show show
 __git_shortcut rb rebase
 __git_shortcut rbi rbi
 __git_shortcut rbis rbis
+__git_shortcut gfu fetch upstream
 alias st='git st'
 alias stf='git st | fpp'
 
@@ -173,7 +177,20 @@ complete -F _aptitude -o default ap
 alias e='ember'
 alias vssh='vagrant ssh'
 alias dc='docker-compose'
+alias dm='docker-machine'
 alias gu='gitup commit'
+alias rg='rg -S'
+
+
+alias ag='echo "Please consider using rg.." 1>&2; false'
+
+
+function docker-clean() {
+    # clean up containers and their volumes
+    docker rm -v $(docker ps -a -q -f status=exited)
+    # clean up unused images
+    docker rmi $(docker images -f "dangling=true" -q)
+}
 
 function ds {
     [[ -z "$@" ]] && 1='.*'
@@ -206,6 +223,32 @@ function h() {
         fi
     else
         eval $hist | grep "$@"
+    fi
+}
+
+function dsysdig {
+    docker run -it --rm --privileged \
+        -v /var/run/docker.sock:/host/var/run/docker.sock \
+        -v /dev:/host/dev \
+        -v /proc:/host/proc:ro \
+        -v /boot:/host/boot:ro \
+        -v /lib/modules:/host/lib/modules:ro \
+        -v /usr:/host/usr:ro sysdig/sysdig csysdig -pc "$@"
+}
+
+function skim {
+    open -a Skim "$@"
+}
+
+function tname {
+    # "tname <some name>" sets the tmux pane title and disallows zsh/vim/etc from changing it
+    # "tname" re-allows the renaming of the window
+    if [[ -n $1 ]]; then
+        tmux rename-window "$*"
+        tmux set-window-option allow-rename off
+    else
+        tmux rename-window zsh
+        tmux set-window-option allow-rename on
     fi
 }
 

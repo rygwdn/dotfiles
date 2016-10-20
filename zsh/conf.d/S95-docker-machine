@@ -11,4 +11,4 @@ dmset() {
     fi
 }
 
-precmd_functions+='dmset'
+#precmd_functions+='dmset'

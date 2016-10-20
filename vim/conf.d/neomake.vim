@@ -16,4 +16,6 @@ endfun
 
 nnoremap ,pi :call PylintIgnore()<CR>
 
+let g:neomake_javascript_enabled_makers = ['eslint']
+
 autocmd! BufWritePost * Neomake

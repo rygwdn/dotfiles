@@ -2,6 +2,8 @@ if index(keys(g:plugs), 'vim-livedown') == -1
     finish
 endif
 
+let g:vim_markdown_new_list_item_indent = 2
+
 command! LivedownStart call LivedownPreview()
 autocmd FileType mkd nmap <buffer> gm :LivedownStart<CR>
 autocmd FileType mkd nmap <buffer> zp 1z=
