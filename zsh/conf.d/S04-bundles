@@ -23,10 +23,12 @@ log-zplug plugins/vagrant, from:oh-my-zsh
 function zplug-selfupdate {
     curl https://raw.githubusercontent.com/b4b4r07/zplug/master/zplug > $HOME/.zsh/conf.d/S02-zplug
     source $HOME/.zsh/conf.d/S02-zplug
+    zplug clear --force
+
     source $HOME/.zsh/conf.d/S04-bundles
-    zplug clear
-    zplug clean
-    zplug install --verbose
+    zplug install
     zplug load --verbose
-    zplug update --verbose
+    zplug update
+
+    source $HOME/.zsh/zshrc
 }

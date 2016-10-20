@@ -609,7 +609,10 @@ __zplug::update()
 
             if [[ -n $zspec[do] ]]; then
                 if [[ $ret -eq 0 ]]; then
+                    (
+                    builtin cd -q "$zspec[dir]"
                     eval "$zspec[do]"
+                    )
                 fi
             fi
 
@@ -751,11 +754,11 @@ __zplug::install()
             # send a http request to git.io/releases with os argument
             # or, git clone (case of normal plugin)
             __zplug::clone \
-                --of ${zspec[of]:-""} \
-                --commit ${zspec[commit]:-""} \
-                --from ${zspec[from]:-""} \
-                --at ${zspec[at]:-""} \
-                --do ${zspec[do]:-""} \
+                --of "${zspec[of]:-""}" \
+                --commit "${zspec[commit]:-""}" \
+                --from "${zspec[from]:-""}" \
+                --at "${zspec[at]:-""}" \
+                --do "${zspec[do]:-""}" \
                 "$line"
             ret=$status
 

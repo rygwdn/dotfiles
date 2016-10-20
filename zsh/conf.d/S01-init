@@ -5,6 +5,8 @@
 
 export SHELL="`which zsh`"
 
+export DISABLE_AUTO_UPDATE=true
+
 # this should compile/recompile all the files here..
 # runs threaded, because it's really slow :)
 #(
