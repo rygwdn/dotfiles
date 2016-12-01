@@ -126,7 +126,12 @@ __git_shortcut show show
 __git_shortcut rb rebase
 __git_shortcut rbi rbi
 __git_shortcut rbis rbis
-__git_shortcut gfu fetch upstream
+
+function gfu {
+    upstream=$(git config --list | grep -q '^remote\.origin\.' && echo 'origin' || echo 'upstream')
+    git fetch ${upstream} "$@"
+}
+
 alias st='git st'
 alias stf='git st | fpp'
 
