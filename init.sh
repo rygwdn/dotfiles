@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 if test "$1" = "-c"
 then
     clean=true
@@ -69,7 +71,7 @@ function dolink()
             prn clean up linked
             rm $hf
         else
-            #prn already linked
+            prn already linked
             return
         fi
     elif [ -e "$hf" ]
@@ -117,7 +119,8 @@ function contains() {
 
 for lfile in * */bash_aliases
 do
-    if contains $xdg_configs $lfile || ! contains $skip_files $lfile; then
+    if contains $xdg_configs $lfile || contains $skip_files $lfile; then
+        echo skipping $lfile
         continue
     fi
 
