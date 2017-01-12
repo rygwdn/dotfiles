@@ -27,8 +27,6 @@ fi
 
 abspath() { cd "`dirname \"$1\"`" ; echo -n "`pwd`/" ; basename "$1" ; }
 
-mklink() { cmd /c mklink "$@"; }
-
 rl() {
     out=$(
         if test `uname` = "Darwin"
@@ -71,7 +69,6 @@ function dolink()
             prn clean up linked
             rm $hf
         else
-            prn already linked
             return
         fi
     elif [ -e "$hf" ]
@@ -93,12 +90,6 @@ function dolink()
     then
         prn "copy -> $hf"
         cp -r "$tf" "$hf"
-    elif $win
-    then
-        wtf=`cygpath -w "$tf"`
-        whf=`cygpath -w "$hf"`
-        prn "mklink -> $whf"
-        [ -d "$tf" ] && mklink '/D' "$whf" "$wtf" || mklink "$whf" "$wtf"
     else
         prn "link -> $hf"
         ln -s "$tf" "$hf"
@@ -126,10 +117,12 @@ do
 
     if [[ -e $lfile ]]; then
         dolink $lfile
+        $win && [ $lfile = "vim" ] && dolink $lfile "$HOME/vimfiles"
     fi
 
     if [[ -e $lfile/"$lfile"rc ]]; then
         dolink $lfile/"$lfile"rc
+        $win && [ $lfile = "vim" ] && dolink "vim/_vimrc" "$HOME/_vimrc"
     fi
 done
 
