@@ -66,3 +66,4 @@ export WORKON_HOME="$HOME/.virtualenvs"
 export PROJECT_HOME="$HOME/git"
 
 [[ -d $HOME/.cargo/bin ]] && export PATH="$HOME/.cargo/bin:$PATH"
+[[ -d $HOME/dotfiles/bin ]] && export PATH="$HOME/dotfiles/bin:$PATH"

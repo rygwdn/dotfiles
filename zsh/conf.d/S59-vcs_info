@@ -2,9 +2,10 @@
 
 autoload -Uz vcs_info
 
-zstyle ':vcs_info:*' enable git bzr svn #hg
+#zstyle ':vcs_info:*' enable git bzr svn
+zstyle ':vcs_info:*' enable git
 zstyle ':vcs_info:(hg*|git*|bzr*):*' get-revision true
-zstyle ':vcs_info:(hg*|git*|bzr*):*' check-for-changes true
+#zstyle ':vcs_info:(hg*|git*|bzr*):*' check-for-changes true
 zstyle ':vcs_info:*' use-quilt false
 
 zstyle ':vcs_info:*:*'   stagedstr "${PR_GREEN}✚"
@@ -25,7 +26,8 @@ zstyle ':vcs_info:hg*:*' nopatch-format "mq(%g):%n/%c %p"
 
 
 
-zstyle ':vcs_info:git*+set-message:*' hooks git-untracked git-stash vspacing
+#zstyle ':vcs_info:git*+set-message:*' hooks git-untracked git-stash vspacing
+zstyle ':vcs_info:git*+set-message:*' hooks vspacing
 zstyle ':vcs_info:hg*+set-message:*' hooks vspacing
 zstyle ':vcs_info:svn*+set-message:*' hooks vspacing
 zstyle ':vcs_info:bzr*+set-message:*' hooks vspacing

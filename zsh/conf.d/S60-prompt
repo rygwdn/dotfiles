@@ -3,6 +3,8 @@
 setopt TRANSIENT_RPROMPT
 setopt prompt_subst
 
+autoload regexp-replace
+
 # get host and set color
 case "$ZHOST" in
     razz|work )
@@ -28,16 +30,15 @@ fi
 
 # tries to keep the directory name short in the prompt
 function getdir() {
-    DIR="`pwd | sed -e "s!$HOME!~!"`"
+    CurDir="$PWD"
+    regexp-replace CurDir "$HOME" "~"
 
-    if [[ "${#DIR}" -gt 20 ]]
+    if [[ "${#CurDir}" -gt 20 ]]
     then
-        CurDir=`echo "$DIR" | sed -e "s!\([^/]\{1,2\}\)[^/]*/!\1/!g"`
+        echo "$CurDir" | sed -e "s!\([^/]\{1,2\}\)[^/]*/!\1/!g"
     else
-        CurDir="$DIR"
+        echo "$CurDir"
     fi
-
-    echo "$CurDir"
 }
 
 export HAS_GIT=$(which git &> /dev/null && echo true || echo false)
