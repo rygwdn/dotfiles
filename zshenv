@@ -31,3 +31,6 @@ LESS="-R"
 LC_ALL='en_US.UTF-8'
 LANG='en_US.UTF-8'
 LC_CTYPE='C'
+
+# timeout after 8h
+LPASS_AGENT_TIMEOUT=2880
