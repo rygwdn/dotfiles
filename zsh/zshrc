@@ -34,6 +34,10 @@ fpath=(~/.zsh/completion $fpath)
 
 [ -z $HOST ] && export HOST=`hostname`
 
+
+export PATH="$PATH:$HOME/.rvm/bin" # Add RVM to PATH for scripting
+[[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
+
 for file in $(find ~/.zsh/conf.d -type f \
     -name 'S*' -and \
     -not -iname '*.zwc' -and \
@@ -56,5 +60,3 @@ then
 fi
 
 test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
-
-export PATH="$PATH:$HOME/.rvm/bin" # Add RVM to PATH for scripting

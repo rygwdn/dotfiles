@@ -23,7 +23,6 @@ Plug 'elzr/vim-json'
 Plug 'derekwyatt/vim-scala'
 Plug 'mustache/vim-mustache-handlebars'
 Plug 'hynek/vim-python-pep8-indent', {'for': 'python'}
-Plug 'vim-pandoc/vim-pandoc'
 Plug 'vim-pandoc/vim-pandoc-syntax' 
 
 " Try to autodetect whitespace options
@@ -78,58 +77,6 @@ Plug 'vim-php/tagbar-phpctags.vim', {'do': 'make'}
 " }}}
 
 " Heavy bundles {{{
-if ! exists("g:light_bundles") || g:light_bundles == 0
-    " Python-based bundles {{{
-    if has("python")
-        " Snippet engine
-        Plug 'SirVer/ultisnips' | Plug 'honza/vim-snippets'
-
-        " Extra functionality for python
-        Plug 'davidhalter/jedi-vim', {'for': 'python'}
-        Plug 'jmcantrell/vim-virtualenv', {'for': ['python', 'rst']}
-
-        " OTF syntax checking
-        if has("nvim")
-            Plug 'benekastah/neomake'
-        else
-            Plug 'scrooloose/syntastic'
-        endif
-
-        if has("nvim")
-            " Auto completion in C/C++/ObjC/Python
-            Plug 'Valloric/YouCompleteMe', {'do': 'env TERM=dumb ./install.sh'}
-        else
-            Plug 'powerline/powerline', {'rtp': 'powerline/bindings/vim/'}
-        endif
-
-        " Restructured text in vim
-        " Use winged's fork for now to get the neovim fix
-        Plug 'winged/riv.vim' | Plug 'rykka/os.vim'
-    endif
-    " }}}
-
-    " Unite all the things
-    Plug 'Shougo/vimproc', {'do': 'make'}
-    Plug 'mattn/webapi-vim'
-    Plug 'Shougo/unite.vim'
-    Plug 'Shougo/unite-outline'
-    Plug 'kmnk/vim-unite-giti'
-
-    " Lots of git functionality
-    Plug 'tpope/vim-fugitive' | Plug 'int3/vim-extradite'
-
-    " Easy management of signs
-    Plug 'mhinz/vim-signify'
-
-    " Mulitple cursors ala Sublime Text. Provides "Ctrl-N"
-    Plug 'kristijanhusak/vim-multiple-cursors'
-
-    " Nice incsearch
-    Plug 'haya14busa/incsearch.vim'
-
-    " Live markdown editing, requires `npm install -g livedown`
-    Plug 'shime/vim-livedown', {'for': ['markdown', 'mkd']}
-endif
 
 " }}}
 
