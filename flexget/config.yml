@@ -1,4 +1,11 @@
-secrets: secrets.yml
+variables: variables.yml
+
+web_server:
+  bind: 127.0.0.1
+  port: 3539
+  web_ui: yes
+  base_url: /flexget
+
 
 schedules:
   # Run every task once an hour
@@ -7,35 +14,18 @@ schedules:
       minutes: 30
 
 tasks:
-  sort_episodes:
-    parsing:
-      series: guessit
-    priority: 100
-    seen: local
-    thetvdb_lookup: yes
-    all_series: yes
-    require_field:
-      - series_name
-    filesystem:
-      path: "/home/rwooden/media/downloads/unsorted/"
-      recursive: yes
-    move:
-      clean_source: 50
-      to: "/home/rwooden/media/downloads/sorted/{{ series_name }}"
-      filename: '{{ series_name }}{% if series_id %} - {{ series_id }}{% endif %}{% if tvdb_ep_name %} - {{ tvdb_ep_name }}{% endif %}{% if proper %} - {{ proper }}{% endif %}{% if quality %} - {{ quality }}{% endif %}{{location | pathext}}'
-
   download_rss:
     parsing:
       series: guessit
     priority: 10
-    rss: "{{ secrets.rss.showrss }}"
+    rss: "{? rss.showrss ?}"
     thetvdb_lookup: yes
     accept_all: yes
 
     set:
-      main_file_only: yes
       content_filename: '{% if series_name is defined %}{{ series_name }}{% if series_id %} - {{ series_id }}{% endif %}{% if tvdb_ep_name is defined %} - {{ tvdb_ep_name }}{% endif %}{% else %}{{ title }}{% endif %}'
-      path: "/home/rwooden/media/downloads/{% if series_name is defined %}sorted/{{ series_name|replace(' ', '.')|lower }}/{% if series_season is defined %}s{{series_season|pad(2)}}{%endif%}{%else%}unsorted/{%endif%}"
+      path: "{% if series_name is defined %}{? paths.sorted ?}/{{ series_name|replace(' ', '.')|lower }}/{% if series_season is defined %}s{{series_season|pad(2)}}{%endif%}{%else%}{? paths.unsorted ?}{%endif%}"
+      label: tv
 
     all_series:
       assume_special: True
@@ -45,42 +35,18 @@ tasks:
     transmission:
       host: localhost
       port: 50150
-      username: "{{ secrets.transmission.user }}"
-      password: "{{ secrets.transmission.pass }}"
+      username: "{? transmission.user ?}"
+      password: "{? transmission.pass ?}"
+      main_file_only: yes
       addpaused: no
+      magnetization_timeout: 120
 
+  clean:
     clean_transmission:
       host: localhost
       port: 50150
-      username: "{{ secrets.transmission.user }}"
-      password: "{{ secrets.transmission.pass }}"
+      username: "{? transmission.user ?}"
+      password: "{? transmission.pass ?}"
       finished_for: 6 hours
-
-    email:
-      to:
-        - "{{ secrets.email.email_one }}"
-        - "{{ secrets.email.email_two }}"
-      template: "html-mine"
-      subject: |
-        FlexGet:
-        {%- if task.aborted %} Was aborted
-        {%- elif task.failed %} {{task.failed|length}} entries have failed.
-        {%- elif task.accepted -%}
-          {%- set j = joiner(", ") %} Got {{task.accepted|length}} new entries (
-          {%- for entry in task.accepted -%}
-            {%- if entry.series_name is defined -%}
-              {{ j() }}{{ entry.series_name }}
-            {%- else -%}
-              {{ j() }}{{entry.title}}
-            {%- endif -%}
-          {%- endfor -%})
-        {%- endif -%}
-
-      # Mailgun
-      from: "{{ secrets.email.from }}"
-      smtp_host: smtp.mailgun.org
-      smtp_username: "{{ secrets.email.username }}"
-      smtp_password: "{{ secrets.email.password }}"
-      smtp_port: 587
 
 # vim: sw=2 sts=2

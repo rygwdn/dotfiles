@@ -5,3 +5,4 @@ secrets.yml
 temp
 .??*
 log-config.json
+variables.yml
