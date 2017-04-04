@@ -4,6 +4,8 @@ import getpass
 import pdb
 from urllib.parse import urljoin
 import argparse
+import subprocess
+import re
 
 import requests
 import arrow
@@ -26,7 +28,9 @@ class API:
         self.base = "https://api.bitbucket.org/2.0/"
 
     def _get(self, path, params=None):
-        return self.session.get(urljoin(self.base, path), params=params).json()
+        resp = self.session.get(urljoin(self.base, path), params=params)
+        resp.raise_for_status()
+        return resp.json()
 
     def activity(self):
         resp = self._get("repositories/{0}/pullrequests/activity".format(self.repo), params={'pagelen': 50})
@@ -44,7 +48,7 @@ class API:
                     break
                 print(act.pull_request['id'], act.event_time.humanize())
 
-    def comments(self, since):
+    def comments(self, since, jira_root=None):
         prs = {}
         def add_act(act, text):
             pr_data = prs.setdefault(act.pull_request['id'], {
@@ -61,14 +65,18 @@ class API:
                 pass
             elif act.type in {'comment', 'approval'}:
                 if act.data['user']['username'] == self.username:
-                    add_act(act, "{0} at {1}".format(act.type, act.event_time))
+                    add_act(act, "{0} {1}".format(act.type, act.event_time.humanize()))
             else:
                 raise Exception('unknown type ' + key)
 
         for pr in prs.values():
             print('#{id}: {title}'.format(**pr['pr']))
+            match = re.match(r"([a-zA-Z]+-[0-9]+).*", pr['pr']['title'])
+            print('  {}'.format(pr['pr']['links']['html']['href']))
+            if match and jira_root:
+                print('  {}/browse/{}'.format(jira_root, match.group(1)))
             for act in pr['actions']:
-                print(' -', act)
+                print('  -', act)
 
 
 def main():
@@ -76,22 +84,31 @@ def main():
     parser.add_argument("action", choices=("merged", "comments"))
     parser.add_argument("username")
     parser.add_argument("repository")
+    parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--lpass-name")
     parser.add_argument("--days", type=int, default=1)
+    parser.add_argument("--jira-root")
     args = parser.parse_args()
 
-    password = getpass.getpass("Password for {}@{}: ".format(args.username, args.repository))
+    try:
+        if args.lpass_name:
+            password = subprocess.check_output(["lpass", "show", "--password", args.lpass_name])[:-1]
+        else:
+            password = getpass.getpass("Password for {}@{}: ".format(args.username, args.repository))
 
-    s = API(args.username, password, args.repository)
+        api = API(args.username, password, args.repository)
 
-    start = arrow.now().replace(days=-args.days)
-    if args.action == 'merged':
-        s.merged(start)
-    elif args.action == 'comments':
-        s.comments(start)
+        start = arrow.now().replace(days=-args.days)
+        if args.action == 'merged':
+            api.merged(start)
+        elif args.action == 'comments':
+            api.comments(start, args.jira_root)
+
+    except:
+        if args.debug:
+            pdb.post_mortem()
+        raise
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except:
-        pdb.post_mortem()
+    main()
