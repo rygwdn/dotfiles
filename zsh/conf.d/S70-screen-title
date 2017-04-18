@@ -3,6 +3,10 @@
 # Disable Oh-My-ZSH title setting
 export DISABLE_AUTO_TITLE=true
 
+export CAN_TITLE=false
+[[ $TERM =~ "screen" || $TERM =~ "xterm" || $TERM =~ "rxvt" ]] && export CAN_TITLE=true
+uname -a | grep -iq -e 'windows' -e 'microsoft' && export CAN_TITLE=false
+
 # Decide whether to set a screen title
 function title() {
     TITLE=$1
@@ -67,5 +71,8 @@ function zsh-title() {
         ) 2>/dev/null
 }
 
-precmd_functions+='zsh-title'
-preexec_functions+='zsh-title'
+if $CAN_TITLE
+then
+    precmd_functions+='zsh-title'
+    preexec_functions+='zsh-title'
+fi

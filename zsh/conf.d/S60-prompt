@@ -1,9 +1,16 @@
 #!/usr/bin/env zsh
 
-setopt TRANSIENT_RPROMPT
 setopt prompt_subst
 
 autoload regexp-replace
+
+uname -a | grep -iq -e 'windows' -e 'microsoft' && export SIMPLE_VCS=true
+[[ "${SIMPLE_VCS}" == "" ]] && export SIMPLE_VCS=false
+
+
+# Don't use transient on broken PTY implementations..
+${SIMPLE_VCS} || setopt TRANSIENT_RPROMPT
+
 
 # get host and set color
 case "$ZHOST" in
@@ -29,17 +36,26 @@ fi
 [ -n "$SSH_TTY" ] && psprepend="${PR_RED}ssh-${PR_NO_COLOR}"
 
 # tries to keep the directory name short in the prompt
-function getdir() {
+export LAST_FULL_PWD=
+export SHORT_PWD=
+
+function update_short_pwd() {
+    [[ "$PWD" == "${LAST_FULL_PWD}" ]] && return
+    export LAST_FULL_PWD=$PWD
+
     CurDir="$PWD"
     regexp-replace CurDir "$HOME" "~"
 
     if [[ "${#CurDir}" -gt 20 ]]
     then
-        echo "$CurDir" | sed -e "s!\([^/]\{1,2\}\)[^/]*/!\1/!g"
+        export SHORT_PWD="$(echo "$CurDir" | sed -e "s!\([^/]\{1,2\}\)[^/]*/!\1/!g")"
     else
-        echo "$CurDir"
+        export SHORT_PWD="$CurDir"
     fi
 }
+
+precmd_functions+='update_short_pwd'
+
 
 export HAS_GIT=$(which git &> /dev/null && echo true || echo false)
 export LASTPWD=
@@ -87,7 +103,7 @@ function git_ps1() {
                     fi
                 fi
             fi
-            export VCS_PROMPT=`printf "%s" "(${b##refs/heads/}$r)"`
+            export VCS_PROMPT=`printf "%s" "${PR_BLUE}[${PR_GREEN}${b##refs/heads/}$r${PR_BLUE}]${PR_NO_COLOR}"`
         else
             export VCS_PROMPT=
         fi
@@ -95,8 +111,6 @@ function git_ps1() {
         export VCS_PROMPT=
     fi
 }
-
-export PS1="${psprepend}${Color}$ZHOST:${PR_NO_COLOR}\$(getdir)\$(vi_mode_color)\$${PR_NO_COLOR} "
 
 function proj_prompt() {
     [[ -n "$PROJECT" ]] && echo -n " ${PR_RED}(${PR_BLUE}${PROJECT}${PR_RED})"
@@ -109,52 +123,48 @@ function env_prompt() {
 
 function vcs_prompt() {
     [[ -n "${vcs_info_msg_0_}" ]] && echo -n " ${vcs_info_msg_0_}"
-    [[ -n "${VCS_PROMPT}" ]] && echo -n " ${VCS_PROMPT}"
+    [[ -n "${VCS_PROMPT}" ]] && echo -n " ${VCS_PROMPT} "
 }
-
 
 function vi_mode_color() {
     echo "${${KEYMAP/vicmd/$PR_BLUE}/(main|viins)/$PR_GREEN}"
 }
 
-export RPROMPT='$(proj_prompt)$(env_prompt)$(vcs_prompt)${PR_NO_COLOR}'
-
-if echo $OS | grep -iq 'windows'
-then
-    precmd_functions+='git_ps1'
-else
-    precmd_functions+='vcs_info'
-fi
-
-
 function update_tmux_environment() {
     eval $(tmux switch-client \; show-environment -s)
 }
 
-if [[ -n $TMUX ]] || [[ -n $TMUX_PANE ]]
+if $SIMPLE_VCS
 then
-    precmd_functions+='update_tmux_environment'
+    precmd_functions+='git_ps1'
+    export PS1="${psprepend}${Color}$ZHOST:${PR_NO_COLOR}\${SHORT_PWD}\$(env_prompt)\$(vcs_prompt)${PR_GREEN}\$${PR_NO_COLOR} "
+else
+    precmd_functions+='vcs_info'
+    export PS1="${psprepend}${Color}$ZHOST:${PR_NO_COLOR}\${SHORT_PWD}\$(vi_mode_color)\$${PR_NO_COLOR} "
+    export RPROMPT="\$(proj_prompt)\$(env_prompt)\$(vcs_prompt)${PR_NO_COLOR}"
+
+    if [[ -n $TMUX ]] || [[ -n $TMUX_PANE ]]
+    then
+        precmd_functions+='update_tmux_environment'
+    fi
+
+    # Ensures that $terminfo values are valid and updates editor information when
+    # the keymap changes.
+    function zle-keymap-select zle-line-init zle-line-finish {
+        # The terminal must be in application mode when ZLE is active for $terminfo
+        # values to be valid.
+        if (( ${+terminfo[smkx]} )); then
+            printf '%s' ${terminfo[smkx]}
+        fi
+        if (( ${+terminfo[rmkx]} )); then
+            printf '%s' ${terminfo[rmkx]}
+        fi
+
+        zle reset-prompt
+        zle -R
+    }
+
+    zle -N zle-line-init
+    zle -N zle-line-finish
+    zle -N zle-keymap-select
 fi
-
-
-# Ensures that $terminfo values are valid and updates editor information when
-# the keymap changes.
-function zle-keymap-select zle-line-init zle-line-finish {
-    # The terminal must be in application mode when ZLE is active for $terminfo
-    # values to be valid.
-    if (( ${+terminfo[smkx]} )); then
-        printf '%s' ${terminfo[smkx]}
-    fi
-    if (( ${+terminfo[rmkx]} )); then
-        printf '%s' ${terminfo[rmkx]}
-    fi
-
-    zle reset-prompt
-    zle -R
-}
-
-zle -N zle-line-init
-zle -N zle-line-finish
-zle -N zle-keymap-select
-
-#bindkey -v
