@@ -72,7 +72,7 @@ Plug 'jszakmeister/rst2ctags'
 Plug 'jszakmeister/markdown2ctags'
 
 " Note: requires phpctags to be build (run make)
-Plug 'vim-php/tagbar-phpctags.vim', {'do': 'make'}
+"Plug 'vim-php/tagbar-phpctags.vim', {'do': 'make'}
 
 " }}}
 
