@@ -5,7 +5,6 @@ export DISABLE_AUTO_TITLE=true
 
 export CAN_TITLE=false
 [[ $TERM =~ "screen" || $TERM =~ "xterm" || $TERM =~ "rxvt" ]] && export CAN_TITLE=true
-uname -a | grep -iq -e 'windows' -e 'microsoft' && export CAN_TITLE=false
 
 # Decide whether to set a screen title
 function title() {
