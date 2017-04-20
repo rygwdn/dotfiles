@@ -1,34 +1,25 @@
 #!/bin/zsh
 
-function log-zplug() {
-    zplug "$@"
-    logTime "did zplug $@"
-}
+if [[ ! -f ~/.zplug/init.zsh ]]
+then
+    echo "Zplug is not installed!"
+    return
+fi
+
+source ~/.zplug/init.zsh
 
 # zsh plugins
-log-zplug "zsh-users/zsh-syntax-highlighting"
-log-zplug "zsh-users/zsh-history-substring-search"
-log-zplug djui/alias-tips
-#log-zplug marzocchi/zsh-notify, at:next-iterm
+zplug "zsh-users/zsh-syntax-highlighting"
+zplug "zsh-users/zsh-history-substring-search"
+zplug djui/alias-tips
+zplug 'zplug/zplug', hook-build:'zplug --self-manage'
+#zplug marzocchi/zsh-notify, at:next-iterm
 
 # python stuff
-#log-zplug plugins/pip, from:oh-my-zsh, if:"which pip"
-#log-zplug plugins/django, from:oh-my-zsh
-#log-zplug plugins/virtualenvwrapper, from:oh-my-zsh, if:"which virtualenvwrapper_lazy.sh"
+#zplug plugins/pip, from:oh-my-zsh, if:"which pip"
+#zplug plugins/django, from:oh-my-zsh
+#zplug plugins/virtualenvwrapper, from:oh-my-zsh, if:"which virtualenvwrapper_lazy.sh"
 
 # general stuff
-#log-zplug plugins/brew, from:oh-my-zsh
-#log-zplug plugins/vagrant, from:oh-my-zsh
-
-function zplug-selfupdate {
-    curl https://raw.githubusercontent.com/b4b4r07/zplug/master/zplug > $HOME/.zsh/conf.d/S02-zplug
-    source $HOME/.zsh/conf.d/S02-zplug
-    zplug clear --force
-
-    source $HOME/.zsh/conf.d/S04-bundles
-    zplug install
-    zplug load --verbose
-    zplug update
-
-    source $HOME/.zsh/zshrc
-}
+#zplug plugins/brew, from:oh-my-zsh
+#zplug plugins/vagrant, from:oh-my-zsh
