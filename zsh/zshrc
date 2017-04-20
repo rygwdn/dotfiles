@@ -45,9 +45,7 @@ for file in $(find ~/.zsh/conf.d -type f \
     -not -iname '*.old' \
     | sort)
 do
-    logTime "$(basename $file) source"
     source $file
-    logTime "$(basename $file) done"
 done
 
 logTime "done zshrc"
