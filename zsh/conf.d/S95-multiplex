@@ -9,7 +9,11 @@ then
 
 elif which tmux &> /dev/null && ! [[ $SESS == "zsh" && ( "$TERM" =~ "screen" || "$TERM" =~ "tmux" ) ]]
 then
-    tmux_first_session=$(tmux ls -F '#{session_created} #{session_name}' 2>/dev/null | sort -n | head -1 | sed 's/^[0-9]* //')
+    _tm_first() {
+        tmux ls -F '#{session_created} #{session_name}' 2>/dev/null | sort -n | head -1 | sed 's/^[0-9]* //'
+    }
+    tmux_first_session=$(_tm_first)
+
     if [[ "$SESS" == "ssh" ]] && ! tmux has-session "$SESS" 2>/dev/null; then
         tmux_create_session="$SESS"
     fi
@@ -31,10 +35,11 @@ then
     fi
 
     tm() {
+        first=$(_tm_first)
         if [[ -n "$@" ]]; then
             tmux "$@"
-        elif [[ -n "${tmux_first_session}" ]]; then
-            tmux attach -t "${tmux_first_session}"
+        elif [[ -n "${first}" ]]; then
+            tmux attach -t "${first}"
         elif [[ -n "${tmux_create_session}" ]]; then
             tmux new-session -s "$SESS"
         else

@@ -11,7 +11,7 @@ source ~/.zplug/init.zsh
 # zsh plugins
 zplug "zsh-users/zsh-syntax-highlighting"
 zplug "zsh-users/zsh-history-substring-search"
-zplug djui/alias-tips
+#zplug djui/alias-tips
 zplug 'zplug/zplug', hook-build:'zplug --self-manage'
 #zplug marzocchi/zsh-notify, at:next-iterm
 
