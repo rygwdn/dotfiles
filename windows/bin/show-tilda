@@ -1,0 +1,15 @@
+#!/bin/bash
+
+export DISPLAY=:0
+export GDK_SCALE=2
+
+cd ~
+
+if pgrep -x tilda
+then
+    echo "show"
+    xdotool key 'ctrl+grave'
+else
+    echo "launch"
+    exec tilda -C
+fi

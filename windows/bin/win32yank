@@ -1,0 +1,3 @@
+#!/bin/bash
+
+/mnt/c/Users/ryan.wooden/bin/win32yank.exe "$@" 2>/dev/null
