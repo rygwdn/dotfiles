@@ -9,11 +9,22 @@ web_server:
 
 schedules:
   # Run every task once an hour
-  - tasks: '*'
+  - tasks: 'download_rss'
+    interval:
+      minutes: 60
+  - tasks: 'download_yt'
     interval:
       minutes: 30
 
 tasks:
+  download_yt:
+    youtube:
+      - 'https://www.youtube.com/playlist?list=PLQSfQGMnHWJVxe28mL7xk0cdh8yAbQdjO'
+    accept_all: yes
+    download_youtube:
+      add_metadata: true
+      format: 'best[filesize<?250M][ext=mp4]/best[filesize<?250M]/[filesize<?250M]/worst'
+      outtmpl: '/Volumes/External/media/downloads/unsorted/%(title)s.%(ext)s'
   download_rss:
     parsing:
       series: guessit
@@ -23,9 +34,16 @@ tasks:
     accept_all: yes
 
     set:
-      content_filename: '{% if series_name is defined %}{{ series_name }}{% if series_id %} - {{ series_id }}{% endif %}{% if tvdb_ep_name is defined %} - {{ tvdb_ep_name }}{% endif %}{% else %}{{ title }}{% endif %}'
+      content_filename: '{% if series_name is defined %}{{ series_name }}{% if series_id %} - {{ series_id }}{% endif %}{% else %}{{ title }}{% endif %}'
       path: "{% if series_name is defined %}{? paths.sorted ?}/{{ series_name|replace(' ', '.')|lower }}/{% if series_season is defined %}s{{series_season|pad(2)}}{%endif%}{%else%}{? paths.unsorted ?}{%endif%}"
       label: tv
+      main_file_only: yes
+      magnetization_timeout: 120
+      skip_files:
+        - '*.nfo'
+        - '*.sfv'
+        - '*[sS]ample*'
+        - '*.txt'
 
     all_series:
       assume_special: True
@@ -37,11 +55,8 @@ tasks:
       port: 50150
       username: "{? transmission.user ?}"
       password: "{? transmission.pass ?}"
-      main_file_only: yes
       addpaused: no
-      magnetization_timeout: 120
 
-  clean:
     clean_transmission:
       host: localhost
       port: 50150

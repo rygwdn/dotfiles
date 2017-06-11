@@ -6,3 +6,4 @@ temp
 .??*
 log-config.json
 variables.yml
+*.bak
