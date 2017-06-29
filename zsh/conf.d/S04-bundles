@@ -1,12 +1,20 @@
 #!/bin/zsh
 
-if [[ ! -f ~/.zplug/init.zsh ]]
+if [[ -e ~/.zplug/init.zsh ]]
+then
+    export ZPLUG_HOME=$HOME/.zplug
+elif [[ -e /usr/local/opt/zplug/init.zsh ]]
+then
+    export ZPLUG_HOME=/usr/local/opt/zplug
+fi
+
+if [[ -z "$ZPLUG_HOME" ]]
 then
     echo "Zplug is not installed!"
     return
 fi
 
-source ~/.zplug/init.zsh
+source $ZPLUG_HOME/init.zsh
 
 # zsh plugins
 zplug "zsh-users/zsh-syntax-highlighting"

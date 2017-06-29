@@ -1,5 +1,7 @@
 #!/bin/zsh
 
+which zplug &>/dev/null || return
+
 if zplug check "zsh-users/zsh-syntax-highlighting"
 then
     ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets)
