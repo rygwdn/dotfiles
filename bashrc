@@ -1,7 +1,21 @@
 # If not running interactively, don't do anything
 [[ -z "$PS1" ]] && return
 
-[[ -z "$TRIED_ZSH" && "${SHELL##*/}" != zsh ]] && which zsh &>/dev/null && export TRIED_ZSH=true && zsh && exit
+if [[ -z "$TRIED_ZSH" && "${SHELL##*/}" != zsh ]] && which zsh &>/dev/null
+then
+   export TRIED_ZSH=true
+   zsh_start=$(date +%s)
+   # exit nicely if zsh exits cleanly
+   zsh && exit
+   zsh_exit=$?
+   zsh_end=$(date +%s)
+   zsh_lifetime=$((zsh_end - zsh_start))
+
+   # Was open for a while, so it probably worked but the last command failed
+   [[ ${zsh_lifetime} > 30 ]] && exit
+
+   echo "ZSH failed after ${zsh_lifetime} seconds with exit code ${zsh_exit} -- trying bash" 1>&2
+fi
 
 if [[ -e ~/.bash_profile && -z "$SOURCED_PROFILE" ]]
 then
