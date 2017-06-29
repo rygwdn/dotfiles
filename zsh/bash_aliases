@@ -31,11 +31,6 @@ alias pp='popd'
 alias pd='pushd'
 alias ap='sudo aptitude'
 
-function qmv {
-    echo "Should use massren" 1>&2
-    echo "massren $@" 1>&2
-    exit 1
-}
 
 alias ipy=ipython
 alias nb="jupyter notebook"
@@ -186,10 +181,7 @@ alias dc='docker-compose'
 alias dm='docker-machine'
 alias gu='gitup commit'
 alias rg='rg -S'
-
-
-alias ag='echo "Please consider using rg.." 1>&2; false'
-
+alias ag='hash rg &>/dev/null && echo "Please consider using rg.." 1>&2; ag'
 
 function docker-clean() {
     # clean up containers and their volumes
