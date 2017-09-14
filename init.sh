@@ -69,6 +69,7 @@ function dolink()
             prn clean up linked
             rm $hf
         else
+            prn "do nothing"
             return
         fi
     elif [ -e "$hf" ]
