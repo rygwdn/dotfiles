@@ -190,9 +190,11 @@ fi
 # virtualenv stuff
 
 vwpth=$(which virtualenvwrapper.sh 2>/dev/null)
-[ -z $vwpth ] && vwpth=$(dirname $(which python 2>/dev/null))/Scripts/virtualenvwrapper.sh
-if [ -e $vwpth ]; then
-    export MSYS_HOME=`python -c "import sys; print sys.argv[1]" $(dirname $(which git))`
+pypath=$(which python 2>/dev/null)
+gitpath=$(which git 2>/dev/null)
+[[ -z $vwpth && -e "$pypath" ]] && vwpth=$(dirname $pypath)/Scripts/virtualenvwrapper.sh
+if [[ -e $vwpth && -e "$gitpath" && -e "$pypath" ]]; then
+    export MSYS_HOME=`python -c "import sys; print sys.argv[1]" $(dirname $gitpath)`
     export TMPDIR=$TEMP
     export WORKON_HOME="$HOME/.virtualenvs"
     source $vwpth
