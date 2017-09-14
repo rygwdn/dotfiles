@@ -59,8 +59,8 @@ Plug 'cakebaker/scss-syntax.vim'
 
 " Color schemes {{{
 
-Plug 'candycode.vim'
-Plug 'blackboard.vim'
+Plug 'vim-scripts/candycode.vim'
+Plug 'vim-scripts/blackboard.vim'
 Plug 'chriskempson/base16-vim'
 
 " }}}
@@ -126,7 +126,7 @@ Plug 'tpope/vim-abolish', {'on': ['S', 'Subvert', 'Abolish']}
 Plug 'simnalamburt/vim-mundo'
 
 " Universal Text Linking (provide links between files..)
-Plug 'utl.vim'
+Plug 'vim-scripts/utl.vim'
 
 " File/dir tree. Provides "-"
 Plug 'dhruvasagar/vim-vinegar'
