@@ -284,14 +284,18 @@ set laststatus=2
 set background=dark
 set go-=TLr " Toolbar, scrollbars
 
-if (has("gui_running") || exists("*MacMenu")) && stridx(&rtp, "candycode")
-    if !exists("g:colors_name") || g:colors_name != "candycode"
-        colorscheme candycode
-    endif
-elseif stridx(&rtp, "blackboard") != -1
-    if !exists("g:colors_name") || g:colors_name != "blackboard"
-        colorscheme blackboard
-    endif
+if !has("nvim")
+    let &t_Co=256
+    let &t_AF="\e[38;5;%dm"
+    let &t_AB="\e[48;5;%dm"
+    let &t_ti.="\e[1 q"
+    let &t_SI.="\e[5 q"
+    let &t_EI.="\e[1 q"
+    let &t_te.="\e[0 q"
+endif
+
+if !exists("g:colors_name") || g:colors_name != "candycode"
+    colorscheme candycode
 endif
 
 

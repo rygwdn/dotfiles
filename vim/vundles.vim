@@ -60,8 +60,9 @@ Plug 'cakebaker/scss-syntax.vim'
 " Color schemes {{{
 
 Plug 'vim-scripts/candycode.vim'
-Plug 'vim-scripts/blackboard.vim'
-Plug 'chriskempson/base16-vim'
+" Plug 'nanotech/jellybeans.vim'
+" Plug 'gregsexton/Atom'
+
 
 " }}}
 
