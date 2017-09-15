@@ -124,7 +124,7 @@ __git_shortcut rbi rbi
 __git_shortcut rbis rbis
 
 function gite {
-    $(which git.exe 2>/dev/null && echo "git.exe" || echo 'git') "$@"
+    $(hash git.exe &>/dev/null && echo "git.exe" || echo 'git') "$@"
 }
 
 function gfu {
