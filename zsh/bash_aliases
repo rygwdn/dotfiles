@@ -35,13 +35,14 @@ alias ap='sudo aptitude'
 alias ipy=ipython
 alias nb="jupyter notebook"
 
-function g {
+function gv {
     if $RUNNING_IN_WINDOWS; then
         ( /dev/null gvim --fork=1 ) &>/dev/null
     else
         ( gvim -f "$@" & ) &>/tmp/vim_out
     fi
 }
+
 function _git_mod_files {
     local _path=$(git rev-parse --show-toplevel || pwd)
     local _files=
@@ -122,11 +123,23 @@ __git_shortcut rb rebase
 __git_shortcut rbi rbi
 __git_shortcut rbis rbis
 
-function gfu {
-    upstream=$(git config --list | grep -q '^remote\.origin\.' && echo 'origin' || echo 'upstream')
-    [[ "$(git config credential.helper)" == "lastpass" ]] && lpass sync
-    git fetch ${upstream} "$@"
+function gite {
+    git=$(which git.exe 2>/dev/null || echo 'git')
+    $git "$@"
 }
+
+function gfu {
+    upstream=$(gite config --list | grep -q '^remote\.origin\.' && echo 'origin' || echo 'upstream')
+    [[ "$(gite config credential.helper)" == "lastpass" ]] && lpass sync
+    gite fetch ${upstream} "$@"
+}
+
+function po {
+    gite push origin "$@"
+}
+
+alias gph='po --set-upstream HEAD'
+
 
 alias st='git st'
 alias stf='git st | fpp'
