@@ -36,6 +36,9 @@ class InputYoutube(object):
             entries = []
             for url in config:
                 info = yt.extract_info(url, download=False)
+                if not info:
+                    log.error("Unable to download %s", url)
+                    continue
                 if 'entries' in info:
                     items = info['entries']
                 else:
