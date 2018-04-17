@@ -105,6 +105,12 @@ __git_shortcut () {
     type _git_$2_shortcut &>/dev/null || __define_git_completion $1 $2
     alias $1="git $2 $3"
     complete -o default -o nospace -F _git_$2_shortcut $1
+
+    if hash git.exe &>/dev/null
+    then
+        alias ${1}e="gite $2 $3"
+        complete -o default -o nospace -F _git_$2_shortcut ${1}e
+    fi
 }
 
 __git_shortcut ci commit
@@ -124,13 +130,18 @@ __git_shortcut rbi rbi
 __git_shortcut rbis rbis
 
 function gite {
-    $(hash git.exe &>/dev/null && echo "git.exe" || echo 'git') "$@"
+    if hash git.exe &>/dev/null
+    then
+        git.exe "$@"
+    else
+        git "$@"
+    fi
 }
 
 function gfu {
     upstream=$(gite config --list | grep -q '^remote\.origin\.' && echo 'origin' || echo 'upstream')
     [[ "$(gite config credential.helper)" == "lastpass" ]] && lpass sync
-    gite fetch ${upstream} "$@"
+    gite fetch --prune --tags ${upstream} "$@"
 }
 
 function po {
@@ -150,6 +161,11 @@ function cor {
     br=$(recent_branches | fzf --no-sort --reverse)
     [[ ${SHELL##*/} == zsh ]] && print -s git checkout $br
     [[ -n $br ]] && git checkout $br
+}
+
+# fh - repeat history
+fh() {
+  print -z $( ([ -n "$ZSH_NAME" ] && fc -l 1 || history) | fzf +s --tac | sed 's/ *[0-9]* *//')
 }
 
 which hub &>/dev/null && alias git=hub
