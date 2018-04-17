@@ -4,6 +4,7 @@ typeset -U path
 
 path=(
     $HOME/bin
+    $HOME/.bin
     $HOME/.local/bin
     $HOME/Dropbox/bin
     $HOME/conf/bin

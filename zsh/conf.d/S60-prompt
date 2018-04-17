@@ -43,8 +43,7 @@ function update_short_pwd() {
     [[ "$PWD" == "${LAST_FULL_PWD}" ]] && return
     export LAST_FULL_PWD=$PWD
 
-    CurDir="$PWD"
-    regexp-replace CurDir "$HOME" "~"
+    CurDir=$(print -P '%~')
 
     if [[ "${#CurDir}" -gt 20 ]]
     then
