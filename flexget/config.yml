@@ -24,7 +24,7 @@ tasks:
     download_youtube:
       add_metadata: true
       format: 'best[filesize<?250M][ext=mp4]/best[filesize<?250M]/[filesize<?250M]/worst'
-      outtmpl: '/Volumes/External/media/downloads/unsorted/%(title)s.%(ext)s'
+      outtmpl: '/Volumes/External/media/downloads/unsorted/%(title)s [%(id)s].%(ext)s'
   download_rss:
     parsing:
       series: guessit
