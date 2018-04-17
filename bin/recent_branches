@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # encoding: utf-8
 
 import sys
@@ -7,7 +7,7 @@ import re
 
 reflog_match = re.compile(r".*moving from (.*) to (.*)")
 
-reflog = check_output("git reflog", shell=True).splitlines()
+reflog = check_output("git reflog", shell=True).decode("utf-8").splitlines()
 recent = []
 for line in reflog:
     match = reflog_match.match(line)
@@ -17,10 +17,10 @@ for line in reflog:
 
 all_heads = check_output(
     "git for-each-ref refs/heads --format='%(refname)'",
-    shell=True).splitlines()
+    shell=True).decode('utf-8').splitlines()
 
 try:
-    current_branch = check_output("git symbolic-ref HEAD 2>/dev/null", shell=True).strip()
+    current_branch = check_output("git symbolic-ref HEAD 2>/dev/null", shell=True).decode('utf-8').strip()
 except CalledProcessError:
     current_branch = ""
 
@@ -42,4 +42,4 @@ for branch in recent + missing_branches:
         continue
     sorted_recent.append(branch)
 
-print "\n".join(sorted_recent)
+print("\n".join(sorted_recent))
