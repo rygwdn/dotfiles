@@ -151,13 +151,18 @@ function po {
 alias gph='po --set-upstream HEAD'
 
 
-alias st='git st'
 alias stf='git st | fpp'
 
 alias gl='lg -n-1 --all'
 alias gk='gitk --all'
 alias wip='git wip'
 alias unwip='git unwip'
+
+function st {
+  summary=$(git log -1 --pretty=%s)
+  echo "${summary}" | grep -q '^WIP: ' && echo "On a WIP commit: ${summary}"
+  git st
+}
 
 
 function cor {
