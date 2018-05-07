@@ -114,6 +114,7 @@ __git_shortcut () {
 }
 
 __git_shortcut ci commit
+__git_shortcut cif commit --amend --no-edit
 __git_shortcut co checkout
 __git_shortcut a add
 __git_shortcut lg lg
@@ -147,6 +148,9 @@ function gfu {
 function po {
     gite push origin "$@"
 }
+
+alias pof='po --force-with-lease'
+
 
 alias gph='po --set-upstream HEAD'
 
