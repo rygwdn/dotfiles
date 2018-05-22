@@ -230,6 +230,32 @@ function docker-clean() {
     docker rmi $(docker images -f "dangling=true" -q)
 }
 
+alias prr="pr release"
+
+function pr {
+  remote="$(git config --get remote.origin.url)"
+  dest="${1}"
+  upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' | sed -nr 's|^origin/(.*)$|\1|p')"
+
+  if [[ -z "${upstream}" ]]
+  then
+    echo 'unable to find upstream'
+    return 1
+  fi
+
+  if echo "$remote" | grep -q 'bitbucket.org'
+  then
+    path=$(echo "${remote}" | sed -nr 's|.*[/:]([^/]*/[^/]*)(\.git)?$|\1|p')
+    dest_param=$([[ -n "${dest}" ]] && echo "&dest=${dest}")
+    url="https://bitbucket.org/${path}/pull-requests/new?source=${upstream}&t=1${dest_param}"
+    echo "$url"
+    [[ -n ${BROWSER} ]] && "${BROWSER}" "${url}"
+  else
+    echo "Can't handle URL ${remote} yet.."
+    return 1
+  fi
+}
+
 function ds {
     [[ -z "$@" ]] && 1='.*'
     services="$(
