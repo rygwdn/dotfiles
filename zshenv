@@ -2,9 +2,12 @@ typeset -U path
 
 [[ -f /usr/libexec/path_helper ]] && eval `/usr/libexec/path_helper -s`
 
+uname -a | grep -q 'Microsoft' && win_home=$HOME/.windows/bin
+
 path=(
     $HOME/bin
     $HOME/.bin
+    $win_home
     $HOME/.local/bin
     $HOME/Dropbox/bin
     $HOME/conf/bin
