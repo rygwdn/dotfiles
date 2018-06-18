@@ -10,9 +10,11 @@ if [[ "$TERM" != "dumb" ]]; then
         RUNNING_IN_WINDOWS=true
     elif which dircolors &> /dev/null
     then
-        eval "$(dircolors -b)"
+        colorsFile="$HOME/.zsh/dircolors.local.zsh"
+        [[ ! -f "$colorsFile" ]] && "$(dircolors -b)" > "$colorsFile"
+        source "$colorsFile"
         alias ls='ls --color=auto'
-    elif uname -s | grep -iq "Darwin"
+    elif echo "${KERNEL_NAME}" | grep -iq "Darwin"
     then
         alias ls='ls -G'
     fi
@@ -86,58 +88,50 @@ function vcs()
         svn "$@"
     fi
 }
-__define_git_completion () {
-    eval "
-    _git_$2_shortcut () {
-        COMP_LINE=\"git $2\${COMP_LINE#$1}\"
-        let COMP_POINT+=$((4+${#2}-${#1}))
-        COMP_WORDS=(git $2 \"\${COMP_WORDS[@]:1}\")
-        let COMP_CWORD+=1
 
-        local cur words cword prev
-        _get_comp_words_by_ref -n =: cur words cword prev
-        _git_$2
-    }
-    "
+alias ci="git commit"
+alias cie="gite commit"
+alias co="git checkout"
+alias coe="gite checkout"
+alias gd="git diff"
+alias gde="gite diff"
+alias gdc diff="git --cached"
+alias gdc diffe="gite --cached"
+alias br="git branch"
+alias bre="gite branch"
+alias show="git show"
+alias showe="gite show"
+alias rb="git rebase"
+alias rbe="gite rebase"
+alias rbi="git rbi"
+alias rbie="gite rbi"
+
+function branch_cleanup {
+  upstream=$1
+  [[ -z "$upstream" ]] && echo "Unable to cleanup branches without upstream" && return 1
+
+  branches="$(gite branch --merged=origin/release --format='%(refname:short)')"
+  [[ -z "$branches" ]] && echo "No branches to cleanup" && return 0
+
+  echo "Are you sure you want to delete the following branches which have not been merged into $upstream?"
+  echo $branches
+  read
+  gite branch -D "$branches"
 }
 
-__git_shortcut () {
-    type _git_$2_shortcut &>/dev/null || __define_git_completion $1 $2
-    alias $1="git $2 $3"
-    complete -o default -o nospace -F _git_$2_shortcut $1
-
-    if hash git.exe &>/dev/null
-    then
-        alias ${1}e="gite $2 $3"
-        complete -o default -o nospace -F _git_$2_shortcut ${1}e
-    fi
+function get_gite {
+  if hash git.exe &>/dev/null && [[ "$PWD" =~ "/mnt/[cde]/" ]]
+  then
+    echo git.exe
+  else
+    echo git
+  fi
 }
-
-__git_shortcut ci commit
-__git_shortcut cif commit --amend --no-edit
-__git_shortcut co checkout
-__git_shortcut a add
-__git_shortcut lg lg
-__git_shortcut log log
-__git_shortcut add add
-__git_shortcut addp add --patch
-__git_shortcut addi add -i
-__git_shortcut gd diff
-__git_shortcut gdc diff --cached
-__git_shortcut br branch
-__git_shortcut show show
-__git_shortcut rb rebase
-__git_shortcut rbi rbi
-__git_shortcut rbis rbis
 
 function gite {
-    if hash git.exe &>/dev/null
-    then
-        git.exe "$@"
-    else
-        git "$@"
-    fi
+  $(get_gite) "$@"
 }
+type compdef &>/dev/null && compdef gite=git
 
 function gfu {
     upstream=$(gite config --list | grep -q '^remote\.origin\.' && echo 'origin' || echo 'upstream')
@@ -145,15 +139,9 @@ function gfu {
     gite fetch --prune --tags ${upstream} "$@"
 }
 
-function po {
-    gite push origin "$@"
-}
-
+alias po='gite push origin'
 alias pof='po --force-with-lease'
-
-
 alias gph='po --set-upstream HEAD'
-
 
 alias stf='git st | fpp'
 
@@ -170,9 +158,9 @@ function st {
 
 
 function cor {
-    br=$(recent_branches | fzf --no-sort --reverse)
-    [[ ${SHELL##*/} == zsh ]] && print -s git checkout $br
-    [[ -n $br ]] && git checkout $br
+  br=$(recent_branches --git=$(get_gite) | fzf --no-sort --reverse)
+  [[ ${SHELL##*/} == zsh ]] && print -s git checkout $br
+  [[ -n $br ]] && git checkout $br
 }
 
 # fh - repeat history

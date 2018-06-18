@@ -6,7 +6,6 @@ bash_source() {
     alias shopt=':'
     alias _expand=_bash_expand
     alias _complete=_bash_comp
-    #setopt kshglob noshglob braceexpand
     emulate -R sh -c 'BASH_SOURCE=($1) ; source "$@"'
 }
 

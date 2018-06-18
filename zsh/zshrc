@@ -46,7 +46,10 @@ for file in $(find ~/.zsh/conf.d -type f \
     | sort)
 do
     source $file
+    logTime "done ${file}"
 done
+
+test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
 
 logTime "done zshrc"
 
@@ -56,5 +59,3 @@ then
     zmodload -u zsh/zprof
     rm "$logfile"
 fi
-
-test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"

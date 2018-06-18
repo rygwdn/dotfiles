@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
 
-if [[ $(uname -s) == "Darwin" ]]
+if [[ "${KERNEL_NAME}" == "Darwin" ]]
 then
     zstyle ':completion:*:*:git:*' script /usr/local/etc/bash_completion.d/git-completion.bash
 fi

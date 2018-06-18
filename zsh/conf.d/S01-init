@@ -4,6 +4,8 @@
 [ -z "$PS1" ] && return
 
 export SHELL="`which zsh`"
+export KERNEL_NAME="$(uname -s)"
+export KERNEL_RELEASE="$(uname -r)"
 
 export DISABLE_AUTO_UPDATE=true
 
