@@ -4,10 +4,23 @@
 import sys
 from subprocess import check_output, CalledProcessError
 import re
+import argparse
+
+import argparse
+
+parser = argparse.ArgumentParser(description='Get all git branches sorted by recency')
+parser.add_argument('--git', dest='git', default='git',
+                    help='The git executable to use')
+
+args = parser.parse_args()
+
+def git(command):
+    return check_output(args.git + ' ' + command, shell=True).decode("utf-8").splitlines()
 
 reflog_match = re.compile(r".*moving from (.*) to (.*)")
 
-reflog = check_output("git reflog", shell=True).decode("utf-8").splitlines()
+reflog = git('log --walk-reflogs --grep-reflog="moving from" --all --pretty=format:"%gs" --since="@{1 month ago}"')
+
 recent = []
 for line in reflog:
     match = reflog_match.match(line)
@@ -15,12 +28,10 @@ for line in reflog:
         recent.append(match.group(1).strip())
         recent.append(match.group(2).strip())
 
-all_heads = check_output(
-    "git for-each-ref refs/heads --format='%(refname)'",
-    shell=True).decode('utf-8').splitlines()
+all_heads = git("for-each-ref refs/heads --format='%(refname)'")
 
 try:
-    current_branch = check_output("git symbolic-ref HEAD 2>/dev/null", shell=True).decode('utf-8').strip()
+    current_branch = git("symbolic-ref HEAD 2>/dev/null")[0].strip()
 except CalledProcessError:
     current_branch = ""
 
