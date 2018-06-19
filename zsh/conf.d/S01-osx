@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
 
-if [[ "${KERNEL_NAME}" == "Darwin" ]]
+if $IS_OSX
 then
     zstyle ':completion:*:*:git:*' script /usr/local/etc/bash_completion.d/git-completion.bash
 fi

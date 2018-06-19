@@ -8,7 +8,9 @@ export CAN_TITLE=false
 
 # Decide whether to set a screen title
 function title() {
-    TITLE=$1
+    TITLE="${1}
+    x"
+    TITLE="${${(@f)TITLE}[1]}"
 
     [ -n "$SSH_TTY" ] && TITLE+="@${ZHOST}"
 

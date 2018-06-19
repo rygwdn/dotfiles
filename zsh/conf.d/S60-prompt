@@ -4,7 +4,7 @@ setopt prompt_subst
 
 autoload regexp-replace
 
-[[ "${KERNEL_RELEASE}" =~ "([Mm]icrosoft|[Ww]indows)" ]] && export SIMPLE_VCS=true
+$IS_WINDOWS && export SIMPLE_VCS=true
 [[ "${SIMPLE_VCS}" == "" ]] && export SIMPLE_VCS=false
 
 # Don't use transient on broken PTY implementations..

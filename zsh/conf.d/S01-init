@@ -3,9 +3,23 @@
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
 
-export SHELL="`which zsh`"
-export KERNEL_NAME="$(uname -s)"
-export KERNEL_RELEASE="$(uname -r)"
+export SHELL="$(which zsh)"
+
+if [[ -z "$IS_WINDOWS" ]]
+then
+    export IS_WINDOWS=$(
+        [[ "$(uname -r)" =~ "([Mm]icrosoft|[Ww]indows)" ]] \
+        && echo 'true' \
+        || echo 'false'
+    )
+fi
+if [[ -z "$IS_MACOS" ]]
+then
+    export IS_MACOS=$([[ "$(uname -s)" == "Darwin" ]] \
+        && echo 'true' \
+        || echo 'false'
+    )
+fi
 
 export DISABLE_AUTO_UPDATE=true
 

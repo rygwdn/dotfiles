@@ -1,17 +1,16 @@
 #!/bin/bash
 
 # Set up ls
-RUNNING_IN_WINDOWS=false
 if [[ "$TERM" != "dumb" ]]; then
+    colorsFile="$HOME/.zsh/dircolors.local.zsh"
+    hasColorsFile=$([[ -f "${colorsFile}" ]] && echo true || echo false)
     if [[ "$TERM" == "cygwin" || "$CYGWIN" == "true" || -n "$MSYSTEM" ]]
     then
         alias ls='ls --color'
         export LS_COLORS=
-        RUNNING_IN_WINDOWS=true
-    elif which dircolors &> /dev/null
+    elif $hasColorsFile || which dircolors &> /dev/null
     then
-        colorsFile="$HOME/.zsh/dircolors.local.zsh"
-        [[ ! -f "$colorsFile" ]] && "$(dircolors -b)" > "$colorsFile"
+        $hasColorsFile || "$(dircolors -b)" > "$colorsFile"
         source "$colorsFile"
         alias ls='ls --color=auto'
     elif echo "${KERNEL_NAME}" | grep -iq "Darwin"
@@ -95,8 +94,8 @@ alias co="git checkout"
 alias coe="gite checkout"
 alias gd="git diff"
 alias gde="gite diff"
-alias gdc diff="git --cached"
-alias gdc diffe="gite --cached"
+alias gdc="git diff --cached"
+alias gdce="gite diff --cached"
 alias br="git branch"
 alias bre="gite branch"
 alias show="git show"
