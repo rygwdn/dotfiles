@@ -4,10 +4,18 @@
 [ -e ~/.zsh_aliases ] && source ~/.zsh_aliases
 
 
+# Open files from last rg or ag command in vim
 function qf {
     cmd=$(fc -rnlI -m '[ar]g*' -2 2>/dev/null | head -n1 | sed 's/^rg/rg --vimgrep/')
     [[ -z $cmd ]] && return 1
     vim -q =(eval ${cmd}) -c 'copen'
+}
+
+function vcon {
+    files="$(git diff --name-only --diff-filter=U)"
+    [[ -z "$files" ]] && return
+    echo "Opening\n$files"
+    echo "$files" | xargs vim
 }
 
 function recompile_init() {

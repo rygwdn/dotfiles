@@ -104,6 +104,7 @@ alias rb="git rebase"
 alias rbe="gite rebase"
 alias rbi="git rbi"
 alias rbie="gite rbi"
+# 
 
 function branch_cleanup {
   upstream=$1
@@ -219,22 +220,65 @@ function docker-clean() {
 
 alias prr="pr release"
 
+function get_remote_target_branches() {
+  git for-each-ref --format='%(refname)' \
+    refs/remotes/origin/bugfix \
+    refs/remotes/origin/feature/ \
+    refs/remotes/origin/rc/ 2>&/dev/null \
+    | sed 's|^refs/remotes/origin/||'
+}
+
+function get_merged_branches() {
+  refs="${1:-refs/heads}"
+  [[ "$refs" == "-r" ]] && refs="refs/remotes/"
+
+  get_remote_target_branches \
+    | while read target_branch
+    do
+      git for-each-ref --format='%(refname:short)' "--merged=origin/$target_branch" $refs 2>&/dev/null
+    done \
+    | sort -u \
+    | grep -vE '(^|/)(rc/.*|bugfix|feature/.*|production|master)$'
+}
+
+function _get_remote_pr_dest() {
+  local_branch="$1"
+  branches="$(get_remote_target_branches \
+    | while read remote_branch
+    do
+      difference="$(git rev-list --count "refs/remotes/origin/${remote_branch}...${local_branch}")"
+      echo "${difference} ${remote_branch}"
+    done \
+    | sort -n \
+    | sed 's/^[^ ]* //'
+  )"
+
+  echo "$branches" | fzf --reverse --no-sort --header="Pick upstream branch for PR"
+}
+
 function pr {
   remote="$(git config --get remote.origin.url)"
-  dest="${1}"
   upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' | sed -nr 's|^origin/(.*)$|\1|p')"
 
-  if [[ -z "${upstream}" ]]
+  [[ -z "${upstream}" ]] \
+    && echo 'unable to find upstream' 1>&2 && return 1
+  [[ "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$upstream")" ]] \
+    && echo 'upstream is not in sync with HEAD. Not creating PR' 1>&2 && return 1
+
+  [[ -n "$1" ]] && dest="${1}" || dest="$(_get_remote_pr_dest HEAD)"
+  [[ -z "$dest" ]] && echo "Failed to get destination" 1>&2 && return 1
+
+  if [[ "$upstream" == "$dest" ]]
   then
-    echo 'unable to find upstream'
+    echo "upstream is the same as destination $dest. Probably forgot to push --set-upstream" 1>&2
     return 1
   fi
 
   if echo "$remote" | grep -q 'bitbucket.org'
   then
-    path=$(echo "${remote}" | sed -nr 's|.*[/:]([^/]*/[^/]*)(\.git)?$|\1|p')
+    url_path=$(echo "${remote}" | sed -nr 's|.*[/:]([^/]*/[^/]*)(\.git)?$|\1|p')
     dest_param=$([[ -n "${dest}" ]] && echo "&dest=${dest}")
-    url="https://bitbucket.org/${path}/pull-requests/new?source=${upstream}&t=1${dest_param}"
+    url="https://bitbucket.org/${url_path}/pull-requests/new?source=${upstream}&t=1${dest_param}"
     echo "$url"
     [[ -n ${BROWSER} ]] && "${BROWSER}" "${url}"
   else
