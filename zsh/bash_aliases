@@ -255,8 +255,15 @@ function _get_remote_pr_dest() {
     | sed 's/^[^ ]* //'
   )"
 
+  if [[ "$2" == "-l" ]]; then
+    echo $branches | head -n 1
+    return
+  fi
+
   echo "$branches" | fzf --reverse --no-sort --header="Pick upstream branch for PR"
 }
+
+alias prl='pr -l'
 
 function pr {
   remote="$(git config --get remote.origin.url)"
@@ -267,7 +274,14 @@ function pr {
   [[ "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$upstream")" ]] \
     && echo 'upstream is not in sync with HEAD. Not creating PR' 1>&2 && return 1
 
-  [[ -n "$1" ]] && dest="${1}" || dest="$(_get_remote_pr_dest HEAD)"
+  if [[ "$1" == "-l" ]]; then
+    dest="$(_get_remote_pr_dest HEAD -l)"
+  elif [[ -n "$1" ]]; then
+    dest="${1}"
+  else
+    dest="$(_get_remote_pr_dest HEAD)"
+  fi
+
   [[ -z "$dest" ]] && echo "Failed to get destination" 1>&2 && return 1
 
   if [[ "$upstream" == "$dest" ]]
