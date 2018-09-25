@@ -2,10 +2,9 @@
 # encoding: utf-8
 
 import sys
+import os.path
 from subprocess import check_output, CalledProcessError
 import re
-import argparse
-
 import argparse
 
 parser = argparse.ArgumentParser(description='Get all git branches sorted by recency')
@@ -14,43 +13,69 @@ parser.add_argument('--git', dest='git', default='git',
 
 args = parser.parse_args()
 
+
 def git(command):
     return check_output(args.git + ' ' + command, shell=True).decode("utf-8").splitlines()
 
-reflog_match = re.compile(r".*moving from (.*) to (.*)")
 
-reflog = git('log --walk-reflogs --grep-reflog="moving from" --all --pretty=format:"%gs" --since="@{1 month ago}"')
+def get_all_branches():
+    all_heads = git("for-each-ref refs/heads --format='%(refname)' --sort='-committerdate'")
+    branches = []
+    for head in all_heads:
+        branch = head[len("refs/heads/"):]
+        if branch not in branches:
+            branches.append(branch)
+    return branches
 
-recent = []
-for line in reflog:
-    match = reflog_match.match(line)
-    if match:
-        recent.append(match.group(1).strip())
-        recent.append(match.group(2).strip())
 
-all_heads = git("for-each-ref refs/heads --format='%(refname)'")
+def get_recent_branches(all_branches, worktrees):
+    recent = []
 
-try:
-    current_branch = git("symbolic-ref HEAD 2>/dev/null")[0].strip()
-except CalledProcessError:
-    current_branch = ""
+    reflog_match = re.compile(r"HEAD@{([0-9]*)}.*moving from (.*) to (.*)")
 
-branches = []
-for head in all_heads:
-    if head == current_branch:
-        continue
-    branches.append(head[len("refs/heads/"):])
+    for worktree in worktrees:
+        reflog = git('--git-dir="' + worktree + '/.git" log --date=unix --walk-reflogs --grep-reflog="moving from" --all --pretty=format:"%gd %gs" --since="@{1 month ago}"')
+        for line in reflog:
+            match = reflog_match.match(line)
+            if not match:
+                continue
+            date = int(match.group(1))
+            for branch in [match.group(3).strip(), match.group(2).strip()]:
+                recent.append([date, branch])
 
-missing_branches = [b for b in branches if b not in recent]
+    sorted_branches = []
+    for (date, branch) in sorted(recent, reverse=True):
+        if branch in all_branches and branch not in sorted_branches:
+            sorted_branches.append(branch)
+    return sorted_branches
 
-seen = set()
-sorted_recent = []
-for branch in recent + missing_branches:
-    if branch in seen:
-        continue
-    seen.add(branch)
-    if branch not in branches:
-        continue
-    sorted_recent.append(branch)
 
-print("\n".join(sorted_recent))
+def get_missing_branches(recent_branches, all_branches):
+    missing = []
+    for branch in all_branches:
+        if branch not in recent_branches and branch not in missing:
+            missing.append(branch)
+    return missing
+
+
+def get_worktrees():
+    worktrees = []
+    for line in git("worktree list --porcelain"):
+        if line.startswith("worktree "):
+            path = line[len("worktree "):]
+            if worktrees:
+                path = os.path.normpath(os.path.join(worktrees[0], path))
+            worktrees.append(path)
+    return worktrees
+
+
+def main():
+    worktrees = get_worktrees()
+    all_branches = get_all_branches()
+    recent_branches = get_recent_branches(all_branches, worktrees)
+    missing_branches = get_missing_branches(recent_branches, all_branches)
+    print("\n".join(recent_branches + missing_branches))
+
+
+if __name__ == "__main__":
+    main()
