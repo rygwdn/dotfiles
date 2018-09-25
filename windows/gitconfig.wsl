@@ -1,0 +1,6 @@
+[difftool "bc3"]
+        path = /mnt/c/Program Files/Beyond Compare 4/BComp.exe
+[mergetool "bc3"]
+        path = /mnt/c/Program Files/Beyond Compare 4/BComp.exe
+[credential]
+	helper = "/mnt/c/Program\\ Files/Git/mingw64/libexec/git-core/git-credential-manager.exe"
