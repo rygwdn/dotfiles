@@ -158,7 +158,7 @@ function st {
 
 
 function cor {
-  br=$(recent_branches --git=$(get_gite) | fzf --no-sort --reverse)
+  br=$(recent_branches --git=$(get_gite) | grep -vxF "$(gite symbolic-ref --short HEAD)" | fzf --no-sort --reverse)
   [[ ${SHELL##*/} == zsh ]] && print -s git checkout $br
   [[ -n $br ]] && git checkout $br
 }
@@ -240,7 +240,7 @@ function get_merged_branches() {
       git for-each-ref --format='%(refname:short)' "--merged=origin/$target_branch" $refs 2>&/dev/null
     done \
     | sort -u \
-    | grep -vE '(^|/)(rc/.*|bugfix|feature/.*|production|master)$'
+    | grep -vE '(^|/)(rc/.*|bugfix|feature/.*|production|master|rc)$'
 }
 
 function _get_remote_pr_dest() {
