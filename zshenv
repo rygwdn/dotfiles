@@ -18,6 +18,8 @@ path=(
     /opt/local/bin
 
     $path
+    /mnt/c/tools
+    /mnt/c/Program\ Files\ \(x86\)/MSBuild/14.0/Bin
     .
 )
 
