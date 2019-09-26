@@ -24,6 +24,7 @@ Plug 'derekwyatt/vim-scala'
 Plug 'mustache/vim-mustache-handlebars'
 Plug 'hynek/vim-python-pep8-indent', {'for': 'python'}
 Plug 'vim-pandoc/vim-pandoc-syntax' 
+Plug 'dag/vim-fish'
 
 " Try to autodetect whitespace options
 Plug 'tpope/vim-sleuth'
