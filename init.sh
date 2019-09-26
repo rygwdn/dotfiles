@@ -98,7 +98,7 @@ function dolink()
 }
     
 
-xdg_configs="awesome pgcli"
+xdg_configs="awesome pgcli fish"
 skip_files="init.sh bin README.md Vagrantfile.d"
 
 function contains() {
@@ -111,8 +111,8 @@ function contains() {
 
 for lfile in * */bash_aliases
 do
-    if contains $xdg_configs $lfile || contains $skip_files $lfile; then
-        echo skipping $lfile
+    if (contains "$xdg_configs" $lfile || contains "$skip_files" $lfile); then
+        #echo skipping $lfile
         continue
     fi
 
