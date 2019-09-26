@@ -96,41 +96,18 @@ alias gd="git diff"
 alias gde="gite diff"
 alias gdc="git diff --cached"
 alias gdce="gite diff --cached"
+alias gmt="git mergetool"
 alias br="git branch"
 alias bre="gite branch"
 alias show="git show"
 alias showe="gite show"
 alias rb="git rebase"
+alias rbc="git rebase --continue"
 alias rbe="gite rebase"
 alias rbi="git rbi"
 alias rbie="gite rbi"
 # 
 
-function branch_cleanup {
-  upstream=$1
-  [[ -z "$upstream" ]] && echo "Unable to cleanup branches without upstream" && return 1
-
-  branches="$(gite branch --merged=origin/release --format='%(refname:short)')"
-  [[ -z "$branches" ]] && echo "No branches to cleanup" && return 0
-
-  echo "Are you sure you want to delete the following branches which have not been merged into $upstream?"
-  echo $branches
-  read
-  gite branch -D "$branches"
-}
-
-function get_gite {
-  if hash git.exe &>/dev/null && [[ "$PWD" =~ "/mnt/[cde]/" ]]
-  then
-    echo git.exe
-  else
-    echo git
-  fi
-}
-
-function gite {
-  $(get_gite) "$@"
-}
 type compdef &>/dev/null && compdef gite=git
 
 function gfu {
@@ -157,12 +134,6 @@ function st {
 }
 
 
-function cor {
-  br=$(recent_branches --git=$(get_gite) | grep -vxF "$(gite symbolic-ref --short HEAD)" | fzf --no-sort --reverse)
-  [[ ${SHELL##*/} == zsh ]] && print -s git checkout $br
-  [[ -n $br ]] && git checkout $br
-}
-
 # fh - repeat history
 fh() {
   print -z $( ([ -n "$ZSH_NAME" ] && fc -l 1 || history) | fzf +s --tac | sed 's/ *[0-9]* *//')
@@ -180,128 +151,24 @@ alias ..='cd ..'
 alias ...='cd ../..'
 
 
-# better gnome open command
-function o()
-{
-    # special case
-    op_prg=`for op in gnome-open open cygstart start explorer.exe
-    do
-        which $op &>/dev/null && echo $op && break
-    done | tail -n 1`
-    which reattach-to-user-namespace &>/dev/null && attach_prg=reattach-to-user-namespace
-
-    for file in "$@"
-    do
-        if [[ "$op_prg" = "explorer.exe" ]] && $CYGWIN; then
-            $op_prg "`cygpath -w "$file"`"
-        else
-            file=`echo "$file" | sed 's/\/$//'`
-            $attach_prg $op_prg "$file"
-        fi
-    done
-}
-
 complete -F _aptitude -o default ap
 
 alias e='ember'
 alias vssh='vagrant ssh'
-alias dc='docker-compose'
-alias dm='docker-machine'
+
+if hash docker-compose &>/dev/null; then
+  alias dc='docker-compose'
+elif hash docker-compose.exe &>/dev/null; then
+  alias dc='docker-compose.exe'
+fi
+
 alias gu='gitup commit'
 alias rg='rg -S'
 alias ag='hash rg &>/dev/null && echo "Please consider using rg.." 1>&2; ag'
 
-function docker-clean() {
-    # clean up containers and their volumes
-    docker rm -v $(docker ps -a -q -f status=exited)
-    # clean up unused images
-    docker rmi $(docker images -f "dangling=true" -q)
-}
-
 alias prr="pr release"
 
-function get_remote_target_branches() {
-  git for-each-ref --format='%(refname)' \
-    refs/remotes/origin/bugfix \
-    refs/remotes/origin/utilities \
-    refs/remotes/origin/feature/ \
-    refs/remotes/origin/hotfix/ \
-    refs/remotes/origin/rc/ 2>&/dev/null \
-    | sed 's|^refs/remotes/origin/||'
-}
-
-function get_merged_branches() {
-  refs="${1:-refs/heads}"
-  [[ "$refs" == "-r" ]] && refs="refs/remotes/"
-
-  get_remote_target_branches \
-    | while read target_branch
-    do
-      git for-each-ref --format='%(refname:short)' "--merged=origin/$target_branch" $refs 2>&/dev/null
-    done \
-    | sort -u \
-    | grep -vE '(^|/)(rc/.*|bugfix|feature/.*|production|master|rc)$'
-}
-
-function _get_remote_pr_dest() {
-  local_branch="$1"
-  branches="$(get_remote_target_branches \
-    | while read remote_branch
-    do
-      difference="$(git rev-list --count "refs/remotes/origin/${remote_branch}...${local_branch}")"
-      echo "${difference} ${remote_branch}"
-    done \
-    | sort -n \
-    | sed 's/^[^ ]* //'
-  )"
-
-  if [[ "$2" == "-l" ]]; then
-    echo $branches | head -n 1
-    return
-  fi
-
-  echo "$branches" | fzf --reverse --no-sort --header="Pick upstream branch for PR"
-}
-
 alias prl='pr -l'
-
-function pr {
-  remote="$(git config --get remote.origin.url)"
-  upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' | sed -nr 's|^origin/(.*)$|\1|p')"
-
-  [[ -z "${upstream}" ]] \
-    && echo 'unable to find upstream' 1>&2 && return 1
-  [[ "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$upstream")" ]] \
-    && echo 'upstream is not in sync with HEAD. Not creating PR' 1>&2 && return 1
-
-  if [[ "$1" == "-l" ]]; then
-    dest="$(_get_remote_pr_dest HEAD -l)"
-  elif [[ -n "$1" ]]; then
-    dest="${1}"
-  else
-    dest="$(_get_remote_pr_dest HEAD)"
-  fi
-
-  [[ -z "$dest" ]] && echo "Failed to get destination" 1>&2 && return 1
-
-  if [[ "$upstream" == "$dest" ]]
-  then
-    echo "upstream is the same as destination $dest. Probably forgot to push --set-upstream" 1>&2
-    return 1
-  fi
-
-  if echo "$remote" | grep -q 'bitbucket.org'
-  then
-    url_path=$(echo "${remote}" | sed -nr 's|.*[/:]([^/]*/[^/]*)(\.git)?$|\1|p')
-    dest_param=$([[ -n "${dest}" ]] && echo "&dest=${dest}")
-    url="https://bitbucket.org/${url_path}/pull-requests/new?source=${upstream}&t=1${dest_param}"
-    echo "$url"
-    [[ -n ${BROWSER} ]] && "${BROWSER}" "${url}"
-  else
-    echo "Can't handle URL ${remote} yet.."
-    return 1
-  fi
-}
 
 function ds {
     [[ -z "$@" ]] && 1='.*'

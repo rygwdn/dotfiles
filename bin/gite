@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if hash git.exe &>/dev/null && [[ "$PWD" =~ "/mnt/[cde]/" ]]
+then
+  exec git.exe "$@"
+else
+  exec git "$@"
+fi

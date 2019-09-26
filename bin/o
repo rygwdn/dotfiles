@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# special case
+op_prg=`for op in explorer.exe gnome-open cygstart start
+do
+    which $op &>/dev/null && echo $op && break
+done | tail -n 1`
+which reattach-to-user-namespace &>/dev/null &&  attach_prg=reattach-to-user-namespace
+
+for file in "$@"
+do
+    if [[ "$op_prg" = "explorer.exe" ]] && $CYGWIN; then
+        $op_prg "`cygpath -w "$file"`"
+    else
+        file=`echo "$file" | sed 's/\/$//'`
+        $attach_prg $op_prg "$file"
+    fi
+done

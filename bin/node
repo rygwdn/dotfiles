@@ -1,0 +1,10 @@
+#!/bin/sh
+
+if [ -e $1 ]
+then
+  pth=$(wslpath -w "$1")
+  shift
+  node.exe "$pth" "$@"
+else
+  node.exe "$@"
+fi

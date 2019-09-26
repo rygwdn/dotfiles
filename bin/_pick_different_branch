@@ -1,0 +1,3 @@
+#!/bin/bash
+
+recent_branches --git=gite | grep -vxF "$(gite symbolic-ref --short HEAD)" | fzf --no-sort --reverse

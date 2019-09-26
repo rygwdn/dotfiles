@@ -1,0 +1,6 @@
+#!/bin/bash
+
+
+upstream=$(gite config --list | grep -q '^remote\.origin\.' && echo 'origin' || echo 'upstream')
+[[ "$(gite config credential.helper)" == "lastpass" ]] &&  lpass sync
+gite fetch --prune --tags ${upstream} "$@"
