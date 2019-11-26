@@ -1,0 +1,69 @@
+#!/bin/bash
+
+SESS=zsh
+[[ -n "$SSH_TTY" ]] && SESS=ssh
+
+if echo "$OS" | grep -qi "windows"
+then
+    echo "No multiplex on windows"
+    exit 0
+fi
+
+if !(which tmux &> /dev/null)
+then
+    #echo "no tmux"
+    exit 0
+fi
+
+_tm_first() {
+    tmux ls -F '#{session_created} #{session_name}' 2>/dev/null | sort -n | head -1 | sed 's/^[0-9]* //'
+}
+tmux_first_session=$(_tm_first)
+
+if [[ "$SESS" == "ssh" ]] && ! tmux has-session "$SESS" 2>/dev/null; then
+    tmux_create_session="$SESS"
+fi
+
+info() {
+    # already in a session, show nothing
+    if [[ $SESS == "zsh" || !( "$TERM" =~ "screen" || "$TERM" =~ "tmux" ) ]]
+    then
+        exit 0
+    fi
+
+    tmux_sessions=$(tmux ls 2>/dev/null)
+
+    if [[ -n "${tmux_sessions}" ]]; then
+        echo "tmux sessions:"
+        echo "$tmux_sessions"
+        echo
+    fi
+
+    if [[ -n "${tmux_first_session}" ]]; then
+        echo "$ tm # to attach to ${tmux_first_session}"
+    elif [[ -n "${tmux_create_session}" ]]; then
+        echo "$ tm # for new '${tmux_create_session}' session"
+    else
+        echo "$ tm # for new session"
+    fi
+}
+
+newsess() {
+    first=$(_tm_first)
+    if [[ -n "$@" ]]; then
+        tmux "$@"
+    elif [[ -n "${first}" ]]; then
+        tmux attach -t "${first}"
+    elif [[ -n "${tmux_create_session}" ]]; then
+        tmux new-session -s "$SESS"
+    else
+        tmux new-session
+    fi
+}
+
+if [[ "$1" == "--help" ]]
+then
+    info
+else
+    newsess
+fi

@@ -9,7 +9,7 @@ which reattach-to-user-namespace &>/dev/null &&  attach_prg=reattach-to-user-nam
 
 for file in "$@"
 do
-    if [[ "$op_prg" = "explorer.exe" ]] && $CYGWIN; then
+    if [[ "$op_prg" = "explorer.exe" ]] && which cygpath &>/dev/null; then
         $op_prg "`cygpath -w "$file"`"
     else
         file=`echo "$file" | sed 's/\/$//'`
