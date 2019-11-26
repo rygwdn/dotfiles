@@ -14,6 +14,8 @@ abbr st git st
 abbr ll ls -l
 abbr la ls -A
 
+abbr h "history | grep"
+
 abbr ci git commit
 abbr co git checkout
 abbr gd git diff
@@ -29,8 +31,8 @@ abbr rbie gite rbi
 
 
 abbr po gite push origin
-abbr pof po --force-with-lease
-abbr gph po --set-upstream HEAD
+abbr pof gite push origin --force-with-lease
+abbr gph gite push origin --set-upstream HEAD
 
 abbr wip git wip
 abbr unwip git unwip
@@ -38,3 +40,45 @@ abbr unwip git unwip
 abbr rg rg -S
 abbr prl pr -l
 
+if uname -a | grep -q 'Microsoft'
+    set win_home $HOME/.windows/bin
+    set -x BROWSER "win-start"
+end
+
+
+
+set -x PATH \
+    $HOME/bin \
+    $HOME/.bin \
+    $win_home \
+    $HOME/.local/bin \
+    $HOME/Dropbox/bin \
+    $HOME/conf/bin \
+    $HOME/.cabal/bin \
+    $HOME/.rvm/bin \
+    /usr/local/sbin \
+    /usr/local/bin \
+    /opt/local/bin \
+    $HOME/.fzf/bin \
+    $PATH \
+    /mnt/c/tools \
+    /mnt/c/Program\ Files\ \(x86\)/MSBuild/14.0/Bin \
+    .
+
+
+set -x EDITOR 'vim'
+set -x VISUAL 'vim'
+set -x VPAGER 'vim -R -'
+
+# Set up less
+set -x PAGER 'less'
+# show colors in less
+set -x LESS "-R"
+
+# local stuff
+set -x LC_ALL 'en_US.UTF-8'
+set -x LANG 'en_US.UTF-8'
+set -x LC_CTYPE 'C'
+
+# timeout after 8h
+set -x LPASS_AGENT_TIMEOUT 2880

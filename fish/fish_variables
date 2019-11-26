@@ -10,13 +10,14 @@ SETUVAR _fish_abbr_co:git\x20checkout
 SETUVAR _fish_abbr_gd:git\x20diff
 SETUVAR _fish_abbr_gdc:git\x20diff\x20\x2d\x2dcached
 SETUVAR _fish_abbr_gmt:git\x20mergetool
-SETUVAR _fish_abbr_gph:po\x20\x2d\x2dset\x2dupstream\x20HEAD
+SETUVAR _fish_abbr_gph:gite\x20push\x20origin\x20\x2d\x2dset\x2dupstream\x20HEAD
+SETUVAR _fish_abbr_h:history\x20\x7c\x20grep
 SETUVAR _fish_abbr_is:cd\x20/mnt/c/Users/ryan\x2ewooden/intellitrack\x2dservice
 SETUVAR _fish_abbr_isw:cd\x20/mnt/c/Users/ryan\x2ewooden/intellitrack\x2dservice\x2dwip
 SETUVAR _fish_abbr_la:ls\x20\x2dA
 SETUVAR _fish_abbr_ll:ls\x20\x2dl
 SETUVAR _fish_abbr_po:gite\x20push\x20origin
-SETUVAR _fish_abbr_pof:po\x20\x2d\x2dforce\x2dwith\x2dlease
+SETUVAR _fish_abbr_pof:gite\x20push\x20origin\x20\x2d\x2dforce\x2dwith\x2dlease
 SETUVAR _fish_abbr_prl:pr\x20\x2dl
 SETUVAR _fish_abbr_rb:git\x20rebase
 SETUVAR _fish_abbr_rbc:git\x20rebase\x20\x2d\x2dcontinue
@@ -57,6 +58,7 @@ SETUVAR fish_pager_color_completion:\x1d
 SETUVAR fish_pager_color_description:B3A06D\x1eyellow
 SETUVAR fish_pager_color_prefix:white\x1e\x2d\x2dbold\x1e\x2d\x2dunderline
 SETUVAR fish_pager_color_progress:brwhite\x1e\x2d\x2dbackground\x3dcyan
+SETUVAR fish_user_paths:/home/rwooden/\x2efzf/bin
 SETUVAR theme_color_scheme:gruvbox
 SETUVAR theme_display_git_dirty:no
 SETUVAR theme_display_git_untracked:no
