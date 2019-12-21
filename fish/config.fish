@@ -50,6 +50,8 @@ end
 set -x PATH \
     $HOME/bin \
     $HOME/.bin \
+    $HOME/Dotfiles/bin \
+    $HOME/Ryan/Dotfiles/bin \
     $win_home \
     $HOME/.local/bin \
     $HOME/Dropbox/bin \
