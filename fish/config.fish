@@ -40,6 +40,8 @@ abbr unwip git unwip
 abbr rg rg -S
 abbr prl pr -l
 
+abbr yt "youtube-dl --no-mtime --ignore-config --recode-video=mp4 --no-playlist --format=best"
+
 if uname -a | grep -q 'Microsoft'
     set win_home $HOME/.windows/bin
     set -x BROWSER "win-start"
