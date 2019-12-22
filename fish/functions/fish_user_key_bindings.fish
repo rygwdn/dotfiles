@@ -26,8 +26,36 @@ function _better_vi_mode
     bind --preset '~' vimtilde
 
     bind w _vi_forward_word
-    # TODO: b cw dw
+
+    bind --preset -e gu
+    bind --preset -e gU
+
+    if type -q tr
+        bind guu '_downcase_x -b'
+        bind gUU '_upcase_x -b'
+
+        bind guiw '_downcase_x -t'
+        bind guiW '_downcase_x -t'
+
+        bind gUiw '_upcase_x -t'
+        bind gUiW '_upcase_x -t'
+    end
 end
+
+function _upcase_x
+    set cur (commandline -C)
+    commandline $argv (commandline $argv | tr '[[:lower:]]' '[[:upper:]]' )
+    commandline -C $cur
+    commandline -f repaint
+end
+
+function _downcase_x
+    set cur (commandline -C)
+    commandline $argv (commandline $argv | tr '[[:upper:]]' '[[:lower:]]' )
+    commandline -C $cur
+    commandline -f repaint
+end
+
 
 function _vi_forward_word
     set rest (_get_rest_of_buf | string split0)
