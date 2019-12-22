@@ -1,11 +1,17 @@
 #!/bin/bash
 
 # special case
-op_prg=`for op in explorer.exe gnome-open cygstart start
+op_prg=`for op in explorer.exe gnome-open cygstart start open
 do
     which $op &>/dev/null && echo $op && break
 done | tail -n 1`
 which reattach-to-user-namespace &>/dev/null &&  attach_prg=reattach-to-user-namespace
+
+if [[ -z "$op_prg" ]]
+then
+    echo 'no opener'
+    exit 1
+fi
 
 for file in "$@"
 do
