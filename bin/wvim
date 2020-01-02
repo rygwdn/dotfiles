@@ -1,0 +1,9 @@
+#!/bin/bash
+
+declare -a new_args
+for arg in "$@"
+do
+  new_args+=("$(wslpath -u -- "$arg")")
+done
+
+exec vim "${new_args[@]}"
