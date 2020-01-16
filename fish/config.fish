@@ -45,6 +45,7 @@ abbr yt "youtube-dl --no-mtime --ignore-config --recode-video=mp4 --no-playlist 
 if uname -a | grep -q 'Microsoft'
     set win_home $HOME/.windows/bin
     set -x BROWSER "win-start"
+    set fish_term24bit 1
 end
 
 
