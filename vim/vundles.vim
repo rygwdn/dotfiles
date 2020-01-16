@@ -70,8 +70,8 @@ Plug 'vim-scripts/candycode.vim'
 " Tags {{{
 
 " THESE DO NOT PROVIDE PLUGINS. They provide bins
-Plug 'jszakmeister/rst2ctags'
-Plug 'jszakmeister/markdown2ctags'
+" Plug 'jszakmeister/rst2ctags'
+" Plug 'jszakmeister/markdown2ctags'
 
 " Note: requires phpctags to be build (run make)
 "Plug 'vim-php/tagbar-phpctags.vim', {'do': 'make'}
@@ -84,6 +84,8 @@ Plug 'jszakmeister/markdown2ctags'
 
 
 " General utils {{{
+
+Plug 'tpope/vim-fugitive', {'branch': 'job'}
 
 if index(keys(g:plugs), 'powerline') == -1
     " Nice status line..
