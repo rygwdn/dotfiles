@@ -218,16 +218,16 @@ function skim {
     open -a Skim "$@"
 }
 
-function tname {
-    # "tname <some name>" sets the tmux pane title and disallows zsh/vim/etc from changing it
-    # "tname" re-allows the renaming of the window
-    if [[ -n $1 ]]; then
-        tmux rename-window "$*"
-        tmux set-window-option allow-rename off
-    else
-        tmux rename-window zsh
-        tmux set-window-option allow-rename on
-    fi
-}
+# function tname {
+#     # "tname <some name>" sets the tmux pane title and disallows zsh/vim/etc from changing it
+#     # "tname" re-allows the renaming of the window
+#     if [[ -n $1 ]]; then
+#         tmux rename-window "$*"
+#         tmux set-window-option allow-rename off
+#     else
+#         tmux rename-window zsh
+#         tmux set-window-option allow-rename on
+#     fi
+# }
 
 [ -e ~/.bash_aliases_local ] && . ~/.bash_aliases_local

@@ -4,10 +4,6 @@ if not functions -q fisher
     fish -c fisher
 end
 
-if type -q powershell.exe
-    set -U __done_notification_command 'powershell.exe -command New-BurntToastNotification -Text WSL-ok'
-end
-
 abbr co git checkout
 abbr st git st
 
@@ -29,6 +25,8 @@ abbr rbe gite rebase
 abbr rbi git rbi
 abbr rbie gite rbi
 
+abbr fugitive vim -c "Ge :"
+abbr fu vim -c "Ge :"
 
 abbr po gite push origin
 abbr pof gite push origin --force-with-lease
@@ -42,12 +40,13 @@ abbr prl pr -l
 
 abbr yt "youtube-dl --no-mtime --ignore-config --recode-video=mp4 --no-playlist --format=best"
 
+set -U __done_exclude '(git (?!push|pull)|vim)'
+
 if uname -a | grep -q 'Microsoft'
     set win_home $HOME/.windows/bin
     set -x BROWSER "win-start"
     set fish_term24bit 1
 end
-
 
 
 set -x PATH \
