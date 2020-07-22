@@ -59,6 +59,7 @@ set -x PATH \
     $HOME/Dropbox/bin \
     $HOME/conf/bin \
     $HOME/.cabal/bin \
+    $HOME/.cargo/bin \
     $HOME/.rvm/bin \
     /usr/local/sbin \
     /usr/local/bin \
