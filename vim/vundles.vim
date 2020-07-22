@@ -25,6 +25,7 @@ Plug 'mustache/vim-mustache-handlebars'
 Plug 'hynek/vim-python-pep8-indent', {'for': 'python'}
 Plug 'vim-pandoc/vim-pandoc-syntax' 
 Plug 'dag/vim-fish'
+Plug 'PProvost/vim-ps1'
 
 " Try to autodetect whitespace options
 Plug 'tpope/vim-sleuth'
@@ -55,6 +56,7 @@ Plug 'othree/html5.vim', {'for': 'html'}
 
 " sass/scss
 Plug 'cakebaker/scss-syntax.vim'
+Plug 'tridactyl/vim-tridactyl'
 
 " }}}
 
@@ -85,7 +87,7 @@ Plug 'vim-scripts/candycode.vim'
 
 " General utils {{{
 
-Plug 'tpope/vim-fugitive', {'branch': 'job'}
+Plug 'tpope/vim-fugitive'
 
 if index(keys(g:plugs), 'powerline') == -1
     " Nice status line..
