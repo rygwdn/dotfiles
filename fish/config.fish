@@ -4,16 +4,15 @@ if not functions -q fisher
     fish -c fisher
 end
 
-abbr co git checkout
-abbr st git st
 
 abbr ll ls -l
 abbr la ls -A
 
 # abbr h "history search --reverse | grep"
 
-abbr ci git commit
-abbr co git checkout
+abbr st gite st
+abbr ci gite commit
+abbr co gite checkout
 abbr gd git diff
 abbr gdc git diff --cached
 abbr gmt git mergetool
