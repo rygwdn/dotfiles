@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if hash git.exe &>/dev/null && [[ "$PWD" =~ "/mnt/[cde]/" ]]
+if hash git.exe &>/dev/null && [[ "$(stat -f -c %T .)" = "wslfs" ]]
 then
   exec git.exe "$@"
 else
