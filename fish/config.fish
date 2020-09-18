@@ -38,6 +38,7 @@ abbr rg rg -S
 abbr prl pr -l
 
 abbr yt "youtube-dl --no-mtime --ignore-config --recode-video=mp4 --no-playlist --format=best"
+abbr yta "youtube-dl --no-mtime --ignore-config --no-playlist --format=bestaudio --extract-audio --audio-quality 0 --audio-format=aac"
 
 set -U __done_exclude '(git (?!push|pull)|vim)'
 

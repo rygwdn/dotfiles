@@ -14,6 +14,7 @@ function fish_user_key_bindings
 end
 
 function _better_vi_mode
+    # TODO: these fixed in latest master?
     # default keybindings miss 1 char
     bind dt begin-selection forward-jump kill-selection end-selection
     bind df begin-selection forward-jump forward-char kill-selection end-selection
@@ -22,11 +23,15 @@ function _better_vi_mode
     bind cf -m insert begin-selection forward-jump forward-char kill-selection end-selection force-repaint
 
     # better tilde..
+    # TODO: these fixed in latest master?
     bind '~' vimtilde
     bind --preset '~' vimtilde
 
+    # TODO: fix in C++
+    # https://github.com/fish-shell/fish-shell/pull/6908
     bind w _vi_forward_word
 
+    # TODO: fix in C++
     bind --preset -e gu
     bind --preset -e gU
 

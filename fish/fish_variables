@@ -32,6 +32,7 @@ SETUVAR _fish_abbr_unwip:git\x20unwip
 SETUVAR _fish_abbr_win:cd\x20/mnt/c/Users/ryan\x2ewooden
 SETUVAR _fish_abbr_wip:git\x20wip
 SETUVAR _fish_abbr_yt:youtube\x2ddl\x20\x2d\x2dno\x2dmtime\x20\x2d\x2dignore\x2dconfig\x20\x2d\x2drecode\x2dvideo\x3dmp4\x20\x2d\x2dno\x2dplaylist\x20\x2d\x2dformat\x3dbest
+SETUVAR _fish_abbr_yta:youtube\x2ddl\x20\x2d\x2dno\x2dmtime\x20\x2d\x2dignore\x2dconfig\x20\x2d\x2dno\x2dplaylist\x20\x2d\x2dformat\x3dbestaudio\x20\x2d\x2dextract\x2daudio\x20\x2d\x2daudio\x2dquality\x200\x20\x2d\x2daudio\x2dformat\x3daac
 SETUVAR fish_color_autosuggestion:555\x1ebrblack
 SETUVAR fish_color_cancel:\x2dr
 SETUVAR fish_color_command:005fd7
