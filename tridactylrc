@@ -1,0 +1,85 @@
+" bind yp composite js document.getElementById("clone-help-step-1").textContent.replace("git checkout -b", "git checkout -B").replace("git pull ", "git fetch ") + "git reset --hard " + document.getElementById("clone-help-step-1").textContent.split(" ")[3].replace("-","/") | yank
+
+" Only hint search results on Google and DDG
+bindurl www.google.com f hint -Jc .rc > .r > a
+bindurl www.google.com ;f hint 
+bindurl www.google.com F hint -Jbc .rc>.r>a
+bindurl www.google.com ;F hint -b
+
+bindurl ^https://duckduckgo.com f hint -Jc [class=result__a]
+bindurl ^https://duckduckgo.com F hint -Jbc [class=result__a]
+
+bindurl ^https://github.com z hint -Jc input[name='viewed']:not(:checked)
+bindurl ^https://github.com Z hint -Jc input[name='viewed']
+bindurl ^https://github.com ;c hint -Jc button.add-line-comment
+
+" Allow Ctrl-a to select all in the commandline
+unbind --mode=ex <C-a>
+
+" Allow Ctrl-c to copy in the commandline
+unbind --mode=ex <C-c>
+
+
+" Make yy use canonical / short links on the 5 websites that support them
+bind yy clipboard yankcanon
+
+bind ge jsb browser.runtime.sendMessage('simple-tab-groups@drive4ik', {action: 'open-manage-groups'})
+bind gm jsb browser.runtime.sendMessage('simple-tab-groups@drive4ik', {"action":"move-active-tab-to-custom-group"})
+
+set searchurls.j https://trackgrp.atlassian.net/secure/QuickSearch.jspa?searchString=
+set searchurls.jira https://trackgrp.atlassian.net/secure/QuickSearch.jspa?searchString=
+
+set searchengine google
+"js tri.config.set("search", "j", "https://trackgrp.atlassian.net/secure/QuickSearch.jspa?searchString=")
+"js tri.config.set("search", "jira", "https://trackgrp.atlassian.net/secure/QuickSearch.jspa?searchString=")
+
+bind / fillcmdline find
+bind ? fillcmdline find -?
+bind n findnext 1
+bind N findnext -1
+bind ,<Space> nohlsearch
+
+
+" Sane hinting mode
+"set hintfiltermode vimperator-reflow
+"set hintnames numeric
+
+set tabopencontaineraware true
+
+" Equivalent to `set csp clobber` before it was removed. This weakens your
+" defences against cross-site-scripting attacks and other types of
+" code-injection by reducing the strictness of Content Security Policy on
+" every site in a couple of ways.
+"
+" You may not wish to run this. Mozilla strongly feels that you shouldn't.
+"
+" It allows Tridactyl to function on more pages, e.g. raw GitHub pages.
+" 
+" We remove the sandbox directive
+" https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/sandbox
+" which allows our iframe to run (and anyone else's) on any website.
+"
+" We weaken the style-src directive
+" https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/style-src
+" to allow us to theme our elements. This exposes you to 'cross site styling'
+" attacks.
+"
+" Read https://wiki.mozilla.org/Security/CSP#Goals for more information.
+" jsb browser.webRequest.onHeadersReceived.addListener(tri.request.clobberCSP,{urls:["<all_urls>"],types:["main_frame"]},["blocking","responseHeaders"])
+
+
+" Quickmark gives goi gni and gwi for open, tab, window
+quickmark i https://mail.google.com/mail/u/0/#inbox
+
+"
+" URL redirects
+"
+
+" New reddit is bad
+autocmd DocStart ^http(s?)://www.reddit.com js tri.excmds.urlmodify("-t", "www", "old")
+
+" Mosquito nets won't make themselves
+"autocmd DocStart ^http(s?)://www.amazon.co.uk js tri.excmds.urlmodify("-t", "www", "smile")
+
+" For syntax highlighting see https://github.com/tridactyl/vim-tridactyl
+" vim: set filetype=tridactyl
