@@ -1,8 +1,15 @@
 #!/usr/bin/env zsh
 
-# TODO: not sure if this should be done here?
-autoload -U compinit
-compinit
+autoload -Uz compinit
+
+if [[ -n ${ZDOTDIR}/.zcompdump(#qN.mh+24) ]]
+then
+  compinit
+  logTime 'compinit'
+else
+  compinit -C
+  logTime 'compinit -C'
+fi
 
 #[ Generic ]############################################
 #Trying without cache for now
@@ -58,10 +65,7 @@ zstyle ':completion:*:processes-names' command 'ps axho command'
 
 
 #[ hosts and users ]############################################################
-
-[[ -f ~/.ssh/known_hosts ]] && hosts=(`awk '{print $1}' ~/.ssh/known_hosts | tr ',' '\n' `)
 [[ -f ~/.ssh/config ]] && hosts=($hosts `grep '^[Hh]ost' ~/.ssh/config | sed 's/[Hh]ost\ //' | egrep -v '^\*$'`)
-[[ -f /var/lib/misc/ssh_known_hosts ]] && hosts=($hosts `awk -F "[, ]" '{print $1}' /var/lib/misc/ssh_known_hosts | sort -u`)
 [[ -n "$hosts" ]] && zstyle ':completion:*:hosts' hosts $hosts
 
 #[ Ignores ]#########################################

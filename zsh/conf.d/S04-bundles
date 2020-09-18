@@ -1,33 +1,21 @@
 #!/bin/zsh
 
-if [[ -e ~/.zplug/init.zsh ]]
-then
-    export ZPLUG_HOME=$HOME/.zplug
-elif [[ -e /usr/local/opt/zplug/init.zsh ]]
-then
-    export ZPLUG_HOME=/usr/local/opt/zplug
-fi
+autoload -U zrecompile
 
-if [[ -z "$ZPLUG_HOME" ]]
-then
-    echo "Zplug is not installed!"
-    return
-fi
+function _loadBundle() {
+    local file="$HOME/.zsh/bundles/${1}" 
 
-source $ZPLUG_HOME/init.zsh
+    if [[ ! -f "${file}" ]] 
+    then
+        echo "not loading ${1}" 1>&2
+        return
+    fi
 
-# zsh plugins
-zplug "zsh-users/zsh-syntax-highlighting"
-zplug "zsh-users/zsh-history-substring-search"
-#zplug djui/alias-tips
-zplug 'zplug/zplug', hook-build:'zplug --self-manage'
-#zplug marzocchi/zsh-notify, at:next-iterm
+    #zrecompile -p "${file}"
+    source "${file}"
+    logTime "loaded bundle ${1}"
+}
 
-# python stuff
-#zplug plugins/pip, from:oh-my-zsh, if:"which pip"
-#zplug plugins/django, from:oh-my-zsh
-#zplug plugins/virtualenvwrapper, from:oh-my-zsh, if:"which virtualenvwrapper_lazy.sh"
 
-# general stuff
-#zplug plugins/brew, from:oh-my-zsh
-#zplug plugins/vagrant, from:oh-my-zsh
+_loadBundle zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+_loadBundle zsh-history-substring-search/zsh-history-substring-search.zsh

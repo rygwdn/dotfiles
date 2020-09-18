@@ -4,13 +4,11 @@ setopt prompt_subst
 
 autoload regexp-replace
 
-uname -a | grep -iq -e 'windows' -e 'microsoft' && export SIMPLE_VCS=true
+$IS_WINDOWS && export SIMPLE_VCS=true
 [[ "${SIMPLE_VCS}" == "" ]] && export SIMPLE_VCS=false
-
 
 # Don't use transient on broken PTY implementations..
 ${SIMPLE_VCS} || setopt TRANSIENT_RPROMPT
-
 
 # get host and set color
 case "$ZHOST" in
@@ -29,10 +27,7 @@ case "$ZHOST" in
         ;;
 esac
 
-if [[ `id -u` -eq 0 ]]; then
-    Color=$PR_RED  # red text for root
-fi
-
+[[ "${USER}" == "root" || "${USERNAME}" == "root" ]] && Color=$PR_RED  # red text for root
 [ -n "$SSH_TTY" ] && psprepend="${PR_RED}ssh-${PR_NO_COLOR}"
 
 # tries to keep the directory name short in the prompt
@@ -54,7 +49,6 @@ function update_short_pwd() {
 }
 
 precmd_functions+='update_short_pwd'
-
 
 export HAS_GIT=$(which git &> /dev/null && echo true || echo false)
 export LASTPWD=
@@ -132,6 +126,7 @@ function vi_mode_color() {
 function update_tmux_environment() {
     eval $(tmux switch-client \; show-environment -s)
 }
+
 
 if $SIMPLE_VCS
 then

@@ -1,18 +1,19 @@
 #!/bin/bash
 
 # Set up ls
-RUNNING_IN_WINDOWS=false
 if [[ "$TERM" != "dumb" ]]; then
+    colorsFile="$HOME/.zsh/dircolors.local.zsh"
+    hasColorsFile=$([[ -f "${colorsFile}" ]] && echo true || echo false)
     if [[ "$TERM" == "cygwin" || "$CYGWIN" == "true" || -n "$MSYSTEM" ]]
     then
         alias ls='ls --color'
         export LS_COLORS=
-        RUNNING_IN_WINDOWS=true
-    elif which dircolors &> /dev/null
+    elif $hasColorsFile || which dircolors &> /dev/null
     then
-        eval "$(dircolors -b)"
+        $hasColorsFile || "$(dircolors -b)" > "$colorsFile"
+        source "$colorsFile"
         alias ls='ls --color=auto'
-    elif uname -s | grep -iq "Darwin"
+    elif echo "${KERNEL_NAME}" | grep -iq "Darwin"
     then
         alias ls='ls -G'
     fi
@@ -86,57 +87,28 @@ function vcs()
         svn "$@"
     fi
 }
-__define_git_completion () {
-    eval "
-    _git_$2_shortcut () {
-        COMP_LINE=\"git $2\${COMP_LINE#$1}\"
-        let COMP_POINT+=$((4+${#2}-${#1}))
-        COMP_WORDS=(git $2 \"\${COMP_WORDS[@]:1}\")
-        let COMP_CWORD+=1
 
-        local cur words cword prev
-        _get_comp_words_by_ref -n =: cur words cword prev
-        _git_$2
-    }
-    "
-}
+alias ci="git commit"
+alias cie="gite commit"
+alias co="git checkout"
+alias coe="gite checkout"
+alias gd="git diff"
+alias gde="gite diff"
+alias gdc="git diff --cached"
+alias gdce="gite diff --cached"
+alias gmt="git mergetool"
+alias br="git branch"
+alias bre="gite branch"
+alias show="git show"
+alias showe="gite show"
+alias rb="git rebase"
+alias rbc="git rebase --continue"
+alias rbe="gite rebase"
+alias rbi="git rbi"
+alias rbie="gite rbi"
+# 
 
-__git_shortcut () {
-    type _git_$2_shortcut &>/dev/null || __define_git_completion $1 $2
-    alias $1="git $2 $3"
-    complete -o default -o nospace -F _git_$2_shortcut $1
-
-    if hash git.exe &>/dev/null
-    then
-        alias ${1}e="gite $2 $3"
-        complete -o default -o nospace -F _git_$2_shortcut ${1}e
-    fi
-}
-
-__git_shortcut ci commit
-__git_shortcut co checkout
-__git_shortcut a add
-__git_shortcut lg lg
-__git_shortcut log log
-__git_shortcut add add
-__git_shortcut addp add --patch
-__git_shortcut addi add -i
-__git_shortcut gd diff
-__git_shortcut gdc diff --cached
-__git_shortcut br branch
-__git_shortcut show show
-__git_shortcut rb rebase
-__git_shortcut rbi rbi
-__git_shortcut rbis rbis
-
-function gite {
-    if hash git.exe &>/dev/null
-    then
-        git.exe "$@"
-    else
-        git "$@"
-    fi
-}
+type compdef &>/dev/null && compdef gite=git
 
 function gfu {
     upstream=$(gite config --list | grep -q '^remote\.origin\.' && echo 'origin' || echo 'upstream')
@@ -144,24 +116,23 @@ function gfu {
     gite fetch --prune --tags ${upstream} "$@"
 }
 
-function po {
-    gite push origin "$@"
-}
-
+alias po='gite push origin'
+alias pof='po --force-with-lease'
 alias gph='po --set-upstream HEAD'
 
-
-alias st='git st'
 alias stf='git st | fpp'
 
 alias gl='lg -n-1 --all'
 alias gk='gitk --all'
+alias wip='git wip'
+alias unwip='git unwip'
 
-function cor {
-    br=$(recent_branches | fzf --no-sort --reverse)
-    [[ ${SHELL##*/} == zsh ]] && print -s git checkout $br
-    [[ -n $br ]] && git checkout $br
+function st {
+  summary=$(git log -1 --pretty=%s)
+  echo "${summary}" | grep -q '^WIP: ' && echo "On a WIP commit: ${summary}"
+  git st
 }
+
 
 # fh - repeat history
 fh() {
@@ -180,43 +151,24 @@ alias ..='cd ..'
 alias ...='cd ../..'
 
 
-# better gnome open command
-function o()
-{
-    # special case
-    op_prg=`for op in gnome-open open cygstart start explorer.exe
-    do
-        which $op &>/dev/null && echo $op && break
-    done | tail -n 1`
-    which reattach-to-user-namespace &>/dev/null && attach_prg=reattach-to-user-namespace
-
-    for file in "$@"
-    do
-        if [[ "$op_prg" = "explorer.exe" ]] && $CYGWIN; then
-            $op_prg "`cygpath -w "$file"`"
-        else
-            file=`echo "$file" | sed 's/\/$//'`
-            $attach_prg $op_prg "$file"
-        fi
-    done
-}
-
 complete -F _aptitude -o default ap
 
 alias e='ember'
 alias vssh='vagrant ssh'
-alias dc='docker-compose'
-alias dm='docker-machine'
+
+if hash docker-compose &>/dev/null; then
+  alias dc='docker-compose'
+elif hash docker-compose.exe &>/dev/null; then
+  alias dc='docker-compose.exe'
+fi
+
 alias gu='gitup commit'
 alias rg='rg -S'
 alias ag='hash rg &>/dev/null && echo "Please consider using rg.." 1>&2; ag'
 
-function docker-clean() {
-    # clean up containers and their volumes
-    docker rm -v $(docker ps -a -q -f status=exited)
-    # clean up unused images
-    docker rmi $(docker images -f "dangling=true" -q)
-}
+alias prr="pr release"
+
+alias prl='pr -l'
 
 function ds {
     [[ -z "$@" ]] && 1='.*'
@@ -266,16 +218,16 @@ function skim {
     open -a Skim "$@"
 }
 
-function tname {
-    # "tname <some name>" sets the tmux pane title and disallows zsh/vim/etc from changing it
-    # "tname" re-allows the renaming of the window
-    if [[ -n $1 ]]; then
-        tmux rename-window "$*"
-        tmux set-window-option allow-rename off
-    else
-        tmux rename-window zsh
-        tmux set-window-option allow-rename on
-    fi
-}
+# function tname {
+#     # "tname <some name>" sets the tmux pane title and disallows zsh/vim/etc from changing it
+#     # "tname" re-allows the renaming of the window
+#     if [[ -n $1 ]]; then
+#         tmux rename-window "$*"
+#         tmux set-window-option allow-rename off
+#     else
+#         tmux rename-window zsh
+#         tmux set-window-option allow-rename on
+#     fi
+# }
 
 [ -e ~/.bash_aliases_local ] && . ~/.bash_aliases_local

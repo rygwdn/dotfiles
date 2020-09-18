@@ -1,0 +1,12 @@
+#!/bin/bash
+
+upstream=$1
+[[ -z "$upstream" ]] && echo "Unable to cleanup branches without upstream" &&  exit 1
+
+branches="$(git branch --merged=origin/release --format='%(refname:short)')"
+[[ -z "$branches" ]] && echo "No branches to cleanup" &&  exit 0
+
+echo "Are you sure you want to delete the following branches which have not been merged into $upstream?"
+echo $branches
+read
+git branch -D "$branches"

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# use powershell because it handles ampersands better than cmd or explorer on WSL
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "start '${1}'"

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+declare -a new_args
+for arg in "$@"
+do
+  [[ -e "$arg" ]] && new_args+=("$(wslpath -w -- "$arg")") || new_args+=("$arg")
+done
+
+exec "/mnt/c/Program Files/Beyond Compare 4/BComp.exe" "${new_args[@]}"

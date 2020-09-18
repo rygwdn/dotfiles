@@ -1,6 +1,3 @@
-[user]
-	name = Ryan Wooden
-	email = rygwdn@gmail.com
 [color]
 	diff = auto
 	status = auto
@@ -10,6 +7,9 @@
 	editor = vim
 	excludesfile = ~/.gitignore
 	pager = less -F -X -R
+	#pager = delta --plus-color="#012800" --minus-color="#340001" --theme='Monokai Extended'
+#[interactive]
+	#diffFilter = delta --color-only
 [pack]
 	threads = 4
 [giggle]
@@ -47,6 +47,10 @@
 	# git find-merge <SHA-1> [HEAD]
 	find-merge = "!sh -c 'commit=$0 && branch=${1:-HEAD} && (git rev-list $commit..$branch --ancestry-path | cat -n; git rev-list $commit..$branch --first-parent | cat -n) | sort -k2 -s | uniq -f1 -d | sort -n | tail -1 | cut -f2'"
 	show-merge = "!sh -c 'merge=$(git find-merge $0 $1) && [ -n \"$merge\" ] && git show $merge'"
+
+	wip="!wip() { br=\"$(git rev-parse --abbrev-ref HEAD)\" && sha=\"$(git rev-parse --short HEAD)\" && name=${br:-${sha}} && git add . && git commit -m\"WIP: ${name}\"; } ; wip"
+	unwip="!unwip() { if ! git log -1 --pretty=%s | grep -q '^WIP: '; then echo previous commit was not a WIP: 1>&2; git log -1 --oneline 1>&2; exit 1; else git reset --soft HEAD~1; git reset HEAD -- .; git status; fi; } ; unwip"
+	identity = "! git config user.email \"$(git config user.$1.email)\"; git config user.name \"$(git config user.$1.name || git config user.name)\"; :"
 
 
 [url "git@github.com:rygwdn/"]
@@ -96,3 +100,10 @@
 	ff = only
 [merge]
 	ff = only
+[user]
+	useConfigOnly = true
+	name = Ryan Wooden
+[user "work"]
+	email = ryan.wooden@trackgrp.com
+[user "personal"]
+	email = rygwdn@gmail.com

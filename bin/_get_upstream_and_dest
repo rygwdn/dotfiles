@@ -1,0 +1,72 @@
+#!/bin/bash
+
+
+function get_remote_target_branches() {
+  git for-each-ref --format='%(refname)' \
+    refs/remotes/origin/bugfix \
+    refs/remotes/origin/bugfixdrop \
+    refs/remotes/origin/utilities \
+    refs/remotes/origin/rc \
+    refs/remotes/origin/feature/ \
+    refs/remotes/origin/misc/ \
+    refs/remotes/origin/hotfix/ \
+    refs/remotes/origin/rc/ 2>/dev/null \
+    | sed 's|^refs/remotes/origin/||'
+}
+
+function get_merged_branches() {
+  refs="${1:-refs/heads}"
+  [[ "$refs" == "-r" ]] && refs="refs/remotes/"
+
+  get_remote_target_branches \
+    | while read target_branch
+    do
+      git for-each-ref --format='%(refname:short)' "--merged=origin/$target_branch" $refs 2>/dev/null
+    done \
+    | sort -u \
+    | grep -vE '(^|/)(rc/.*|bugfix|feature/.*|misc/.*|production|master|rc)$'
+}
+
+function _get_remote_pr_dest() {
+  local_branch="$1"
+  branches="$(get_remote_target_branches \
+    | while read remote_branch
+    do
+      difference="$(git rev-list --count "refs/remotes/origin/${remote_branch}...${local_branch}")"
+      echo "${difference} ${remote_branch}"
+    done \
+    | sort -n \
+    | sed 's/^[^ ]* //'
+  )"
+
+  if [[ "$2" == "-l" ]]; then
+    echo "$branches" | head -n 1
+    return
+  fi
+
+  echo "$branches" | fzf --reverse --no-sort --header="Pick upstream branch for PR"
+}
+
+
+upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' | sed -nr 's|^origin/(.*)$|\1|p')"
+
+[[ -z "${upstream}" ]] \
+  && echo 'unable to find upstream' 1>&2 &&  exit 1
+
+if [[ "$1" == "-l" ]]; then
+  dest="$(_get_remote_pr_dest HEAD -l)"
+elif [[ -n "$1" ]]; then
+  dest="${1}"
+else
+  dest="$(_get_remote_pr_dest HEAD)"
+fi
+
+[[ -z "$dest" ]] && echo "Failed to get destination" 1>&2 &&  exit 1
+
+if [[ "$upstream" == "$dest" ]]
+then
+  echo "upstream is the same as destination $dest. Probably forgot to push --set-upstream" 1>&2
+   exit 1
+fi
+
+echo -e "${upstream}\t${dest}"

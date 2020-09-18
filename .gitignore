@@ -1,1 +1,3 @@
 *.pyc
+*.zwc
+*.zwc.old

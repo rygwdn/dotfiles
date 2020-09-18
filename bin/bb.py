@@ -20,12 +20,13 @@ class Activity:
 
 
 class API:
-    def __init__(self, username, password, repo):
-        self.username = username
+    def __init__(self, username, password, repo, filter_user = None):
         self.repo = repo
         self.session = requests.Session()
         self.session.auth = (username, password)
         self.base = "https://api.bitbucket.org/2.0/"
+        self.username = filter_user or self._get('user')['username']
+        self._pull_requests = {}
 
     def _get(self, path, params=None):
         resp = self.session.get(urljoin(self.base, path), params=params)
@@ -48,11 +49,16 @@ class API:
                     break
                 print(act.pull_request['id'], act.event_time.humanize())
 
+    def _pr(self, id):
+        if id not in self._pull_requests:
+            self._pull_requests[id] = self._get('repositories/{0}/pullrequests/{1}'.format(self.repo, id))
+        return self._pull_requests[id]
+
     def comments(self, since, jira_root=None):
         prs = {}
         def add_act(act, text):
             pr_data = prs.setdefault(act.pull_request['id'], {
-                'pr': act.pull_request,
+                'pr': self._pr(act.pull_request['id']),
                 'actions': []
             })
             pr_data['actions'].append(text)
@@ -61,15 +67,22 @@ class API:
             if act.event_time < since:
                 break
 
-            if act.type == 'update':
-                pass
-            elif act.type in {'comment', 'approval'}:
-                if act.data['user']['username'] == self.username:
+            if act.type in {'comment', 'approval', 'update'}:
+                #pr = self._pr(act.pull_request['id'])
+                #if pr['author']['username'] == self.username:
+                #    #print('skipping mine: {}'.format(pr['id']))
+                #    continue
+
+                user = act.data.get('user', act.data.get('author', {})).get('username')
+                if user == self.username:
                     add_act(act, "{0} {1}".format(act.type, act.event_time.humanize()))
             else:
                 raise Exception('unknown type ' + key)
 
-        for pr in prs.values():
+        my_prs = filter(lambda x: x['pr']['author']['username'] == self.username, prs.values())
+        reviews = filter(lambda x: x['pr']['author']['username'] != self.username, prs.values())
+
+        def print_pr(pr):
             print('#{id}: {title}'.format(**pr['pr']))
             match = re.match(r"([a-zA-Z]+-[0-9]+).*", pr['pr']['title'])
             print('  {}'.format(pr['pr']['links']['html']['href']))
@@ -77,6 +90,15 @@ class API:
                 print('  {}/browse/{}'.format(jira_root, match.group(1)))
             for act in pr['actions']:
                 print('  -', act)
+
+        print("REVIEWS:")
+        for pr in reviews:
+            print_pr(pr)
+
+        print()
+        print("MINE:")
+        for pr in my_prs:
+            print_pr(pr)
 
 
 def main():
@@ -88,6 +110,7 @@ def main():
     parser.add_argument("--lpass-name")
     parser.add_argument("--days", type=int, default=1)
     parser.add_argument("--jira-root")
+    parser.add_argument("--filter-user", default=None)
     args = parser.parse_args()
 
     try:
@@ -96,7 +119,7 @@ def main():
         else:
             password = getpass.getpass("Password for {}@{}: ".format(args.username, args.repository))
 
-        api = API(args.username, password, args.repository)
+        api = API(args.username, password, args.repository, args.filter_user)
 
         start = arrow.now().replace(days=-args.days)
         if args.action == 'merged':

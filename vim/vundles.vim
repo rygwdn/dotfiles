@@ -24,6 +24,8 @@ Plug 'derekwyatt/vim-scala'
 Plug 'mustache/vim-mustache-handlebars'
 Plug 'hynek/vim-python-pep8-indent', {'for': 'python'}
 Plug 'vim-pandoc/vim-pandoc-syntax' 
+Plug 'dag/vim-fish'
+Plug 'PProvost/vim-ps1'
 
 " Try to autodetect whitespace options
 Plug 'tpope/vim-sleuth'
@@ -54,6 +56,7 @@ Plug 'othree/html5.vim', {'for': 'html'}
 
 " sass/scss
 Plug 'cakebaker/scss-syntax.vim'
+Plug 'tridactyl/vim-tridactyl'
 
 " }}}
 
@@ -69,8 +72,8 @@ Plug 'vim-scripts/candycode.vim'
 " Tags {{{
 
 " THESE DO NOT PROVIDE PLUGINS. They provide bins
-Plug 'jszakmeister/rst2ctags'
-Plug 'jszakmeister/markdown2ctags'
+" Plug 'jszakmeister/rst2ctags'
+" Plug 'jszakmeister/markdown2ctags'
 
 " Note: requires phpctags to be build (run make)
 "Plug 'vim-php/tagbar-phpctags.vim', {'do': 'make'}
@@ -83,6 +86,8 @@ Plug 'jszakmeister/markdown2ctags'
 
 
 " General utils {{{
+
+Plug 'tpope/vim-fugitive'
 
 if index(keys(g:plugs), 'powerline') == -1
     " Nice status line..

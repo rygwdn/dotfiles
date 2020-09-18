@@ -1,3 +1,11 @@
 #!/bin/bash
 
-explorer.exe "\"$@\""
+for pth in "$@"
+do
+   if [[ -e "$pth" ]]
+   then
+      explorer.exe "$(wslpath -a -w "${pth}")"
+   else
+      explorer.exe "${pth}"
+   fi
+done

@@ -1,0 +1,13 @@
+#!/bin/bash
+
+
+upstream_dest="$(_get_upstream_and_dest $1)"
+[[ $? == 0 ]] || exit $?
+
+upstream=$(echo "$upstream_dest" | cut -f1)
+dest=$(echo "$upstream_dest" | cut -f2)
+
+[[ "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$upstream")" ]] \
+&& echo 'upstream is not in sync with HEAD.' 1>&2
+
+_open_bb "compare/${upstream}%0D${dest}"

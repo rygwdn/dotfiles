@@ -413,3 +413,9 @@ if filereadable(expand("~/.vimrc.local"))
     source $HOME/.vimrc.local
 endif
 " ---------------------------------------------- }}}
+
+"  Fix for https://github.com/equalsraf/neovim-qt/issues/417 {{{
+if @% == ""
+  bd
+endif
+"  ---------------------------------------------------------- }}}

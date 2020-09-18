@@ -1,0 +1,14 @@
+#!/bin/bash
+
+
+remote="$(git config --get remote.origin.url)"
+if echo "$remote" | grep -q 'bitbucket.org'
+then
+  url_path=$(echo "${remote}" | sed -nr 's|.*[/:]([^/]*/[^/]*)(\.git)?$|\1|p')
+  url="https://bitbucket.org/${url_path}/$1"
+  echo "$url"
+  [[ -n ${BROWSER} ]] && "${BROWSER}" "${url}"
+else
+  echo "Can't handle URL ${remote} yet.."
+  exit 1
+fi
