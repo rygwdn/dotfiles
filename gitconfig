@@ -63,9 +63,7 @@
 	renames = copies
 	mnemonicprefix = true
 	compactionHeuristic = true
-[mergetool "splice"]
-	cmd = "gvim -f $BASE $LOCAL $REMOTE $MERGED -c 'SpliceInit'"
-	trustExitCode = true
+
 [difftool]
 	prompt = false
 	keepTemporaries = false
@@ -107,3 +105,17 @@
 	email = ryan.wooden@trackgrp.com
 [user "personal"]
 	email = rygwdn@gmail.com
+[winUpdater]
+	recentlySeenVersion = 2.25.1.windows.1
+[difftool "bc3"]
+	path = c:/Program Files/Beyond Compare 4/bcomp.exe
+[mergetool "bc3"]
+	path = c:/Program Files/Beyond Compare 4/bcomp.exe
+[filesystem "Oracle Corporation|11.0.3-Syntevo|-698928229"]
+	timestampResolution = 9002 microseconds
+	minRacyThreshold = 0 nanoseconds
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true

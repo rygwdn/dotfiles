@@ -12,6 +12,8 @@ all_platforms = [
     "zshenv",
     "zsh/zshrc",
     "zsh/bash_aliases",
+    "ripgreprc",
+    ("fish", ".config/fish"),
 ]
 
 windows_links = all_platforms + [
@@ -22,6 +24,7 @@ windows_links = all_platforms + [
 
 unix_links = all_platforms + [
     "vim",
+    "vim/vimrc",
     "flexget",
     "tmux.conf",
     "tridactylrc",
@@ -69,6 +72,8 @@ def main():
             operations.append(dolink(link))
 
     if not args.dry:
+        Path(Path.home(), ".config").mkdir(exist_ok=True)
+
         for op in operations:
             if op:
                 op()
