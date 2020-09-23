@@ -10,9 +10,9 @@ abbr la ls -A
 
 # abbr h "history search --reverse | grep"
 
-abbr st gite st
-abbr ci gite commit
-abbr co gite checkout
+abbr st git st
+abbr ci git commit
+abbr co git checkout
 abbr gd git diff
 abbr gdc git diff --cached
 abbr gmt git mergetool
@@ -20,16 +20,14 @@ abbr br git branch
 abbr show git show
 abbr rb git rebase
 abbr rbc git rebase --continue
-abbr rbe gite rebase
 abbr rbi git rbi
-abbr rbie gite rbi
 
 abbr fugitive vim -c "Ge :"
 abbr fu vim -c "Ge :"
 
-abbr po gite push origin
-abbr pof gite push origin --force-with-lease
-abbr gph gite push origin --set-upstream HEAD
+abbr po git push origin
+abbr pof git push origin --force-with-lease
+abbr gph git push origin --set-upstream HEAD
 
 abbr wip git wip
 abbr unwip git unwip

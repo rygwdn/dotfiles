@@ -1,8 +1,19 @@
 #!/bin/bash
 
-if hash git.exe &>/dev/null && [[ "$(stat -f -c %T .)" = "wslfs" ]]
+# Note: this can be linked somewhere in the path in wsl to use windows vs linux git
+# automatically, e.g.: sudo ln -s (pwd)/bin/gite /usr/local/bin/git
+
+if hash git.exe &>/dev/null && df -t drvfs . >/dev/null 2>&1
 then
+  for i in "$@"
+  do
+    # I hate opening the browser for this..
+    [[ $i == "help" || $i == "--help" ]] && exec /usr/bin/git "$@"
+    # want a linux path here
+    [[ $i == "--show-toplevel" ]] && exec /usr/bin/git "$@"
+  done
+
   exec git.exe "$@"
-else
-  exec git "$@"
 fi
+
+exec /usr/bin/git "$@"
