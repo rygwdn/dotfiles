@@ -1,0 +1,12 @@
+#!/bin/bash
+
+cat $1 \
+    | sed 's|//.*||' \
+    | sed 's|^ *#.*||' \
+    | sed 's/^[[:space:]]\+//' \
+    | tr '\r\n' ' ' \
+    | sed 's/\([^ ]\)[[:space:]]\+/\1 /g' \
+    | sed 's/\([,.]\) \+/\1/g' \
+    | sed 's/ \+\([,.]\)/\1/g' \
+    | sed 's/\b\(public\|private\|protected\)\b/\n\1/g' \
+    | astyle -U -z2 -xe --style=allman -s4 -j -xy -xC100 --mode=cs
