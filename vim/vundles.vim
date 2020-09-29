@@ -15,12 +15,12 @@ Plug 'tpope/vim-liquid'
 Plug 'tpope/vim-ragtag'
 Plug 'groenewege/vim-less'
 Plug 'aklt/plantuml-syntax'
-Plug 'omailson/vim-qml'
-Plug 'rygwdn/qmake-syntax-vim'
-Plug 'rodjek/vim-puppet'
+" Plug 'omailson/vim-qml'
+" Plug 'rygwdn/qmake-syntax-vim'
+" Plug 'rodjek/vim-puppet'
 "Plug 'plasticboy/vim-markdown'
 Plug 'elzr/vim-json'
-Plug 'derekwyatt/vim-scala'
+" Plug 'derekwyatt/vim-scala'
 Plug 'mustache/vim-mustache-handlebars'
 Plug 'hynek/vim-python-pep8-indent', {'for': 'python'}
 Plug 'vim-pandoc/vim-pandoc-syntax' 
@@ -37,15 +37,15 @@ Plug 'tpope/vim-git'
 Plug 'stephpy/vim-yaml'
 
 " OTL files
-Plug 'vimoutliner/vimoutliner'
+" Plug 'vimoutliner/vimoutliner'
 
 " For taking notes
-Plug 'xolox/vim-notes'
-Plug 'xolox/vim-misc'
+" Plug 'xolox/vim-notes'
+" Plug 'xolox/vim-misc'
 
 " JS
-Plug 'kchmck/vim-coffee-script'
-Plug 'pangloss/vim-javascript'
+" Plug 'kchmck/vim-coffee-script'
+Plug 'pangloss/vim-javascript', {'for': 'javascript'}
 Plug 'othree/javascript-libraries-syntax.vim', {'for': 'javascript'}
 Plug 'dsawardekar/portkey', {'for': 'javascript'}
 Plug 'dsawardekar/ember.vim', {'for': 'javascript'}
@@ -104,10 +104,10 @@ Plug 'tpope/vim-surround'
 Plug 'godlygeek/tabular'
 
 " Use "+" to grow selection
-Plug 'terryma/vim-expand-region'
+" Plug 'terryma/vim-expand-region'
 
 " Use M-{j,k} to move line/selection up/down
-Plug 'matze/vim-move'
+" Plug 'matze/vim-move'
 
 " Comment/uncomment. Provdes "gcc" (among others)
 Plug 'tpope/vim-commentary'
@@ -116,8 +116,8 @@ Plug 'tpope/vim-commentary'
 Plug 'moll/vim-bbye'
 
 " Provides :Ack, :Ag
-Plug 'mileszs/ack.vim'
-Plug 'rking/ag.vim'
+" Plug 'mileszs/ack.vim'
+" Plug 'rking/ag.vim'
 
 " Provides :Remove :Move, :Chmod, :Find, :Locate, :SudoWrite, :SudoEdit, :W
 Plug 'tpope/vim-eunuch'
@@ -136,13 +136,13 @@ Plug 'vim-scripts/utl.vim'
 
 " File/dir tree. Provides "-"
 Plug 'dhruvasagar/vim-vinegar'
-Plug 'scrooloose/nerdtree'
+" Plug 'scrooloose/nerdtree'
 
 " My own tag based fswitch.vim. Provides ,f{fhljk}
-Plug 'rygwdn/tagswitch'
+" Plug 'rygwdn/tagswitch'
 
 " Show tags in the current file in a tree
-Plug 'majutsushi/tagbar'
+" Plug 'majutsushi/tagbar'
 
 " Add tmux-compatible C-{hjkl} mappings
 Plug 'christoomey/vim-tmux-navigator'
@@ -152,7 +152,7 @@ if v:version >= 704
     Plug 'myusuf3/numbers.vim'
 
     " Access remote stuff (e.g. :e ssh://me@soemplace/blah)
-    Plug 'eiginn/netrw'
+    " Plug 'eiginn/netrw'
 endif
 
 " Allow certain things to be repeated
