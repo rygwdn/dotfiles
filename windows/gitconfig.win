@@ -1,7 +1,7 @@
 [core]
     autocrlf = false
     pager = delta --theme='Monokai Extended Origin' --24-bit-color=always --dark --keep-plus-minus-markers --file-color=bright-blue --hunk-color=bright-blue
-    editor = C:/Users/ryan.wooden/bin/wvim.cmd
+    editor = C:/Users/ryan.wooden/dotfiles/bin/wvim.cmd
 [interactive]
     diffFilter = delta --theme='Monokai Extended Origin' --24-bit-color=always --dark --color-only --keep-plus-minus-markers --file-color=bright-blue --hunk-color=bright-blue
 [merge]
