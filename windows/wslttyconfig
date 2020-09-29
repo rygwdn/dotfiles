@@ -1,0 +1,14 @@
+# To use common configuration in %APPDATA%\mintty, simply remove this file
+BoldAsFont=-1
+CursorType=block
+Font=Fira Code
+FontHeight=11
+AllowBlinking=yes
+FontWeight=400
+CtrlShiftShortcuts=yes
+Scrollbar=none
+SwitchShortcuts=no
+LigaturesSupport=2
+Locale=C
+Charset=UTF-8
+AllowSetSelection=true
