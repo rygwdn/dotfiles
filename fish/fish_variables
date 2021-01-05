@@ -6,6 +6,7 @@ SETUVAR __fish_init_2_39_8:\x1d
 SETUVAR __fish_init_2_3_0:\x1d
 SETUVAR __fish_init_3_x:\x1d
 SETUVAR __fish_initialized:3100
+SETUVAR _fish_abbr_apsh:powershell\x2eexe\x20Start\x2dProcess\x20powershell\x20\x2dVerb\x20runas
 SETUVAR _fish_abbr_br:git\x20branch
 SETUVAR _fish_abbr_ci:git\x20commit
 SETUVAR _fish_abbr_co:git\x20checkout

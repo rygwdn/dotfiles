@@ -302,7 +302,11 @@ if !has("nvim")
 endif
 
 if !exists("g:colors_name") || g:colors_name != "candycode"
-    colorscheme candycode
+    try
+        colorscheme candycode
+    catch /^Vim\%((\a\+)\)\=:E185/
+        " probably not installed
+    endtry
 endif
 
 

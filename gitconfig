@@ -51,6 +51,8 @@
 	wip="!wip() { br=\"$(git rev-parse --abbrev-ref HEAD)\" && sha=\"$(git rev-parse --short HEAD)\" && name=${br:-${sha}} && git add . && git commit -m\"WIP: ${name}\"; } ; wip"
 	unwip="!unwip() { if ! git log -1 --pretty=%s | grep -q '^WIP: '; then echo previous commit was not a WIP: 1>&2; git log -1 --oneline 1>&2; exit 1; else git reset --soft HEAD~1; git reset HEAD -- .; git status; fi; } ; unwip"
 	identity = "! git config user.email \"$(git config user.$1.email)\"; git config user.name \"$(git config user.$1.name || git config user.name)\"; :"
+	ident-personal = identity personal
+	ident-work = identity work
 
 
 [url "git@github.com:rygwdn/"]

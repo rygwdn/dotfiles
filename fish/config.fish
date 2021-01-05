@@ -115,6 +115,7 @@ end
 
 if which powershell.exe &>/dev/null
     abbr psh powershell.exe
+    abbr apsh powershell.exe Start-Process powershell -Verb runas
 else if which powershell &>/dev/null
     abbr psh powershell
 end

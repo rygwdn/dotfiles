@@ -26,6 +26,7 @@ windows_links = all_platforms + [
 unix_links = all_platforms + [
     "vim",
     "vim/vimrc",
+    ("vim", ".config/nvim"),
     "flexget",
     "tmux.conf",
     "tridactylrc",
