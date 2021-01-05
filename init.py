@@ -20,7 +20,7 @@ windows_links = all_platforms + [
     ("tridactylrc", "_tridactylrc"),
     ("vim", "vimfiles"),
     ("vim/_vimrc",  "_vimrc"),
-    ("windows/profile.ps1",  "Documents/WindowsPowerShell/profile.ps1"),
+    ("windows/profile.ps1",  "Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"),
 ]
 
 unix_links = all_platforms + [
