@@ -5,6 +5,7 @@ op_prg=`for op in explorer.exe gnome-open cygstart start open
 do
     which $op &>/dev/null && echo $op && break
 done | tail -n 1`
+
 which reattach-to-user-namespace &>/dev/null &&  attach_prg=reattach-to-user-namespace
 
 if [[ -z "$op_prg" ]]
@@ -16,9 +17,13 @@ fi
 for file in "$@"
 do
     if [[ "$op_prg" = "explorer.exe" ]] && which cygpath &>/dev/null; then
-        $op_prg "`cygpath -w "$file"`"
+        file="`cygpath -w "$file"`"
+    elif [[ "$op_prg" = "explorer.exe" ]] && which wslpath &>/dev/null; then
+        file="`wslpath -m "$file"`"
+        op_prg='cmd.exe /c start "Launching from BASH"'
     else
         file=`echo "$file" | sed 's/\/$//'`
-        $attach_prg $op_prg "$file"
     fi
+
+    $attach_prg $op_prg "$file"
 done

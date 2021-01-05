@@ -10,5 +10,12 @@ dest=$(echo "$upstream_dest" | cut -f2)
 #[[ "$(git rev-parse HEAD)" != "$(git rev-parse "origin/$upstream")" ]] \
 #&& echo 'upstream is not in sync with HEAD. Not creating PR' 1>&2 &&  exit 1
 
+remote="$(git config --get remote.origin.url)"
+if echo "$remote" | grep -q 'github.com' && which gh &>/dev/null
+then
+    dest_param=$([[ -n "${dest}" ]] && echo "&dest=${dest}")
+    exec gh pr create --base "${dest}" --head "${upstream}" --web
+fi
+
 dest_param=$([[ -n "${dest}" ]] && echo "&dest=${dest}")
 _open_bb "pull-requests/new?source=${upstream}&t=1${dest_param}"
