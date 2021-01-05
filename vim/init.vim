@@ -35,10 +35,17 @@ else
     let g:light_bundles = 0
 endif
 
+
 filetype indent plugin off
 filetype off
 
-runtime vundles.vim
+
+if $VIM_FISH_BUNDLES == 1
+    runtime fish_vundles.vim
+else
+    runtime vundles.vim
+endif
+
 
 filetype on
 filetype indent plugin on
