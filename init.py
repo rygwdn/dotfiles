@@ -35,7 +35,7 @@ def dolink(file, destname=None):
     src = Path(file).resolve()
     dest = Path(Path.home(), destname or "." + src.name).resolve()
 
-    destname = destname or str(dest.relative_to(Path.home()))
+    destname = "~/" + (destname or str(dest.relative_to(Path.home())))
     srcname = src.relative_to(Path.cwd())
 
     if not src.exists():
