@@ -20,5 +20,5 @@ GroupAdd, nwindows, ahk_exe Notion.exe
 #n::GroupActivate, nwindows, r
 
 ; Capslock -> Esc
-+Capslock::Capslock
-Capslock::Esc
+;+Capslock::Capslock
+;Capslock::Esc
