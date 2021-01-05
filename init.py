@@ -35,24 +35,27 @@ def dolink(file, destname=None):
     src = Path(file).resolve()
     dest = Path(Path.home(), destname or "." + src.name).resolve()
 
+    destname = destname or str(dest.relative_to(Path.home()))
+    srcname = src.relative_to(Path.cwd())
+
     if not src.exists():
         raise Exception(f"{src} does not exist!")
 
     if src.exists() and dest.exists() and src.samefile(dest):
-        print(f"✔ {src.name}")
+        print(f"✔ {srcname}")
     elif dest.exists() and dest.is_file():
         with dest.open() as dFile:
             with src.open() as sFile:
                 if dFile.readlines() == sFile.readlines():
-                    print(f"✘ {dest.name} exists & contains same content as {src.name}")
+                    print(f"✘ {destname} exists & contains same content as {srcname}")
                 else:
-                    print(f"✘ {dest.name} exists & differs from {src.name}")
+                    print(f"✘ {destname} exists & differs from {srcname}")
     elif dest.exists():
-        print(f"✘ {dest.name} exists & not linked to {src.name}")
+        print(f"✘ {destname} exists & not linked to {srcname}")
     elif dest.is_symlink():
-        print(f"✘ {dest.name} is a broken link")
+        print(f"✘ {destname} is a broken link")
     else:
-        print(f"↷ {src.name} -> {dest.name}")
+        print(f"↷ {srcname} -> {destname}")
         return lambda: dest.symlink_to(src.resolve())
 
 def main():
