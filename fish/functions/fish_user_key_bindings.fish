@@ -1,4 +1,6 @@
 function fish_user_key_bindings
+    # Note: fish_key_reader helps build bindings
+
     fish_vi_key_bindings
 
     type -q fzf_key_bindings; and fzf_key_bindings
@@ -10,26 +12,15 @@ function fish_user_key_bindings
     # fix some vi keybindings:
     _better_vi_mode
 
-    # Note: fish_key_reader helps build bindings
+    # TODO: if tmux popup is available AND nvim is present..
+    bind \ei edit_buffer_tmux
+    bind -M insert \ei edit_buffer_tmux
 end
 
 function _better_vi_mode
-    # TODO: these fixed in latest master?
-    # default keybindings miss 1 char
-    bind dt begin-selection forward-jump kill-selection end-selection
-    bind df begin-selection forward-jump forward-char kill-selection end-selection
-
-    bind ct -m insert begin-selection forward-jump kill-selection end-selection force-repaint
-    bind cf -m insert begin-selection forward-jump forward-char kill-selection end-selection force-repaint
-
-    # better tilde..
-    # TODO: these fixed in latest master?
-    bind '~' vimtilde
-    bind --preset '~' vimtilde
-
-    # TODO: fix in C++
-    # https://github.com/fish-shell/fish-shell/pull/6908
-    bind w _vi_forward_word
+    # TODO: hack in external program instead..
+    # https://github.com/fish-shell/fish-shell/issues/1931
+    #bind w _vi_forward_word
 
     # TODO: fix in C++
     bind --preset -e gu
@@ -61,7 +52,6 @@ function _downcase_x
     commandline -f repaint
 end
 
-
 function _vi_forward_word
     set rest (_get_rest_of_buf | string split0)
 
@@ -72,41 +62,10 @@ function _vi_forward_word
     end
 end
 
-function vimtilde
-    set -l cur_chr (_cur_chr)
-
-    set upper_chr (string upper $cur_chr)
-    set lower_chr (string lower $cur_chr)
-
-    if test $upper_chr = $lower_chr
-        commandline -f forward-char
-        commandline -f repaint
-        return
-    end
-
-    set new_chr (
-        if test x$cur_chr = x$upper_chr
-            echo $lower_chr
-        else
-            echo $upper_chr
-        end
-    )
-
-    commandline -i $new_chr
-    commandline -f delete-char
-    commandline -f repaint
-end
-
-function _cur_chr
-    set -l buf (commandline -b | string split0)
-    set -l pos (math (commandline -C) + 1)
-    string sub -s $pos -l 1 $buf
-end
-
 function _get_rest_of_buf
     set -l buf (commandline -b | string split0)
     set -l pos (math (commandline -C) + 1)
     string sub -s $pos $buf
 end
 
-# vim: sw=4,noet
+# vim: shiftwidth=4 tabstop=4 expandtab

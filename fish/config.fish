@@ -22,6 +22,12 @@ abbr rb git rebase
 abbr rbc git rebase --continue
 abbr rbi git rbi
 
+abbr pff git pull --ff-only
+abbr pnf git pull --no-ff
+
+abbr mff git merge --ff-only
+abbr mnf git merge --no-ff
+
 abbr fugitive vim -c "Ge :"
 abbr fu vim -c "Ge :"
 
@@ -36,7 +42,7 @@ abbr rg rg -S
 abbr prl pr -l
 
 abbr yt "youtube-dl --no-mtime --ignore-config --recode-video=mp4 --no-playlist --format=best"
-abbr yta "youtube-dl --no-mtime --ignore-config --no-playlist --format=bestaudio --extract-audio --audio-quality 0 --audio-format=aac"
+abbr yta "youtube-dl --no-mtime --ignore-config --no-playlist --format=best --extract-audio --audio-format=aac"
 
 set -U __done_exclude '(git (?!push|pull)|vim)'
 
@@ -86,3 +92,29 @@ set -x LC_CTYPE 'C'
 
 # timeout after 8h
 set -x LPASS_AGENT_TIMEOUT 2880
+
+
+# TODO: only if mintty?
+set fish_vi_force_cursor 1
+set fish_cursor_default block
+set fish_cursor_insert line
+set fish_cursor_replace_one underscore
+#fish_vi_cursor 
+
+if which docker-compose.exe &>/dev/null
+    abbr dc docker-compose.exe
+else if which docker-compose &> /dev/null
+    abbr dc docker-compose
+end
+
+if which docker.exe &>/dev/null
+    abbr d docker.exe
+else if which docker &>/dev/null
+    abbr d docker
+end
+
+if which powershell.exe &>/dev/null
+    abbr psh powershell.exe
+else if which powershell &>/dev/null
+    abbr psh powershell
+end
