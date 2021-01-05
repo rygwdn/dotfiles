@@ -1,23 +1,24 @@
 # If not running interactively, don't do anything
 [[ -z "$PS1" ]] && return
 
-other_shell=fish
-
-if [[ -z "$TRIED_OTHERSHELL" && "${SHELL##*/}" != "$other_shell" ]] && which "$other_shell" &>/dev/null
-then
-   export TRIED_OTHERSHELL=true
-   other_start=$(date +%s)
-   # exit nicely if other shell exits cleanly
-   $other_shell && exit
-   other_exit=$?
-   other_end=$(date +%s)
-   other_lifetime=$((other_end - other_start))
-
-   # Was open for a while, so it probably worked but the last command failed
-   [[ ${other_lifetime} > 30 ]] && exit
-
-   echo "${other_shell} failed after ${other_lifetime} seconds with exit code ${other_exit} -- trying bash" 1>&2
-fi
+# Just set my shell rather than using bash-fallback
+#other_shell=fish
+#
+#if [[ -z "$TRIED_OTHERSHELL" && "${SHELL##*/}" != "$other_shell" ]] && which "$other_shell" &>/dev/null
+#then
+#   export TRIED_OTHERSHELL=true
+#   other_start=$(date +%s)
+#   # exit nicely if other shell exits cleanly
+#   $other_shell && exit
+#   other_exit=$?
+#   other_end=$(date +%s)
+#   other_lifetime=$((other_end - other_start))
+#
+#   # Was open for a while, so it probably worked but the last command failed
+#   [[ ${other_lifetime} > 30 ]] && exit
+#
+#   echo "${other_shell} failed after ${other_lifetime} seconds with exit code ${other_exit} -- trying bash" 1>&2
+#fi
 
 if [[ -e ~/.bash_profile && -z "$SOURCED_PROFILE" ]]
 then
