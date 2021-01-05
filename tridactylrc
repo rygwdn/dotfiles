@@ -13,6 +13,8 @@ bindurl ^https://github.com z hint -Jc input[name='viewed']:not(:checked)
 bindurl ^https://github.com Z hint -Jc input[name='viewed']
 bindurl ^https://github.com ;c hint -Jc button.add-line-comment
 
+" bind ;b hint -Jc button.add-line-comment
+
 " Allow Ctrl-a to select all in the commandline
 unbind --mode=ex <C-a>
 
