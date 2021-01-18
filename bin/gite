@@ -2,18 +2,21 @@
 
 # Note: this can be linked somewhere in the path in wsl to use windows vs linux git
 # automatically, e.g.: sudo ln -s (pwd)/bin/gite /usr/local/bin/git
+wingit=/mnt/c/Users/ryan.wooden/AppData/Local/Programs/Git/cmd/git.exe
+lingit=/usr/bin/git
 
-if hash git.exe &>/dev/null && df -t drvfs . >/dev/null 2>&1
+# check for wsl2 disk with 9p and wsl1 disk with drvfs
+if [[ "$PWD" = /mnt/d/* ]] || ([[ -f "$wingit" ]] && (df -t 9p . || df -t drvfs . ) >/dev/null 2>&1)
 then
   for i in "$@"
   do
     # I hate opening the browser for this..
-    [[ $i == "help" || $i == "--help" ]] && exec /usr/bin/git "$@"
+    [[ $i == "help" || $i == "--help" ]] && exec "$lingit" "$@"
     # want a linux path here
-    [[ $i == "--show-toplevel" ]] && exec /usr/bin/git "$@"
+    [[ $i == "--show-toplevel" ]] && exec "$lingit" "$@"
   done
 
-  exec git.exe "$@"
+  exec "$wingit" "$@"
 fi
 
-exec /usr/bin/git "$@"
+exec "$lingit" "$@"
