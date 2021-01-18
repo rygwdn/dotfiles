@@ -1,14 +1,34 @@
-function fish_title
-    set realhome ~
-    set -l tmp (string replace -r '^'"$realhome"'($|/)' '~$1' $PWD)
-    set -l tmp (string replace -r '^/mnt/c/Users/ryan.wooden($|/)' '~$1' "$tmp")
-    set -l tmp (string replace -r '^~/intellitrack-service($|/)' '~is$1' "$tmp")
-    set -l tmp (string replace -r '^~/intellitrack-service-wip($|/)' '~isw$1' "$tmp")
-    set -l tmp (string replace -r '^~/intellitrack-service-' '~is' "$tmp")
-    string replace -ar '(\.?[^/]{'"$fish_prompt_pwd_dir_length"'})[^/]*/' '$1/' $tmp
+# You can override some default title options in your config.fish:
+#     set -g theme_title_display_process no
+#     set -g theme_title_display_path no
+#     set -g theme_title_display_user yes
+#     set -g theme_title_use_abbreviated_path no
 
-    set -l current (status current-command)
-    if [ "$current" != "fish" ]
-         echo " $current"
+function __bobthefish_title_user -S -d 'Display actual user if different from $default_user'
+    if [ "$theme_title_display_user" = 'yes' ]
+        if [ "$USER" != "$default_user" -o -n "$SSH_CLIENT" ]
+            set -l IFS .
+            hostname | read -l hostname __
+            echo -ns (whoami) '@' $hostname ' '
+        end
+    end
+end
+
+function fish_title
+    __bobthefish_title_user
+
+    if [ "$theme_title_display_process" = 'yes' ]
+        echo $_
+
+        [ "$theme_title_display_path" != 'no' ]
+        and echo ' '
+    end
+
+    if [ "$theme_title_display_path" != 'no' ]
+        if [ "$theme_title_use_abbreviated_path" = 'no' ]
+            echo $PWD
+        else
+            prompt_pwd
+        end
     end
 end
