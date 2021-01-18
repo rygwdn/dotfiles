@@ -123,3 +123,6 @@
 	required = true
 [diff "csformat"]
 	textconv = csformat
+[gc]
+	# needed by smartgit
+	autoDetach = false
