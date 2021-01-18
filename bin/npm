@@ -1,3 +1,7 @@
-#!/bin/sh
+#!/usr/bin/bash
 
-exec node 'C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js' "$@"
+#exec node 'C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js' "$@"
+
+which npm.exe &>/dev/null || exec npm "$@"
+
+npm.exe "$@"

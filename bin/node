@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/usr/bin/bash
+
+which node.exe &>/dev/null || exec node "$@"
 
 if [ -e "$1" ]
 then
