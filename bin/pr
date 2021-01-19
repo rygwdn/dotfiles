@@ -11,9 +11,16 @@ dest=$(echo "$upstream_dest" | cut -f2)
 #&& echo 'upstream is not in sync with HEAD. Not creating PR' 1>&2 &&  exit 1
 
 remote="$(git config --get remote.origin.url)"
-if echo "$remote" | grep -q 'github.com' && which gh &>/dev/null
+
+if echo "$remote" | grep -q 'github.com'
 then
-    dest_param=$([[ -n "${dest}" ]] && echo "&dest=${dest}")
+    if ! which gh &>/dev/null
+    then
+        echo 'need to install gh'
+        exit 1
+    fi
+
+    dest_param=$([[ -n "${dest}" ]] && echo "&dest=${dest}" )
     exec gh pr create --base "${dest}" --head "${upstream}" --web
 fi
 
