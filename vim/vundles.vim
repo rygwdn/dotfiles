@@ -164,6 +164,8 @@ Plug 'kopischke/vim-fetch'
 " Handle focus events from tmux
 Plug 'tmux-plugins/vim-tmux-focus-events'
 
+Plug 'glacambre/firenvim', { 'do': { _ -> firenvim#install(0) } }
+
 " }}}
 
 call plug#end()
