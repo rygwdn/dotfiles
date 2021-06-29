@@ -3,9 +3,10 @@
 
 import sys
 import os.path
-from subprocess import check_output, CalledProcessError
+from subprocess import check_output, CalledProcessError, Popen, PIPE
 import re
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 
 parser = argparse.ArgumentParser(description='Get all git branches sorted by recency')
 parser.add_argument('--git', dest='git', default='git',
@@ -15,7 +16,11 @@ args = parser.parse_args()
 
 
 def git(command):
-    return check_output(args.git + ' ' + command, shell=True).decode("utf-8").splitlines()
+    with Popen([args.git + ' ' + command], shell=True, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
+        for line in p.stdout:
+            yield line.rstrip('\r\n')
+            #print(line, end='')
+    #return check_output(args.git + ' ' + command, shell=True).decode("utf-8").splitlines()
 
 
 def get_all_branches():
@@ -27,22 +32,26 @@ def get_all_branches():
             branches.append(branch)
     return branches
 
+reflog_match = re.compile(r"HEAD@{([0-9]*)}.*moving from (.*) to (.*)")
+
+def get_recent_branches_for_worktree(worktree):
+    recent = []
+    reflog = git('--git-dir="' + worktree + '/.git" log --date=unix --walk-reflogs --grep-reflog="moving from" --all --pretty=format:"%gd %gs" --since="@{1 month ago}"')
+    for line in reflog:
+        match = reflog_match.match(line)
+        if not match:
+            continue
+        date = int(match.group(1))
+        for branch in [match.group(3).strip(), match.group(2).strip()]:
+            recent.append([date, branch])
+    return recent
 
 def get_recent_branches(all_branches, worktrees):
-    recent = []
+    recents = []
+    with ThreadPoolExecutor() as executor:
+        recents = executor.map(get_recent_branches_for_worktree, worktrees)
 
-    reflog_match = re.compile(r"HEAD@{([0-9]*)}.*moving from (.*) to (.*)")
-
-    for worktree in worktrees:
-        reflog = git('--git-dir="' + worktree + '/.git" log --date=unix --walk-reflogs --grep-reflog="moving from" --all --pretty=format:"%gd %gs" --since="@{1 month ago}"')
-        for line in reflog:
-            match = reflog_match.match(line)
-            if not match:
-                continue
-            date = int(match.group(1))
-            for branch in [match.group(3).strip(), match.group(2).strip()]:
-                recent.append([date, branch])
-
+    recent = [r for rlist in recents for r in rlist]
     sorted_branches = []
     for (date, branch) in sorted(recent, reverse=True):
         if branch in all_branches and branch not in sorted_branches:
