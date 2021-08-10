@@ -1,8 +1,4 @@
-let s:win_shell = (has('win32') || has('win64')) && &shellcmdflag =~ '/'
-let s:vim_dir = s:win_shell ? '$HOME/vimfiles' : '$HOME/.vim'
-let s:bundle_dir = s:vim_dir . '/bundle'
-
-call plug#begin(s:bundle_dir)
+call plug#begin(g:bundle_dir)
 
 Plug 'godlygeek/tabular'
 Plug 'moll/vim-bbye'
