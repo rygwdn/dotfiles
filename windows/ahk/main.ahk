@@ -20,13 +20,16 @@ GroupAdd, nwindows, ahk_exe Notion.exe
 #n::GroupActivate, nwindows, r
 
 ; Ctrl-` to toggle first application (terminal) like quake
-^`::#1
+; ^`::#1
 
 ; media keys, Ctrl+Alt+<direction>
 ^!Left::Send   {Media_Prev}
 ^!Right::Send  {Media_Next}
 ^!Down::Send   {Media_Play_Pause}
 ^!Up::Send     {Media_Play_Pause}
+^!PgUp::Send   {Volume_Up}
+^!PgDn::Send   {Volume_Down}
+
 
 ; media keys, Shift+Ctrl+Alt+<direction>
 +^!Down::Send  {Volume_Down}

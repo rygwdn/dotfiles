@@ -1,0 +1,23 @@
+" source ~/.config/nvim/init.vim
+"
+
+set visualbell                  " visual beep
+set scrolloff=5                 " keep at least 5 lines above/below cursor
+set history=200                 " remember the last 200 commands
+set wrap                        " ...
+
+set clipboard=unnamed       " use "+ as the default register
+
+let g:maplocalleader=','          " all my macros start with ,
+let g:mapleader=","               " set <Leader> to , instead of \
+
+set number
+set rnu                     " relative line nums
+
+set backspace=eol,start,indent  " allow backspacing over indent, eol, & start
+
+
+set nohlsearch                   " enable search highlight globally
+set incsearch                  " show matches as soon as possible
+set ignorecase smartcase       " case-insensitive if lower case
+set gdefault                   " use ///g by default, now it switches it off

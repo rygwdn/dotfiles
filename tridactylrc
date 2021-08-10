@@ -1,11 +1,13 @@
 " bind yp composite js document.getElementById("clone-help-step-1").textContent.replace("git checkout -b", "git checkout -B").replace("git pull ", "git fetch ") + "git reset --hard " + document.getElementById("clone-help-step-1").textContent.split(" ")[3].replace("-","/") | yank
 
+
+set editorcmd C:/tools/neovim/Neovim/bin/nvim-qt.exe %f "+normal!%lGzv%c|"
+
 " Only hint search results on Google and DDG
 bindurl www.google.com f hint -Jc .g a
 bindurl www.google.com ;f hint 
 bindurl www.google.com F hint -Jbc .g a
 bindurl www.google.com ;F hint -b
-
 
 bindurl ^https://duckduckgo.com f hint -Jc [class=result__a]
 bindurl ^https://duckduckgo.com F hint -Jbc [class=result__a]
