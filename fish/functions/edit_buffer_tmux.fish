@@ -30,7 +30,7 @@ function edit_buffer_tmux --description 'Edit the command buffer in a tmux popup
 
     set -l editor 'env VIM_FISH_BUNDLES=1 nvim'
     set -a editor +$line +"norm $col|" $f
-    tmux popup -KER "env VIM_FISH_BUNDLES=1 nvim '+$line' '+norm $col|' '$f'"
+    tmux display-popup -h 20 -w '90%' -E "env VIM_FISH_BUNDLES=1 nvim '+$line' '+norm $col|' '$f'"
 
     set -l editor_status $status
     __fish_enable_bracketed_paste
