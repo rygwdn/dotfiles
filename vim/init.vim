@@ -26,26 +26,12 @@ augroup END
 
 " ------------------------------------------- }}}
 
-" Bundles & pathogen {{{
-
-" Disable some vim bundles if requested
-if $VIM_LIGHT_BUNDLES == 1
-    let g:light_bundles = 1
-else
-    let g:light_bundles = 0
-endif
-
+" plugins {{{
 
 filetype indent plugin off
 filetype off
 
-
-if $VIM_FISH_BUNDLES == 1
-    runtime fish_vundles.vim
-else
-    runtime vundles.vim
-endif
-
+runtime plugins.vim
 
 filetype on
 filetype indent plugin on
