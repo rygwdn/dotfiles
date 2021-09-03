@@ -17,7 +17,7 @@
      * @const
      * @type {HTMLMediaElement}
      */
-    VIDEO_ELEMENT: document.getElementsByTagName("video")[0],
+    get VIDEO_ELEMENT() { return document.getElementsByTagName("video")[0]},
 
     /**
      * Toggle video pausing.

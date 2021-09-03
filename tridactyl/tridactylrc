@@ -1,6 +1,6 @@
 " bind yp composite js document.getElementById("clone-help-step-1").textContent.replace("git checkout -b", "git checkout -B").replace("git pull ", "git fetch ") + "git reset --hard " + document.getElementById("clone-help-step-1").textContent.split(" ")[3].replace("-","/") | yank
 
-source ~/dotfiles/tridactyl/tridactyl-youtube-mode-master/src/youtube-mode
+source youtube-mode
 bindurl .*youtube.*/watch.* yt mode youtube-mode
 
 set editorcmd C:/tools/neovim/Neovim/bin/nvim-qt.exe %f "+normal!%lGzv%c|"
