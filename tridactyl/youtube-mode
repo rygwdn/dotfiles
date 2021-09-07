@@ -1,0 +1,12 @@
+" " Load the JS library and auto-enable youtube-mode - must be done on
+" " each page load, see
+" " https://github.com/tridactyl/tridactyl/issues/3394
+autocmd DocStart .*youtube.*/watch.* composite js -r lib/youtube-functions.js; mode youtube-mode
+
+" " Set up default keybindings
+bind --mode=youtube-mode <Esc> mode normal
+bind --mode=youtube-mode k js tri.youtube_mode.togglePause()
+bind --mode=youtube-mode m js tri.youtube_mode.toggleMute()
+bind --mode=youtube-mode j js tri.youtube_mode.seek(-5)
+bind --mode=youtube-mode l js tri.youtube_mode.seek(5)
+bind --mode=youtube-mode f js tri.youtube_mode.toggleFullScreen()

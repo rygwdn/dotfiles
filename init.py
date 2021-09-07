@@ -15,10 +15,10 @@ all_platforms = [
     "zsh/bash_aliases",
     "ripgreprc",
     ("fish", ".config/fish"),
+    ("tridactyl", ".config/tridactyl"),
 ]
 
 windows_links = all_platforms + [
-    ("tridactylrc", "_tridactylrc"),
     ("vim", "vimfiles"),
     #("vim", "AppData/Local/nvim"),
     ("vim", ".config/nvim"),
@@ -33,7 +33,6 @@ unix_links = all_platforms + [
     ("vim", ".config/nvim"),
     "flexget",
     "tmux.conf",
-    "tridactylrc",
 ]
 
 def dolink(file, destname=None):
