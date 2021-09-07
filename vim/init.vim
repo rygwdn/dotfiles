@@ -5,6 +5,16 @@
 " | Version 1.0            |
 " --------------------------
 
+" TODO: repos to look at
+" - https://github.com/NvChad/NvChad
+" - https://github.com/nvim-telescope/telescope.nvim
+" - https://github.com/nvim-treesitter/nvim-treesitter
+" - https://github.com/kyazdani42/nvim-tree.lua
+" - https://github.com/JoosepAlviste/nvim-ts-context-commentstring
+" - https://github.com/akinsho/bufferline.nvim
+" - https://github.com/famiu/feline.nvim
+" - https://github.com/lukas-reineke/indent-blankline.nvim
+
 
 " init ---------------------------------------- {{{
 " When started as "evim", evim.vim will already have done these settings.
