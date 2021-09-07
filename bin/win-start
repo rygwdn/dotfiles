@@ -2,4 +2,4 @@
 
 # use powershell because it handles ampersands better than cmd or explorer on WSL
 #echo "$1" | powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "&{ [System.Diagnostics.Process]::Start(\$args[0]) }" "\"$1\""
-echo "$1" | powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "&{ \$inp = read-host ; [System.Diagnostics.Process]::Start(\$inp) }"
+echo "$1" | powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "&{ \$inp = read-host ; [System.Diagnostics.Process]::Start(\$inp) | Out-Null }"
