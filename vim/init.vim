@@ -193,6 +193,13 @@ if has("nvim")
     tnoremap <S-Esc> <Esc>
 endif
 
+if exists('g:vscode')
+  xmap gc  <Plug>VSCodeCommentary
+  nmap gc  <Plug>VSCodeCommentary
+  omap gc  <Plug>VSCodeCommentary
+  nmap gcc <Plug>VSCodeCommentaryLine
+endif
+
 " insert mode paste (like esc p i)
 imap  "
 imap ,,<C-v> +
