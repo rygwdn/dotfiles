@@ -156,6 +156,7 @@ set updatecount=100             " write swap file to disk every 100 chars
 set foldenable
 set foldlevel=99999
 set autowrite                   " write before :make
+set nofixeol
 if has("nvim")
     set ttimeoutlen=-1
 else
