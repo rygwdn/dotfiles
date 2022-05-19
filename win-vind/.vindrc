@@ -35,6 +35,7 @@ inoremap <ctrl-alt-Space> to_gui_normal
 " TODO: disable uia for some programs? It completely _KILLS_ firefox..
 " TODO: lua scripting (instead of window-specific bindings?) ala https://github.com/TimUntersberger/nog
 " TODO: ability to go to INSERT from GUI-NORMAL without clicking..
+" TODO: consistent window movement when they're overlapping
 
 
 gnnoremap f easy_click_left

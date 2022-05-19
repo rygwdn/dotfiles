@@ -67,6 +67,10 @@ if exists('g:started_by_firenvim')
   let fc = g:firenvim_config['localSettings']
   let fc['.*'] = { 'cmdline': 'firenvim', 'content': 'text', 'priority': 0, 'takeover': 'never' }
   "let fc['.*github.com.*'] = { 'takeover' : 'always', 'selector': 'textarea:not([readonly])' }
+
+  " sync changes back to the underlying textbox
+  au TextChanged * ++nested write
+  au TextChangedI * ++nested write
 else
   runtime plugins.vim
 endif
