@@ -5,6 +5,9 @@ bindurl .*youtube.*/watch.* yt mode youtube-mode
 
 set editorcmd C:/tools/neovim/Neovim/bin/nvim-qt.exe %f "+normal!%lGzv%c|"
 
+" prefer <M-i> to invoke firenvim instead, and this lets me use <C-i> for italics
+unbind --mode=insert <C-i>
+
 " Only hint search results on Google and DDG
 bindurl www.google.com f hint -Jc .g a
 bindurl www.google.com ;f hint 
