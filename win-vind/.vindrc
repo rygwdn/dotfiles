@@ -1,0 +1,46 @@
+" Config for https://github.com/pit-ray/win-vind
+
+" Enable block style caret
+set blockstylecaret
+set blockstylecaret_mode = solid
+
+" Low-level key mapping in resident mode
+"rmap <capslock> <ctrl>
+
+" Define bindings in GUI Normal mode
+gnnoremap <c-h> select_left_window
+gnnoremap <c-l> select_right_window
+gnnoremap <c-k> select_upper_window
+gnnoremap <c-j> select_lower_window
+
+" Define bindings in insert mode
+"inoremap <a-Esc> to_gui_normal
+
+"inoremap <Esc-e> to_edi_normal
+"inoremap <Esc-g> to_gui_normal
+inoremap <ctrl-alt-Space> to_gui_normal
+"inoremap <Esc-i> to_instant_gui_normal
+
+"set uiacachebuild
+"set uiacachebuild_lifetime = 1000
+
+" TODO: map jk in switcher
+" TODO: shortcut to jump to window by name?
+" TODO: keep modes on screen?
+" TODO: passthrough `f` to firefox
+" TODO: consider SSMS, VS, and firefox to be vim-like
+" TODO: monitor movement..
+
+" TODO: window-specific keybindings?
+" TODO: disable uia for some programs? It completely _KILLS_ firefox..
+" TODO: lua scripting (instead of window-specific bindings?) ala https://github.com/TimUntersberger/nog
+" TODO: ability to go to INSERT from GUI-NORMAL without clicking..
+" TODO: consistent window movement when they're overlapping
+
+
+gnnoremap f easy_click_left
+"imap <ralt> <f17>
+"inoremap <ralt> easy_click_left
+
+"imap <app> <f18>
+"inoremap <f18> window_resizer

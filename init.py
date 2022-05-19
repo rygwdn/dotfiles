@@ -25,6 +25,7 @@ windows_links = all_platforms + [
     ("vim/_vimrc",  "_vimrc"),
     ("_vsvimrc",  "_vsvimrc"),
     ("windows/profile.ps1",  "Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"),
+    ("win-vind",  ".win-vind"),
 ]
 
 unix_links = all_platforms + [
