@@ -9,6 +9,7 @@ function get_remote_target_branches() {
     refs/remotes/origin/utilities \
     refs/remotes/origin/rc \
     refs/remotes/origin/feature/ \
+    refs/remotes/origin/release/ \
     refs/remotes/origin/misc/ \
     refs/remotes/origin/hotfix/ \
     refs/remotes/origin/rc/ 2>/dev/null \
@@ -25,7 +26,7 @@ function get_merged_branches() {
       git for-each-ref --format='%(refname:short)' "--merged=origin/$target_branch" $refs 2>/dev/null
     done \
     | sort -u \
-    | grep -vE '(^|/)(rc/.*|bugfix|feature/.*|misc/.*|production|master|rc)$'
+    | grep -vE '(^|/)(rc/.*|bugfix|feature/.*|misc/.*|release/.*|production|master|rc)$'
 }
 
 function _get_remote_pr_dest() {
