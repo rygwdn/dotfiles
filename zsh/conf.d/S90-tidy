@@ -1,4 +1,0 @@
-#!/usr/bin/env zsh
-
-# this removes duplicates from PATH, CDPATH, MANPATH, and FPATH
-typeset -U path cdpath manpath fpath

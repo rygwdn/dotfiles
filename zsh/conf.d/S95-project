@@ -1,6 +1,0 @@
-#!/usr/bin/env zsh
-
-if [[  -n "$PROJECT_FILE" && -n "$PROJECT" && -f "$PROJECT_FILE" ]]
-then
-    source $PROJECT_FILE
-fi

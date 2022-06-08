@@ -1,4 +1,0 @@
-#!/usr/bin/env zsh
-
-# Do the initial run of workon_cwd in case we're already there..
-whence -w workon_cwd | grep -q 'function$' && workon_cwd

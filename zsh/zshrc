@@ -1,61 +1,52 @@
-#! /bin/zsh
+#
+# Executes commands at the start of an interactive session.
+#
+# Authors:
+#   Sorin Ionescu <sorin.ionescu@gmail.com>
+#
 
-[[ -z "$TIMEIT" ]] && TIMEIT=false
-#TIMEIT=true
+[ -f /opt/dev/dev.sh ] && source /opt/dev/dev.sh
 
-if $TIMEIT
-then
-    export logfile=$(mktemp)
+[[ -f /opt/dev/sh/chruby/chruby.sh ]] && type chruby >/dev/null 2>&1 || chruby () { source /opt/dev/sh/chruby/chruby.sh; chruby "$@"; }
 
-    typeset -F SECONDS=0
-    zmodload zsh/datetime
-    typeset -F START_TIME=$EPOCHREALTIME
-    typeset -i 10 diff_time=0
-    typeset -i 10 from_start=0
+[[ -x /opt/homebrew/bin/brew ]] && eval $(/opt/homebrew/bin/brew shellenv)
 
-    function logTime() {
-        (( diff_time = SECONDS * 1000 ))
-        (( from_start = (EPOCHREALTIME - START_TIME) * 1000 ))
 
-        [[ ${diff_time} -gt 20 ]] && echo "\t+${diff_time}ms" >> "$logfile"
-        echo "${from_start}ms\t$@" >> "$logfile"
-        SECONDS=0
-    }
+{
+  # Compile the completion dump to increase startup speed.
+  zcompdump="${XDG_CACHE_HOME:-$HOME/.cache}/prezto/zcompdump"
+  if [[ -s "$zcompdump" && (! -s "${zcompdump}.zwc" || "$zcompdump" -nt "${zcompdump}.zwc") ]]; then
+    zcompile "$zcompdump"
+  fi
+} &!
 
-    zmodload zsh/zprof
-else
-    function logTime {}
+# Source Prezto.
+if [[ -s "${ZDOTDIR:-$HOME}/.zprezto/init.zsh" ]]; then
+  source "${ZDOTDIR:-$HOME}/.zprezto/init.zsh"
 fi
 
-logTime "start zshrc"
 
-# update the function path to include custom stuff
-fpath=(~/.zsh/completion $fpath) 
+alias st='git status'
+alias ci='git commit'
+alias co='git checkout'
+alias gd='git diff'
+alias gdc='git diff --cached'
+alias gmt='git mergetool'
+alias br='git branch'
+alias show='git show'
+alias rb='git rebase'
+alias rbc='git rebase --continue'
+alias rbi='git rebase -i'
 
-[ -z $HOST ] && export HOST=`hostname`
+alias pff='git pull --ff-only'
+alias pnf='git pull --no-ff'
 
+alias mff='git merge --ff-only'
+alias mnf='git merge --no-ff'
 
-export PATH="$PATH:$HOME/.rvm/bin" # Add RVM to PATH for scripting
-[[ -s "$HOME/.rvm/scripts/rvm" ]] && source "$HOME/.rvm/scripts/rvm" # Load RVM into a shell session *as a function*
+alias po='git push origin'
+alias pof='git push origin --force-with-lease'
+alias gph='git push origin --set-upstream HEAD'
 
-for file in $(find ~/.zsh/conf.d -type f \
-    -name 'S*' -and \
-    -not -iname '*.zwc' -and \
-    -not -iname '*~' -and \
-    -not -iname '*.old' \
-    | sort)
-do
-    source $file
-    logTime "done ${file}"
-done
-
-test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
-
-logTime "done zshrc"
-
-if $TIMEIT
-then
-    (cat "$logfile" ; zprof ) | $PAGER
-    zmodload -u zsh/zprof
-    rm "$logfile"
-fi
+alias rg='rg -S'
+alias prl='pr -l'
