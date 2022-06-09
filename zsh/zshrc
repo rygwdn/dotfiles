@@ -1,16 +1,10 @@
-#
-# Executes commands at the start of an interactive session.
-#
-# Authors:
-#   Sorin Ionescu <sorin.ionescu@gmail.com>
-#
+[[ -f "$HOME/.zshrc-pre" ]] && source "$HOME/.zshrc-pre"
 
-[ -f /opt/dev/dev.sh ] && source /opt/dev/dev.sh
+#zstyle ':completion:*' use-cache on
+#autoload -Uz compinit && compinit
 
 [[ -f /opt/dev/sh/chruby/chruby.sh ]] && type chruby >/dev/null 2>&1 || chruby () { source /opt/dev/sh/chruby/chruby.sh; chruby "$@"; }
-
 [[ -x /opt/homebrew/bin/brew ]] && eval $(/opt/homebrew/bin/brew shellenv)
-
 
 {
   # Compile the completion dump to increase startup speed.
@@ -50,3 +44,17 @@ alias gph='git push origin --set-upstream HEAD'
 
 alias rg='rg -S'
 alias prl='pr -l'
+
+alias stfu="osascript -e 'set volume output muted true'"
+alias flushdns="dscacheutil -flushcache"
+
+function setup_macos() {
+    # Faster keyboard repeat rate. The defaults available are so slow and it takes ages to delete a lot of text.
+    defaults write NSGlobalDomain KeyRepeat -int 1
+    defaults write NSGlobalDomain InitialKeyRepeat -int 12
+
+    # Show hidden files in finder. I want to see everything.
+    defaults write com.apple.finder AppleShowAllFiles YES
+}
+
+[[ -f "$HOME/.zshrc-post" ]] && source "$HOME/.zshrc-post"
