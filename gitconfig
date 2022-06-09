@@ -7,15 +7,8 @@
 	editor = vim
 	excludesfile = ~/.gitignore
 	pager = less -F -X -R
-	#pager = delta --plus-color="#012800" --minus-color="#340001" --theme='Monokai Extended'
-#[interactive]
-	#diffFilter = delta --color-only
 [pack]
 	threads = 4
-[giggle]
-	main-window-maximized = false
-	main-window-geometry = 700x550+235+179
-	main-window-view = FileView
 [alias]
 	serve = daemon --reuseaddr --verbose --base-path=. --export-all ./.git
 	st = status
@@ -55,7 +48,6 @@
 	ident-personal = identity personal
 	ident-work = identity work
 
-
 [url "git@github.com:rygwdn/"]
 	insteadOf = github:
 [rerere]
@@ -77,26 +69,12 @@
 	keepBackup = false
 [push]
 	default = current
-[difftool "sourcetree"]
-	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
-	path = 
-[mergetool "sourcetree"]
-	cmd = /Applications/SourceTree.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
-	trustExitCode = true
-[difftool "Kaleidoscope"]
-	cmd = ksdiff --partial-changeset --relative-path \"$MERGED\" -- \"$LOCAL\" \"$REMOTE\"
-[mergetool "Kaleidoscope"]
-	cmd = ksdiff --merge --output \"$MERGED\" --base \"$BASE\" -- \"$LOCAL\" --snapshot \"$REMOTE\" --snapshot
-	trustExitCode = true
 [fetch]
 	prune = true
 [hub]
 	protocol = https
-[include]
-	path = ~/.gitconfig.local
 [tag]
 	sort = version:refname
-# vim: sts=8 sw=8 noet
 [pull]
 	ff = only
 [merge]
@@ -105,25 +83,6 @@
 	useConfigOnly = true
 	name = Ryan Wooden
 [user "work"]
-	email = ryan.wooden@trackgrp.com
+	email = ryan.wooden@shopify.com
 [user "personal"]
 	email = rygwdn@gmail.com
-[winUpdater]
-	recentlySeenVersion = 2.25.1.windows.1
-[difftool "bc3"]
-	path = c:/Program Files/Beyond Compare 4/bcomp.exe
-[mergetool "bc3"]
-	path = c:/Program Files/Beyond Compare 4/bcomp.exe
-[filesystem "Oracle Corporation|11.0.3-Syntevo|-698928229"]
-	timestampResolution = 9002 microseconds
-	minRacyThreshold = 0 nanoseconds
-[filter "lfs"]
-	clean = git-lfs clean -- %f
-	smudge = git-lfs smudge -- %f
-	process = git-lfs filter-process
-	required = true
-[diff "csformat"]
-	textconv = csformat
-[gc]
-	# needed by smartgit
-	autoDetach = false

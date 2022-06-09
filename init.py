@@ -8,7 +8,6 @@ from pathlib import Path
 all_platforms = [
     "bashrc",
     "bin",
-    "gitconfig",
     "zsh",
     "zsh/zshenv",
     "zsh/zshrc",
