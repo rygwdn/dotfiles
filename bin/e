@@ -1,6 +1,0 @@
-#!/bin/sh
-
-for dir in "$@"
-do
-    explorer `cygpath -w "$dir"` &
-done
