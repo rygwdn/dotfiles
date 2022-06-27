@@ -11,7 +11,6 @@ all_platforms = [
     "zsh",
     "zsh/zshenv",
     "zsh/zshrc",
-    "zsh/zprofile",
     "zsh/zpreztorc",
     "ripgreprc",
     ("fish", ".config/fish"),
