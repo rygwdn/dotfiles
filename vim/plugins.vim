@@ -76,7 +76,9 @@ if !exists('g:vscode')
         " Handle focus events from tmux
         Plug 'tmux-plugins/vim-tmux-focus-events'
 
-        Plug 'glacambre/firenvim', { 'do': { _ -> firenvim#install(0) } }
+        if has("nvim")
+            Plug 'glacambre/firenvim', { 'do': { _ -> firenvim#install(0) } }
+        endif
     endif
 endif
 

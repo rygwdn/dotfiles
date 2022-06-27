@@ -71,6 +71,17 @@ if exists('g:started_by_firenvim')
   " sync changes back to the underlying textbox
   au TextChanged * ++nested write
   au TextChangedI * ++nested write
+
+  function! SetFontSizeFirenvim(timer)
+    set guifont=Monaco:h18
+  endfunction
+
+  function! OnUIEnter()
+    call timer_start(200, function("SetFontSizeFirenvim"))
+  endfunction
+
+  " Workaround for https://github.com/glacambre/firenvim/issues/800
+  autocmd UIEnter * call OnUIEnter()
 else
   runtime plugins.vim
 endif
