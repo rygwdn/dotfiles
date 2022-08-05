@@ -5,17 +5,6 @@
 " | Version 1.0            |
 " --------------------------
 
-" TODO: repos to look at
-" - https://github.com/NvChad/NvChad
-" - https://github.com/nvim-telescope/telescope.nvim
-" - https://github.com/nvim-treesitter/nvim-treesitter
-" - https://github.com/kyazdani42/nvim-tree.lua
-" - https://github.com/JoosepAlviste/nvim-ts-context-commentstring
-" - https://github.com/akinsho/bufferline.nvim
-" - https://github.com/famiu/feline.nvim
-" - https://github.com/lukas-reineke/indent-blankline.nvim
-
-
 " init ---------------------------------------- {{{
 " When started as "evim", evim.vim will already have done these settings.
 if v:progname =~? "evim"
@@ -43,16 +32,15 @@ filetype off
 
 let s:win_shell = (has('win32') || has('win64')) && &shellcmdflag =~ '/'
 let s:vim_dir = s:win_shell ? '$HOME/vimfiles' : '$HOME/.vim'
-let g:bundle_dir = s:vim_dir . '/bundle'
+"let g:bundle_dir = s:vim_dir . '/bundle'
 
 " for testing firenvim config loading..
 "let g:started_by_firenvim=1
-"
-if exists('g:started_by_firenvim')
-  call plug#begin(g:bundle_dir)
-  Plug 'glacambre/firenvim', { 'do': { _ -> firenvim#install(0) } }
-  call plug#end()
+if has('nvim')
+    lua require('plugins')
+endif
 
+if exists('g:started_by_firenvim')
   set laststatus=0
   au BufEnter github.com_*.txt set filetype=markdown
   let g:firenvim_config = { 
@@ -82,12 +70,12 @@ if exists('g:started_by_firenvim')
 
   " Workaround for https://github.com/glacambre/firenvim/issues/800
   autocmd UIEnter * call OnUIEnter()
-else
-  runtime plugins.vim
 endif
 
 filetype on
 filetype indent plugin on
+
+
 
 " ------------------------------------------- }}}
 
@@ -236,7 +224,7 @@ nmap Y y$
 map <F4> :FSHere<CR>
 
 " save and build
-nmap <LocalLeader>m  :make!<cr>
+"nmap <LocalLeader>m  :make!<cr>
 
 " work with errors
 nmap <LocalLeader>ln  :lnext<CR>
@@ -276,9 +264,6 @@ imap <C-S-Tab> <Esc>gT
 nmap ,,q <Esc>
 imap ,,q <Esc>
 imap jj <Esc>
-
-nmap <leader>f zf%A
-vmap <leader>f zfA
 
 " Sometimes I hate the defaults for these two in insert!
 "inoremap <c-u> 
@@ -356,6 +341,11 @@ if !exists("g:colors_name") || g:colors_name != "candycode"
     endtry
 endif
 
+" Set title
+autocmd vimrc BufEnter * let &titlestring = "vim[" . expand("%:t") . "]"
+if has('nvim') || &term =~ "screen" || &term =~ "xterm"
+    set title
+endif
 
 " --------------------------------------- }}}
 
@@ -430,6 +420,18 @@ autocmd vimrc FileType python setlocal foldmethod=indent
 " }}}
 
 " --------------------------------------------------- }}}
+
+" plugin config  ------------------- {{{
+
+" Use markdown for vimwiki
+let g:vimwiki_list = [{'path': '~/Google Drive/My Drive/notes/',
+                      \ 'syntax': 'markdown', 'ext': '.md'}]
+" Don't consider all md files to be vimwiki files..
+let g:vimwiki_global_ext = 0
+let g:vimwiki_folding = 'custom'
+let g:vimwiki_key_mappings = { 'headers': 0, }
+
+" }}}
 
 " includes {{{
 

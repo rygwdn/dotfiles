@@ -1,1 +1,0 @@
-nmap ,r :RainbowParenthesesToggleAll<CR>
