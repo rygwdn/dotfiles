@@ -5,6 +5,7 @@
 
 [[ -f /opt/dev/sh/chruby/chruby.sh ]] && type chruby >/dev/null 2>&1 || chruby () { source /opt/dev/sh/chruby/chruby.sh; chruby "$@"; }
 [[ -x /opt/homebrew/bin/brew ]] && eval $(/opt/homebrew/bin/brew shellenv)
+[[ -x /opt/homebrew/bin/gcc-11 ]] && export CC=/opt/homebrew/bin/gcc-11
 
 {
   # Compile the completion dump to increase startup speed.
@@ -47,6 +48,8 @@ alias prl='pr -l'
 
 alias stfu="osascript -e 'set volume output muted true'"
 alias flushdns="dscacheutil -flushcache"
+
+alias vw="nvim +VimwikiIndex +'lcd %:p:h'"
 
 function setup_macos() {
     # Faster keyboard repeat rate. The defaults available are so slow and it takes ages to delete a lot of text.
