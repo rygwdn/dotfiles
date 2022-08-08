@@ -64,9 +64,9 @@ function use_plugins(use)
 
   -- vimwiki setup
   use 'vimwiki/vimwiki'
-  use 'tools-life/taskwiki'
-  use 'powerman/vim-plugin-AnsiEsc'
-  use 'farseer90718/vim-taskwarrior'
+  use {'tools-life/taskwiki', ft='vimwiki'}
+  use {'powerman/vim-plugin-AnsiEsc', ft='vimwiki'}
+  use {'farseer90718/vim-taskwarrior', ft='vimwiki'}
 
   use { 'nvim-treesitter/nvim-treesitter', run = ':TSUpdate' }
 
