@@ -67,6 +67,10 @@
 	prompt = false
 	keepTemporaries = false
 	keepBackup = false
+[merge]
+    tool = code
+[mergetool "code"]
+    cmd = code --wait --merge $REMOTE $LOCAL $BASE $MERGED
 [push]
 	default = current
 [fetch]
