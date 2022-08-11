@@ -66,15 +66,9 @@ zstyle ':prezto:module:prompt' theme 'sorin'
 zstyle ':prezto:module:prompt' show-return-val 'yes'
 
 # Auto set the tab and window titles.
-zstyle ':prezto:module:terminal' auto-title 'yes'
-
-# Set the window title format.
-zstyle ':prezto:module:terminal:window-title' format '%n@%m: %s'
-
-# Set the tab title format.
-zstyle ':prezto:module:terminal:tab-title' format '%m: %s'
-
-# Set the terminal multiplexer title format.
+zstyle ':prezto:module:terminal' auto-title 'always'
+zstyle ':prezto:module:terminal:window-title' format 'zsh: %s'
+zstyle ':prezto:module:terminal:tab-title' format 'zsh: %s'
 zstyle ':prezto:module:terminal:multiplexer-title' format '%s'
 
 zstyle ':prezto:module:utility' safe-ops 'no'

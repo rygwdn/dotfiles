@@ -429,7 +429,7 @@ let g:vimwiki_list = [{'path': '~/Google Drive/My Drive/notes/',
 " Don't consider all md files to be vimwiki files..
 let g:vimwiki_global_ext = 0
 let g:vimwiki_folding = 'custom'
-let g:vimwiki_key_mappings = { 'headers': 0, }
+let g:vimwiki_key_mappings = { 'headers': 0, 'table_mappings': 0  }
 
 " }}}
 
