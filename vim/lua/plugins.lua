@@ -1,84 +1,97 @@
 -- auto install with
 -- nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync'
-local fn = vim.fn
+
+function firenvim()
+  return not not vim.g['started_by_firenvim']
+end
+
+function vscode()
+  return interactive() or vim.g['vscode']
+end
+
+function fish()
+  return interactive() or os.getenv('VIM_FISH_BUNDLES')
+end
+
+function interactive()
+  return not vim.g['started_by_firenvim'] and not vim.g['vscode'] and not os.getenv('VIM_FISH_BUNDLES')
+end
 
 function use_plugins(use)
-  if vim.g['started_by_firenvim'] then
-    use { 'glacambre/firenvim', run = function() vim.fn['firenvim#install'](0) end }
-    return
-  end
+  use 'wbthomason/packer.nvim'
 
-  if vim.g['vscode'] then
-    return
-  end
-
+  -- Load which-key unconditionally so that it's always available during plugin config
   use {
     "folke/which-key.nvim",
     config = function()
-      require("which-key").setup {
-        -- your configuration comes here
-        -- or leave it empty to use the default settings
-        -- refer to the configuration section below
-      }
+      if fish() then
+        require("which-key").setup {
+          -- your configuration comes here
+          -- or leave it empty to use the default settings
+          -- refer to the configuration section below
+        }
+      end
     end
   }
 
-  use 'wbthomason/packer.nvim'
-  use 'tpope/vim-eunuch'
-  use 'dag/vim-fish'
-  use 'vim-scripts/candycode.vim'
-  use 'tpope/vim-commentary'
+  use { 'glacambre/firenvim', run = function() vim.fn['firenvim#install'](0) end, cond = firenvim }
 
-  if os.getenv('VIM_FISH_BUNDLES') then
-    -- That's all we load for fish
-    return
-  end
+  use {'ggandor/leap.nvim',  cond = vscode, config = function()
+    require('leap').set_default_keymaps()
+  end}
+
+
+  use {'tpope/vim-eunuch', cond = fish}
+  use {'dag/vim-fish', cond = fish}
+  use {'vim-scripts/candycode.vim', cond = fish}
+  use {'tpope/vim-commentary', cond = fish}
 
   -- Plug 'aklt/plantuml-syntax'
   -- Plug 'vim-pandoc/vim-pandoc-syntax' 
 
-  use 'PProvost/vim-ps1'
-  use 'tpope/vim-sleuth'
-  use 'tpope/vim-git'
+  use {'PProvost/vim-ps1', cond = interactive}
+  use {'tpope/vim-sleuth', cond = interactive}
+  use {'tpope/vim-git', cond = interactive}
 
   -- TODO: use a better one?
   --Plug 'pangloss/vim-javascript', {'for': 'javascript'}
   --Plug 'othree/html5.vim', {'for': 'html'}
 
-  use 'tpope/vim-fugitive'
+  use {'tpope/vim-fugitive', cond = interactive}
 
   -- TODO: use a better one?
-  use 'bling/vim-airline'
+  use {'bling/vim-airline', cond = interactive}
 
-  use 'tpope/vim-surround'
-  use 'tpope/vim-repeat'
+  use {'tpope/vim-surround', cond = interactive}
+  use {'tpope/vim-repeat', cond = interactive}
 
-  use 'vim-scripts/utl.vim'
-  use 'christoomey/vim-tmux-navigator'
-  use 'tmux-plugins/vim-tmux-focus-events'
-  use 'myusuf3/numbers.vim'
+  use {'vim-scripts/utl.vim', cond = interactive}
+  use {'christoomey/vim-tmux-navigator', cond = interactive}
+  use {'tmux-plugins/vim-tmux-focus-events', cond = interactive}
+  use {'myusuf3/numbers.vim', cond = interactive}
 
   -- Allow opening files with /path/file:line:col
-  use 'kopischke/vim-fetch'
+  use {'kopischke/vim-fetch', cond = interactive}
 
 
   -- vimwiki setup
-  use 'vimwiki/vimwiki'
-  use {'tools-life/taskwiki', ft='vimwiki'}
-  use {'powerman/vim-plugin-AnsiEsc', ft='vimwiki'}
-  use {'farseer90718/vim-taskwarrior', ft='vimwiki'}
+  use {'vimwiki/vimwiki', cond = interactive}
+  use {'tools-life/taskwiki', ft='vimwiki', cond = interactive}
+  use {'powerman/vim-plugin-AnsiEsc', ft='vimwiki', cond = interactive}
+  use {'farseer90718/vim-taskwarrior', ft='vimwiki', cond = interactive}
 
-  use { 'nvim-treesitter/nvim-treesitter', run = ':TSUpdate' }
+  use { 'nvim-treesitter/nvim-treesitter', run = ':TSUpdate', cond = interactive}
 
-  use {'kyazdani42/nvim-web-devicons', config = function()
+  use {'kyazdani42/nvim-web-devicons', cond = interactive, config = function()
     require'nvim-web-devicons'.setup { default = true; }
   end}
 
-  use {'ggandor/leap.nvim', config = function()
-    require('leap').set_default_keymaps()
-  end}
-
-  use {'kyazdani42/nvim-tree.lua', config = function()
+  use {'kyazdani42/nvim-tree.lua',
+    cond = interactive,
+    requires = {
+      'folke/which-key.nvim',
+    },
+    config = function()
     require("nvim-tree").setup({
       hijack_netrw = true,
       hijack_directories = {enable = true},
@@ -128,20 +141,25 @@ function use_plugins(use)
   use
     {
       'nvim-telescope/telescope.nvim',
+      cond = interactive,
       requires = {
-        'nvim-lua/popup.nvim',
-        'nvim-lua/plenary.nvim',
-        'nvim-telescope/telescope-ui-select.nvim',
-        'nvim-telescope/telescope-symbols.nvim',
-        'ElPiloto/telescope-vimwiki.nvim',
+        {'nvim-lua/popup.nvim', cond=interactive},
+        'folke/which-key.nvim',
+        {'nvim-lua/plenary.nvim', cond=interactive},
+        {'nvim-telescope/telescope-ui-select.nvim', cond=interactive},
+        {'nvim-telescope/telescope-symbols.nvim', cond=interactive},
+        {'ElPiloto/telescope-vimwiki.nvim', cond=interactive},
+        {'tami5/sqlite.lua', cond=interactive},
         {
           'nvim-telescope/telescope-frecency.nvim',
+          cond = interactive,
           after = 'telescope.nvim',
-          requires = 'tami5/sqlite.lua',
+          requires = {'tami5/sqlite.lua', cond=interactive},
         },
         {
           'nvim-telescope/telescope-fzf-native.nvim',
           run = 'make',
+          cond = interactive,
         },
       },
       wants = {
@@ -191,9 +209,9 @@ vim.cmd([[
   augroup end
 ]])
 
-local install_path = fn.stdpath('data')..'/site/pack/packer/start/packer.nvim'
-if fn.empty(fn.glob(install_path)) > 0 then
-  packer_bootstrap = fn.system({'git', 'clone', '--depth', '1', 'https://github.com/wbthomason/packer.nvim', install_path})
+local install_path = vim.fn.stdpath('data')..'/site/pack/packer/start/packer.nvim'
+if vim.fn.empty(vim.fn.glob(install_path)) > 0 then
+  packer_bootstrap = vim.fn.system({'git', 'clone', '--depth', '1', 'https://github.com/wbthomason/packer.nvim', install_path})
 end
 
 vim.cmd [[packadd packer.nvim]]
