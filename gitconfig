@@ -7,6 +7,8 @@
 	editor = vim
 	excludesfile = ~/.gitignore
 	pager = less -F -X -R
+[commit]
+	verbose = true
 [pack]
 	threads = 4
 [alias]

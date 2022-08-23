@@ -63,6 +63,9 @@ alias po='git push origin'
 alias pof='git push origin --force-with-lease'
 alias gph='git push origin --set-upstream HEAD'
 
+alias ga='git add'
+alias gap='git add --patch'
+
 alias gfu='git fetch origin'
 alias gfo='git fetch origin'
 
