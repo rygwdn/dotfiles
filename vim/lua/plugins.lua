@@ -45,6 +45,7 @@ function use_plugins(use)
   use {'dag/vim-fish', cond = fish}
   use {'vim-scripts/candycode.vim', cond = fish}
   use {'tpope/vim-commentary', cond = fish}
+  use {'kopischke/vim-fetch', cond = fish}
 
   -- Plug 'aklt/plantuml-syntax'
   -- Plug 'vim-pandoc/vim-pandoc-syntax' 
@@ -70,8 +71,6 @@ function use_plugins(use)
   use {'tmux-plugins/vim-tmux-focus-events', cond = interactive}
   use {'myusuf3/numbers.vim', cond = interactive}
 
-  -- Allow opening files with /path/file:line:col
-  use {'kopischke/vim-fetch', cond = interactive}
 
 
   -- vimwiki setup
