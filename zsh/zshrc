@@ -77,6 +77,8 @@ alias flushdns="dscacheutil -flushcache"
 
 alias vw="nvim +VimwikiIndex +'lcd %:p:h'"
 
+alias tm='tmux new-session -A'
+
 function setup_macos() {
     # Faster keyboard repeat rate. The defaults available are so slow and it takes ages to delete a lot of text.
     defaults write NSGlobalDomain KeyRepeat -int 1
