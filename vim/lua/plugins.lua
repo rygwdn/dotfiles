@@ -67,10 +67,8 @@ function use_plugins(use)
   use {'tpope/vim-repeat', cond = interactive}
 
   use {'vim-scripts/utl.vim', cond = interactive}
-  use {'christoomey/vim-tmux-navigator', cond = interactive}
-  use {'tmux-plugins/vim-tmux-focus-events', cond = interactive}
+  use {'rygwdn/vim-tmux-navigator', cond = interactive}
   use {'myusuf3/numbers.vim', cond = interactive}
-
 
 
   -- vimwiki setup
