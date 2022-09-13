@@ -1,5 +1,5 @@
 -- auto install with
--- nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync'
+-- PACKER_INSTALL=1 nvim --headless -c 'autocmd User PackerComplete quitall' -c 'PackerSync'
 
 function firenvim()
   return not not vim.g['started_by_firenvim']
@@ -14,7 +14,7 @@ function fish()
 end
 
 function interactive()
-  return not vim.g['started_by_firenvim'] and not vim.g['vscode'] and not os.getenv('VIM_FISH_BUNDLES')
+  return (not vim.g['started_by_firenvim'] and not vim.g['vscode'] and not os.getenv('VIM_FISH_BUNDLES')) or os.getenv('PACKER_INSTALL')
 end
 
 function use_plugins(use)
