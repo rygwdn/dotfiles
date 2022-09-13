@@ -69,6 +69,8 @@ alias gap='git add --patch'
 alias gfu='git fetch origin'
 alias gfo='git fetch origin'
 
+alias pr='gh pr create --web'
+
 alias rg='rg -S'
 alias prl='pr -l'
 
