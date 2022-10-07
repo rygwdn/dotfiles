@@ -424,7 +424,7 @@ autocmd vimrc FileType python setlocal foldmethod=indent
 " plugin config  ------------------- {{{
 
 " Use markdown for vimwiki
-let g:vimwiki_list = [{'path': '~/Google Drive/My Drive/notes/',
+let g:vimwiki_list = [{'path': '~/Documents/notes/',
                       \ 'syntax': 'markdown', 'ext': '.md'}]
 " Don't consider all md files to be vimwiki files..
 let g:vimwiki_global_ext = 0
