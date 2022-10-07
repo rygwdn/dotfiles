@@ -15,6 +15,9 @@
   fi
 } &!
 
+# pass unmatched globs verbatim to the command, allowing things like `HEAD^` to work
+setopt NO_NOMATCH
+
 # Source Prezto.
 if [[ -s "${ZDOTDIR:-$HOME}/.zprezto/init.zsh" ]]; then
   source "${ZDOTDIR:-$HOME}/.zprezto/init.zsh"
