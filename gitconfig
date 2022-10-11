@@ -9,34 +9,17 @@
 	pager = less -F -X -R
 [commit]
 	verbose = true
-[pack]
-	threads = 4
 [alias]
-	serve = daemon --reuseaddr --verbose --base-path=. --export-all ./.git
 	st = status
 	ci = commit
 	br = branch
 	co = checkout
-	df = diff
-	up = svn rebase
-	who = shortlog -s --
 	fixup = commit --amend --no-edit
-	todo = commit --allow-empty --no-verify -m
 	rbi = rebase -i --autosquash --autostash
-	rbis = rebase -i --autosquash --autostash
-
-	log1 = log --pretty=oneline --abbrev-commit --decorate
-	lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative -n 10
 
 	vimdiff = difftool -t vimdiff
-	gvimdiff = difftool -t gvimdiff
-	kompare = difftool -t kompare
 	vmerge = mergetool --tool=vimdiff
 	gmerge = mergetool --tool=gvimdiff
-	pr = pull-request
-	fpr = "!fpr() { git fetch -f origin pull/$1/merge:refs/pr/origin/$1/merge ; } ; fpr"
-	conflicts = "!conflicts() { git merge-tree $(git merge-base $1 $2) $1 $2 | gsed -n '/+<<<<<<< .our/,/+>>>>>>> .their/p;/^changed in both/{n;N;N;s/^/#/mg;p}' | cdiff; } ; conflicts"
-	noconflicts = "!noconflicts() { ! git merge-tree $(git merge-base $1 $2) $1 $2 | gsed -n '/+<<<<<<< .our/,/+>>>>>>> .their/p;/^changed in both/{n;N;N;s/^/#/mg;p}' | grep -q '+<<<<<<< .our'; } ; noconflicts"
 
 	# https://stackoverflow.com/questions/8475448/find-merge-commit-which-include-a-specific-commit
 	# git find-merge <SHA-1> [HEAD]
@@ -46,10 +29,10 @@
 
 	wip="!wip() { br=\"$(git rev-parse --abbrev-ref HEAD)\" && sha=\"$(git rev-parse --short HEAD)\" && name=${br:-${sha}} && git add . && git commit -m\"WIP: ${name}\"; } ; wip"
 	unwip="!unwip() { if ! git log -1 --pretty=%s | grep -q '^WIP: '; then echo previous commit was not a WIP: 1>&2; git log -1 --oneline 1>&2; exit 1; else git reset --soft HEAD~1; git reset HEAD -- .; git status; fi; } ; unwip"
+
 	identity = "! git config user.email \"$(git config user.$1.email)\"; git config user.name \"$(git config user.$1.name || git config user.name)\"; :"
 	ident-personal = identity personal
 	ident-work = identity work
-
 [url "git@github.com:rygwdn/"]
 	insteadOf = github:
 [rerere]
@@ -60,7 +43,6 @@
 	renames = copies
 	mnemonicprefix = true
 	compactionHeuristic = true
-
 [difftool]
 	prompt = false
 	keepTemporaries = false
@@ -69,22 +51,21 @@
 	prompt = false
 	keepTemporaries = false
 	keepBackup = false
-[merge]
-    tool = code
 [mergetool "code"]
-    cmd = code --wait --merge $REMOTE $LOCAL $BASE $MERGED
+	cmd = code --wait --merge $REMOTE $LOCAL $BASE $MERGED
+[merge]
+	tool = code
+	ff = only
 [push]
 	default = current
 [fetch]
 	prune = true
-[hub]
-	protocol = https
 [tag]
 	sort = version:refname
 [pull]
 	ff = only
-[merge]
-	ff = only
+[rebase]
+	autoStash = true
 [user]
 	useConfigOnly = true
 	name = Ryan Wooden
