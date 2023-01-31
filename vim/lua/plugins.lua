@@ -178,9 +178,9 @@ function use_plugins(use)
             b = {function() require('telescope.builtin').buffers() end, "Find Buffer"},
             h = {function() require('telescope.builtin').help_tags() end, "Find Help"},
           },
-          v = {
+          w = {
             name = "Telescope Vimwiki",
-            w = {function() require('telescope').extensions.vimwiki.vimwiki() end, "Find Wiki Page"},
+            f = {function() require('telescope').extensions.vimwiki.vimwiki() end, "Find Wiki Page"},
             g = {function() require('telescope').extensions.vimwiki.live_grep() end, "Grep Wiki Pages"},
           },
         }, {prefix = "<leader>"})

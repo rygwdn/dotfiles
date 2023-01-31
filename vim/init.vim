@@ -425,11 +425,17 @@ autocmd vimrc FileType python setlocal foldmethod=indent
 
 " Use markdown for vimwiki
 let g:vimwiki_list = [{'path': '~/Documents/notes/',
-                      \ 'syntax': 'markdown', 'ext': '.md'}]
+                      \ 'syntax': 'markdown', 'ext': '.md',
+                      \ 'auto_diary_index': 1}]
 " Don't consider all md files to be vimwiki files..
 let g:vimwiki_global_ext = 0
 let g:vimwiki_folding = 'custom'
 let g:vimwiki_key_mappings = { 'headers': 0, 'table_mappings': 0  }
+
+if has("nvim")
+    au BufNewFile ~/Documents/notes/diary/*.md lua require("vimwikidiary"); setDiaryTemplate();
+endif
+
 
 " }}}
 
