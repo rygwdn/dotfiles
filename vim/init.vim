@@ -42,7 +42,7 @@ endif
 
 if exists('g:started_by_firenvim')
   set laststatus=0
-  au BufEnter github.com_*.txt set filetype=markdown
+
   let g:firenvim_config = { 
     \ 'globalSettings': {
       \ 'alt': 'all',
@@ -56,9 +56,6 @@ if exists('g:started_by_firenvim')
   let fc['.*'] = { 'cmdline': 'firenvim', 'content': 'text', 'priority': 0, 'takeover': 'never' }
   "let fc['.*github.com.*'] = { 'takeover' : 'always', 'selector': 'textarea:not([readonly])' }
 
-  " sync changes back to the underlying textbox
-  au TextChanged * ++nested write
-  au TextChangedI * ++nested write
 
   function! SetFontSizeFirenvim(timer)
     set guifont=Monaco:h18
@@ -70,6 +67,12 @@ if exists('g:started_by_firenvim')
 
   " Workaround for https://github.com/glacambre/firenvim/issues/800
   autocmd UIEnter * call OnUIEnter()
+
+  au BufEnter github.com_*.txt set filetype=markdown
+
+  " sync changes back to the underlying textbox
+  "au TextChanged  ++nested write
+  "au TextChangedI * ++nested write
 endif
 
 filetype on

@@ -3,7 +3,6 @@
 #zstyle ':completion:*' use-cache on
 #autoload -Uz compinit && compinit
 
-[[ -f /opt/dev/sh/chruby/chruby.sh ]] && type chruby >/dev/null 2>&1 || chruby () { source /opt/dev/sh/chruby/chruby.sh; chruby "$@"; }
 [[ -x /opt/homebrew/bin/brew ]] && eval $(/opt/homebrew/bin/brew shellenv)
 [[ -x /opt/homebrew/bin/gcc-11 ]] && export CC=/opt/homebrew/bin/gcc-11
 
@@ -81,6 +80,7 @@ alias stfu="osascript -e 'set volume output muted true'"
 alias flushdns="dscacheutil -flushcache"
 
 alias vw="nvim +VimwikiIndex +'lcd %:p:h'"
+alias o='open'
 
 alias tm='tmux new-session -A'
 
@@ -107,3 +107,5 @@ function setup_macos() {
 [[ -f "/opt/homebrew/opt/fzf/shell/key-bindings.zsh" ]] && source "/opt/homebrew/opt/fzf/shell/key-bindings.zsh"
 
 [[ -f "$HOME/.zshrc-post" ]] && source "$HOME/.zshrc-post"
+
+[[ -f /opt/dev/sh/chruby/chruby.sh ]] && { type chruby >/dev/null 2>&1 || chruby () { source /opt/dev/sh/chruby/chruby.sh; chruby "$@"; } }

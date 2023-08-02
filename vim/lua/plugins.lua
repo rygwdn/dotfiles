@@ -73,9 +73,9 @@ function use_plugins(use)
 
   -- vimwiki setup
   use {'vimwiki/vimwiki', cond = interactive}
-  use {'tools-life/taskwiki', ft='vimwiki', cond = interactive}
+  --use {'tools-life/taskwiki', ft='vimwiki', cond = interactive}
   use {'powerman/vim-plugin-AnsiEsc', ft='vimwiki', cond = interactive}
-  use {'farseer90718/vim-taskwarrior', ft='vimwiki', cond = interactive}
+  --use {'farseer90718/vim-taskwarrior', ft='vimwiki', cond = interactive}
 
   use { 'nvim-treesitter/nvim-treesitter', run = ':TSUpdate', cond = interactive}
 
@@ -83,56 +83,62 @@ function use_plugins(use)
     require'nvim-web-devicons'.setup { default = true; }
   end}
 
-  use {'kyazdani42/nvim-tree.lua',
-    cond = interactive,
-    requires = {
-      'folke/which-key.nvim',
-    },
-    config = function()
-    require("nvim-tree").setup({
-      hijack_netrw = true,
-      hijack_directories = {enable = true},
-      update_focused_file = {enable = true},
-      filters = {
-        dotfiles = true,
-      },
-      view = {
-        mappings = {
-          list = {
-            {
-              key = {"<CR>", "o"},
-              action = "vinegar_in_place",
-              action_cb = function(node)
-                if vim.b.vinegar then
-                  require("nvim-tree.api").node.open.replace_tree_buffer()
-                else
-                  require("nvim-tree.api").node.open.edit()
-                end
-              end,
-            },
-          }
-        }
-      }
-    })
+  use {'stevearc/oil.nvim', cond = interactive, config = function()
+    require('oil').setup()
 
-    require('which-key').register({
-      t = {"<cmd>NvimTreeToggle<cr>", "Toggle Tree"}
-    }, {prefix = "<leader>"})
-
-    require('which-key').register({
-      ["-"] = {
-        function()
-          local view = require"nvim-tree.view"
-          if view.is_visible() then
-            view.close()
-          end
-          require"nvim-tree".open_replacing_current_buffer()
-          vim.b.vinegar = true
-        end,
-        "NvimTree in place",
-      }
-    })
+    vim.keymap.set("n", "-", require("oil").open, { desc = "Open parent directory" })
   end}
+
+  -- use {'kyazdani42/nvim-tree.lua',
+  --   cond = interactive,
+  --   requires = {
+  --     'folke/which-key.nvim',
+  --   },
+  --   config = function()
+  --   require("nvim-tree").setup({
+  --     hijack_netrw = true,
+  --     hijack_directories = {enable = true},
+  --     update_focused_file = {enable = true},
+  --     filters = {
+  --       dotfiles = true,
+  --     },
+  --     view = {
+  --       mappings = {
+  --         list = {
+  --           {
+  --             key = {"<CR>", "o"},
+  --             action = "vinegar_in_place",
+  --             action_cb = function(node)
+  --               if vim.b.vinegar then
+  --                 require("nvim-tree.api").node.open.replace_tree_buffer()
+  --               else
+  --                 require("nvim-tree.api").node.open.edit()
+  --               end
+  --             end,
+  --           },
+  --         }
+  --       }
+  --     }
+  --   })
+
+  --   require('which-key').register({
+  --     t = {"<cmd>NvimTreeToggle<cr>", "Toggle Tree"}
+  --   }, {prefix = "<leader>"})
+
+  --   require('which-key').register({
+  --     ["-"] = {
+  --       function()
+  --         local view = require"nvim-tree.view"
+  --         if view.is_visible() then
+  --           view.close()
+  --         end
+  --         require"nvim-tree".open_replacing_current_buffer()
+  --         vim.b.vinegar = true
+  --       end,
+  --       "NvimTree in place",
+  --     }
+  --   })
+  -- end}
 
 
   use
