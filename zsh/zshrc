@@ -80,7 +80,6 @@ alias stfu="osascript -e 'set volume output muted true'"
 alias flushdns="dscacheutil -flushcache"
 
 alias vw="nvim +VimwikiIndex +'lcd %:p:h'"
-alias o='open'
 
 alias tm='tmux new-session -A'
 
