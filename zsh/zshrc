@@ -33,6 +33,10 @@ bindkey '^[7' digit-argument
 bindkey '^[8' digit-argument
 bindkey '^[9' digit-argument
 bindkey '^[.' insert-last-word
+bindkey '^A' beginning-of-line
+bindkey '^E' end-of-line
+bindkey '<M-b>' backward-word
+bindkey '<M-f>' forward-word
 
 # Alt-Comma to copy earlier arguments after Alt-Dot
 autoload -U copy-earlier-word
