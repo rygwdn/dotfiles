@@ -14,7 +14,7 @@
 	ci = commit
 	br = branch
 	co = checkout
-	fixup = commit --amend --no-edit
+	ae = commit --amend --no-edit
 	rbi = rebase -i --autosquash --autostash
 
 	vimdiff = difftool -t vimdiff
