@@ -8,7 +8,7 @@
 setopt NO_NOMATCH
 setopt promptsubst
 
-path=("${0:a:h}/bin" $path)
+path+=("$HOME/dotfiles/bin")
 
 # Keys {{{ 
 
@@ -52,7 +52,8 @@ alias br='git branch'
 alias show='git show'
 alias rb='git rebase'
 alias rbc='git rebase --continue'
-alias rbi='git rebase -i'
+alias rbi='git rebase -i --autosquash'
+alias fup='git fixup'
 
 alias pff='git pull --ff-only'
 alias pnf='git pull --no-ff'
@@ -136,18 +137,28 @@ zi light-mode for \
     zdharma-continuum/zinit-annex-patch-dl \
     zdharma-continuum/zinit-annex-rust
 
-zinit ice as"completion"
-zinit load "${0:a:h}/zsh/completion"
+zi ice as"completion"
+zi load "${0:a:h}/zsh/completion"
 
-zinit wait lucid for \
+zi wait lucid for \
+      zdharma-continuum/history-search-multi-word \
   atinit"zicompinit; zicdreplay" \
       zdharma-continuum/fast-syntax-highlighting \
-  atload"_zsh_autosuggest_start" \
+  compile'{src/*.zsh,src/strategies/*}' atload'!_zsh_autosuggest_start' nocd \
       zsh-users/zsh-autosuggestions \
   blockf atpull'zinit creinstall -q .' \
       zsh-users/zsh-completions \
-  depth=1 \
-    jeffreytse/zsh-vi-mode
+  atinit"
+    bindkey -M vicmd 'k' history-substring-search-up
+    bindkey '^[[A' history-substring-search-up
+    bindkey '^P'   history-substring-search-up
+    bindkey -M vicmd 'j' history-substring-search-down
+    bindkey '^[[B' history-substring-search-down
+    bindkey '^N'   history-substring-search-down"\
+      zsh-users/zsh-history-substring-search
+
+zi ice depth=1
+zi light jeffreytse/zsh-vi-mode
 
 # set a default pane title while the script loads
 printf "\e]2;zsh\e\\"

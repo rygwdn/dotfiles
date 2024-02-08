@@ -73,3 +73,9 @@
 	email = ryan.wooden@shopify.com
 [user "personal"]
 	email = rygwdn@gmail.com
+
+[fixup]
+    action=fixup
+    rebase=false
+    commit=true
+    menu=fzf
