@@ -248,6 +248,10 @@ if test -z "$base"; then
     fi
 fi
 
+if test -z "$base"; then
+   base="$(git merge-base origin/HEAD HEAD)"
+fi
+
 if test -n "$base"; then
     rev_range="$base..HEAD"
 else
