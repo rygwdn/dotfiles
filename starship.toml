@@ -21,3 +21,10 @@ disabled = true
 
 [container]
 disabled = true
+
+[git_status]
+# git is too slow on the repos I use..
+disabled = true
+
+[git_branch]
+format = '[$symbol$branch(:$remote_branch)]($style) '
