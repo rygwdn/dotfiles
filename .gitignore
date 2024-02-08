@@ -1,3 +1,4 @@
 *.pyc
 *.zwc
 *.zwc.old
+.DS_store
