@@ -9,9 +9,7 @@ all_platforms = [
     "bashrc",
     "bin",
     "zsh",
-    "zsh/zshenv",
     "zsh/zshrc",
-    "zsh/zpreztorc",
     "ripgreprc",
     ("fish", ".config/fish"),
     ("tridactyl", ".config/tridactyl"),
@@ -19,7 +17,6 @@ all_platforms = [
 
 windows_links = all_platforms + [
     ("vim", "vimfiles"),
-    #("vim", "AppData/Local/nvim"),
     ("vim", ".config/nvim"),
     ("vim/_vimrc",  "_vimrc"),
     ("_vsvimrc",  "_vsvimrc"),

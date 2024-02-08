@@ -1,0 +1,23 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+add_newline = false
+
+format = """$directory$character"""
+right_format = """$all"""
+
+command_timeout = 1000
+
+[status]
+disabled = false
+
+[username]
+disabled = true
+
+[hostname]
+disabled = true
+
+[gcloud]
+disabled = true
+
+[container]
+disabled = true

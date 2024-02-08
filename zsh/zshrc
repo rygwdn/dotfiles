@@ -1,30 +1,16 @@
 [[ -f "$HOME/.zshrc-pre" ]] && source "$HOME/.zshrc-pre"
 
-#zstyle ':completion:*' use-cache on
-#autoload -Uz compinit && compinit
-
 [[ -x /opt/homebrew/bin/brew ]] && eval $(/opt/homebrew/bin/brew shellenv)
 [[ -x /opt/homebrew/bin/gcc-11 ]] && export CC=/opt/homebrew/bin/gcc-11
-
-{
-  # Compile the completion dump to increase startup speed.
-  zcompdump="${XDG_CACHE_HOME:-$HOME/.cache}/prezto/zcompdump"
-  if [[ -s "$zcompdump" && (! -s "${zcompdump}.zwc" || "$zcompdump" -nt "${zcompdump}.zwc") ]]; then
-    zcompile "$zcompdump"
-  fi
-} &!
+[[ -f /opt/dev/sh/chruby/chruby.sh ]] && { type chruby >/dev/null 2>&1 || chruby () { source /opt/dev/sh/chruby/chruby.sh; chruby "$@"; } }
 
 # pass unmatched globs verbatim to the command, allowing things like `HEAD^` to work
 setopt NO_NOMATCH
+setopt promptsubst
 
-# Source Prezto.
-if [[ -s "${ZDOTDIR:-$HOME}/.zprezto/init.zsh" ]]; then
-  source "${ZDOTDIR:-$HOME}/.zprezto/init.zsh"
-fi
-
-fpath=("${0:a:h}/zsh/completion" $fpath)
 path=("${0:a:h}/bin" $path)
-compdef _git-fixup git-fixup
+
+# Keys {{{ 
 
 # Rebind Alt-Dot after prezto breaks it..
 bindkey '^[1' digit-argument
@@ -52,6 +38,9 @@ bindkey '^[,' copy-earlier-word
 # Ctrl-O to stash the current line
 bindkey '^o' push-line
 
+# }}}
+
+# Aliases {{{ 
 
 alias st='git status'
 alias ci='git commit'
@@ -93,6 +82,10 @@ alias vw="nvim +VimwikiIndex +'lcd %:p:h'"
 
 alias tm='tmux new-session -A'
 
+# }}}
+
+# function H {{{ 
+
 function h() {
   if [[ -z $1 ]]; then
     fc -l
@@ -101,6 +94,10 @@ function h() {
 
   fc -l 0 | grep "$@"
 }
+
+# }}}
+
+# function setup_macos {{{ 
 
 function setup_macos() {
     # Faster keyboard repeat rate. The defaults available are so slow and it takes ages to delete a lot of text.
@@ -112,9 +109,66 @@ function setup_macos() {
     # Show hidden files in finder. I want to see everything.
     defaults write com.apple.finder AppleShowAllFiles YES
 }
+# }}}
 
-[[ -f "/opt/homebrew/opt/fzf/shell/key-bindings.zsh" ]] && source "/opt/homebrew/opt/fzf/shell/key-bindings.zsh"
+# Install & Setup zinit {{{ 
+
+if [[ ! -f $HOME/.local/share/zinit/zinit.git/zinit.zsh ]]; then
+    print -P "%F{33} %F{220}Installing %F{33}ZDHARMA-CONTINUUM%F{220} Initiative Plugin Manager (%F{33}zdharma-continuum/zinit%F{220})…%f"
+    command mkdir -p "$HOME/.local/share/zinit" && command chmod g-rwX "$HOME/.local/share/zinit"
+    command git clone https://github.com/zdharma-continuum/zinit "$HOME/.local/share/zinit/zinit.git" && \
+        print -P "%F{33} %F{34}Installation successful.%f%b" || \
+        print -P "%F{160} The clone has failed.%f%b"
+fi
+
+source "$HOME/.local/share/zinit/zinit.git/zinit.zsh"
+autoload -Uz _zinit
+(( ${+_comps} )) && _comps[zinit]=_zinit
+
+# }}}
+
+# Install & configure plugins {{{ 
+
+# Annexes for zinit -- maybe not needed?
+zi light-mode for \
+    zdharma-continuum/zinit-annex-as-monitor \
+    zdharma-continuum/zinit-annex-bin-gem-node \
+    zdharma-continuum/zinit-annex-patch-dl \
+    zdharma-continuum/zinit-annex-rust
+
+zinit ice as"completion"
+zinit load "${0:a:h}/zsh/completion"
+
+zinit wait lucid for \
+  atinit"zicompinit; zicdreplay" \
+      zdharma-continuum/fast-syntax-highlighting \
+  atload"_zsh_autosuggest_start" \
+      zsh-users/zsh-autosuggestions \
+  blockf atpull'zinit creinstall -q .' \
+      zsh-users/zsh-completions \
+  depth=1 \
+    jeffreytse/zsh-vi-mode
+
+# set a default pane title while the script loads
+printf "\e]2;zsh\e\\"
+zi ice wait lucid
+zi light mbenford/zsh-tmux-auto-title
+
+# Set up starship theme
+export STARSHIP_CONFIG="${STARSHIP_CONFIG:-${0:a:h}/starship.toml}"
+zi ice as"command" from"gh-r" \
+          atclone"./starship init zsh > init.zsh; ./starship completions zsh > _starship" \
+          atpull"%atclone" src"init.zsh"
+zi light starship/starship
+
+zinit wait"1" lucid from"gh-r" as"null" for \
+     sbin"fzf"          junegunn/fzf-bin \
+     sbin"**/fd"        @sharkdp/fd \
+     sbin"**/bat"       @sharkdp/bat \
+     sbin"exa* -> exa"  ogham/exa
+
+# }}}
 
 [[ -f "$HOME/.zshrc-post" ]] && source "$HOME/.zshrc-post"
 
-[[ -f /opt/dev/sh/chruby/chruby.sh ]] && { type chruby >/dev/null 2>&1 || chruby () { source /opt/dev/sh/chruby/chruby.sh; chruby "$@"; } }
+# vim:foldmethod=marker:foldlevel=0:
