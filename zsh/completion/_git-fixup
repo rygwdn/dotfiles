@@ -1,5 +1,4 @@
-#compdef git-fixup
-#description create a fixup commit
+#!/bin/env zsh
 
 function _fixup_target {
     local -a lines commits

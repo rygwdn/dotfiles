@@ -8,6 +8,8 @@
 setopt NO_NOMATCH
 setopt promptsubst
 
+export CLICOLOR=1
+
 path+=("$HOME/dotfiles/bin")
 
 # Keys {{{ 
@@ -131,40 +133,55 @@ autoload -Uz _zinit
 
 # Install & configure plugins {{{ 
 
-# Annexes for zinit -- maybe not needed?
+# Annexes for zinit
 zi light-mode for \
     zdharma-continuum/zinit-annex-as-monitor \
     zdharma-continuum/zinit-annex-bin-gem-node \
     zdharma-continuum/zinit-annex-patch-dl \
     zdharma-continuum/zinit-annex-rust
 
-zi ice as"completion"
-zi load "${0:a:h}/zsh/completion"
+function zvm_after_lazy_keybindings() {
+    zvm_bindkey vicmd 'k' up-line-or-search
+    zvm_bindkey vicmd 'j' down-line-or-select
 
-zi wait lucid for \
-      zdharma-continuum/history-search-multi-word \
-  atinit"zicompinit; zicdreplay" \
-      zdharma-continuum/fast-syntax-highlighting \
-  compile'{src/*.zsh,src/strategies/*}' atload'!_zsh_autosuggest_start' nocd \
-      zsh-users/zsh-autosuggestions \
-  blockf atpull'zinit creinstall -q .' \
-      zsh-users/zsh-completions \
-  atinit"
-    bindkey -M vicmd 'k' history-substring-search-up
-    bindkey '^[[A' history-substring-search-up
-    bindkey '^P'   history-substring-search-up
-    bindkey -M vicmd 'j' history-substring-search-down
-    bindkey '^[[B' history-substring-search-down
-    bindkey '^N'   history-substring-search-down"\
-      zsh-users/zsh-history-substring-search
+    zvm_bindkey vicmd '[A' up-line-or-search
+    zvm_bindkey vicmd '[B' down-line-or-select
+
+    zvm_bindkey vicmd 'N' history-search-backward
+    zvm_bindkey vicmd 'n' menu-select
+
+    zvm_bindkey vicmd '/' history-incremental-search-backward
+    zvm_bindkey vicmd '?' menu-search
+}
 
 zi ice depth=1
 zi light jeffreytse/zsh-vi-mode
 
-# set a default pane title while the script loads
-printf "\e]2;zsh\e\\"
-zi ice wait lucid
-zi light mbenford/zsh-tmux-auto-title
+zi ice depth=1  atload"
+     bindkey '\\t' menu-select \"$terminfo[kcbt]\" menu-select
+     bindkey -M viins '\\t' menu-select \"$terminfo[kcbt]\" menu-select
+     bindkey -M menuselect '\\t' menu-complete \"$terminfo[kcbt]\" reverse-menu-complete
+
+     bindkey -M viins '[A' up-line-or-search
+     bindkey -M viins '[B' down-line-or-select
+
+     # allow fuzzy file completion ala fish
+     zstyle ':completion:*' completer _expand _complete _complete:-loose _complete:-fuzzy _ignored
+     zstyle ':autocomplete:*' min-input 1
+ "
+zi light marlonrichert/zsh-autocomplete
+
+zi wait lucid for \
+  atinit"zicompinit; zicdreplay" \
+      zdharma-continuum/fast-syntax-highlighting \
+  blockf atpull'zinit creinstall -q .' \
+      zsh-users/zsh-completions
+
+zi ice as"completion"
+zi load "${HOME}/dotfiles/zsh/completion"
+
+zi ice light-mode link has'tmux'
+zi snippet "$HOME/dotfiles/zsh/snippets/zsh-tmux-auto-title.plugin.zsh"
 
 # Set up starship theme
 export STARSHIP_CONFIG="${STARSHIP_CONFIG:-${0:a:h}/starship.toml}"
@@ -173,14 +190,8 @@ zi ice as"command" from"gh-r" \
           atpull"%atclone" src"init.zsh"
 zi light starship/starship
 
-zinit wait"1" lucid from"gh-r" as"null" for \
-     sbin"fzf"          junegunn/fzf-bin \
-     sbin"**/fd"        @sharkdp/fd \
-     sbin"**/bat"       @sharkdp/bat \
-     sbin"exa* -> exa"  ogham/exa
-
 # }}}
 
-[[ -f "$HOME/.zshrc-post" ]] && source "$HOME/.zshrc-post"
+[[ -f "$HOME/.zshrc-post" ]] && zi ice light-mode link && zi snippet "$HOME/.zshrc-post"
 
 # vim:foldmethod=marker:foldlevel=0:
