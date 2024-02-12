@@ -8,7 +8,9 @@ return {
     config = function()
       vim.api.nvim_create_autocmd({ "BufEnter" }, {
         pattern = "logs.shopify.io*.txt",
-        cmd = "set filetype=splunk",
+        callback = function()
+          vim.cmd("set filetype=splunk")
+        end,
       })
 
       vim.api.nvim_create_autocmd({ "UIEnter" }, {
