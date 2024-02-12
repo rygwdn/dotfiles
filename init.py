@@ -16,18 +16,14 @@ all_platforms = [
 ]
 
 windows_links = all_platforms + [
-    ("vim", "vimfiles"),
-    ("vim", ".config/nvim"),
-    ("vim/_vimrc",  "_vimrc"),
+    ("nvim", ".config/nvim"),
     ("_vsvimrc",  "_vsvimrc"),
     ("windows/profile.ps1",  "Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"),
     ("win-vind",  ".win-vind"),
 ]
 
 unix_links = all_platforms + [
-    "vim",
-    "vim/vimrc",
-    ("vim", ".config/nvim"),
+    ("nvim", ".config/nvim"),
     "flexget",
     "tmux.conf",
 ]
