@@ -1,21 +1,9 @@
 return {
   {
     "vimwiki/vimwiki",
-    lazy = true,
-    event = "Bufenter *.md",
-    keys = {
-      {
-        "[[",
-        function()
-          require("oil").open()
-        end,
-        desc = "Open parent directory",
-      },
-    },
-    config = function()
+    init = function()
       vim.api.nvim_create_autocmd("FileType", {
         pattern = "vimwiki",
-        group = "vimrc",
         desc = "Add vimwiki mappings",
         callback = function()
           vim.keymap.set("i", "[[[", "<cmd>Telescope vimwiki link<cr>", { desc = "Insert vimwiki link", buffer = true })
