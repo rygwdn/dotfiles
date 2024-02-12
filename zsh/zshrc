@@ -158,16 +158,20 @@ zi ice depth=1
 zi light jeffreytse/zsh-vi-mode
 
 zi ice depth=1  atload"
-     bindkey '\\t' menu-select \"$terminfo[kcbt]\" menu-select
-     bindkey -M viins '\\t' menu-select \"$terminfo[kcbt]\" menu-select
-     bindkey -M menuselect '\\t' menu-complete \"$terminfo[kcbt]\" reverse-menu-complete
+    bindkey '\\t' menu-select \"$terminfo[kcbt]\" menu-select
+    bindkey -M viins '\\t' menu-select \"$terminfo[kcbt]\" menu-select
+    bindkey -M menuselect '\\t' menu-complete \"$terminfo[kcbt]\" reverse-menu-complete
 
-     bindkey -M viins '[A' up-line-or-search
-     bindkey -M viins '[B' down-line-or-select
+    bindkey -M viins '[A' up-line-or-search
+    bindkey -M viins '[B' down-line-or-select
 
-     # allow fuzzy file completion ala fish
-     zstyle ':completion:*' completer _expand _complete _complete:-loose _complete:-fuzzy _ignored
-     zstyle ':autocomplete:*' min-input 1
+    bindkey -M menuselect '\r' .accept-line
+
+    # allow fuzzy file completion ala fish
+    zstyle ':completion:*' completer _expand _complete _complete:-loose _complete:-fuzzy _ignored
+    zstyle ':autocomplete:*' min-input 1
+
+    zstyle ':autocomplete:*complete*:*' insert-unambiguous yes
  "
 zi light marlonrichert/zsh-autocomplete
 
