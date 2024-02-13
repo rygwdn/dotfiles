@@ -65,6 +65,7 @@ alias rbi='git rebase -i --autosquash'
 alias rbim='git rebase -i --autosquash origin/main'
 alias fup='git fixup'
 alias f='git fixup'
+alias fa='git fixup --amend'
 
 alias pff='git pull --ff-only'
 alias pnf='git pull --no-ff'
