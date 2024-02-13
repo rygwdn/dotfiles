@@ -174,8 +174,8 @@ zinit load zsh-users/zsh-history-substring-search
 zinit ice wait"0b" lucid atload"_zsh_autosuggest_start"
 zinit load zsh-users/zsh-autosuggestions
 
-zi ice as"completion"
-zi load "${HOME}/dotfiles/zsh/completion"
+zi ice as-id"local"
+zi load "${HOME}/dotfiles/zsh/plugins"
 
 zi ice light-mode link has'tmux'
 zi snippet "$HOME/dotfiles/zsh/snippets/zsh-tmux-auto-title.plugin.zsh"
