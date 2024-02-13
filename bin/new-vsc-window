@@ -1,0 +1,14 @@
+#!/bin/bash
+
+session="$(tmux list-sessions -F '#{session_name}' -f '#{m:꩜ *,#{session_name}}')"
+[[ -z "$session" ]] && echo "no other session" 1>&2
+
+# TODO:if no session...
+
+#TODO
+vsc_number=1
+repo=unknown
+name=vsc-#{repo}-#{vsc_number}
+
+tmux new-session -s $name "tmux new-window -n $name zsh; tmux link-window -s $name:$name -t '$session:' -d; tmux  set window-size smallest"
+
