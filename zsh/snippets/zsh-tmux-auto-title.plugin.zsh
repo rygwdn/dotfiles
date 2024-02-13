@@ -22,12 +22,12 @@ _zsh_tmux_title_precmd() {
         then
             title="${title}/${git_rel}"
         fi
-        title="${title%/}"
+        title=":${title%/}"
     else
-        title="$(print -rP %~)"
+        title=":$(print -rP %~)"
     fi
 
-    _set_title "${title}"
+    _set_title "zsh${title}"
 }
 
 add-zsh-hook preexec _zsh_tmux_title_preexec
