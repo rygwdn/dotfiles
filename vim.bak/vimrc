@@ -1,3 +1,0 @@
-if !has("nvim")
-    runtime init.vim
-endif
