@@ -17,8 +17,14 @@ require("lazy").setup({
     lazy = false,
     version = false,
   },
-  install = { colorscheme = { "tokyonight", "habamax" } },
-  checker = { enabled = true }, -- automatically check for plugin updates
+  checker = {
+    enabled = not vim.g.started_by_firenvim,
+    notify = not vim.g.started_by_firenvim,
+  },
+  change_detection = {
+    enabled = not vim.g.started_by_firenvim,
+    notify = not vim.g.started_by_firenvim,
+  },
   performance = {
     rtp = {
       disabled_plugins = {

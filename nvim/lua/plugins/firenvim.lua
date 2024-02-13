@@ -1,4 +1,6 @@
 return {
+  { "folke/noice.nvim", enabled = not vim.g.started_by_firenvim },
+
   {
     "glacambre/firenvim",
     lazy = not vim.g.started_by_firenvim,
@@ -9,7 +11,14 @@ return {
       vim.api.nvim_create_autocmd({ "BufEnter" }, {
         pattern = "logs.shopify.io*.txt",
         callback = function()
-          vim.cmd("set filetype=splunk")
+          vim.opt.filetype = "splunk"
+        end,
+      })
+
+      vim.api.nvim_create_autocmd({ "BufEnter" }, {
+        pattern = "github.com_*.txt",
+        callback = function()
+          vim.opt.filetype = "markdown"
         end,
       })
 
@@ -18,6 +27,12 @@ return {
           local client = vim.api.nvim_get_chan_info(vim.v.event.chan).client
           if client ~= nil and client.name == "Firenvim" then
             vim.o.laststatus = 0
+            vim.opt.guifont = "Firacode Nerd Font Mono:h18"
+
+            -- Workaround for https://github.com/glacambre/firenvim/issues/800
+            vim.defer_fn(function()
+              vim.opt.guifont = "Firacode Nerd Font Mono:h18"
+            end, 50)
           end
         end,
       })
@@ -33,27 +48,12 @@ return {
             priority = 0,
             takeover = "never",
           },
-          [".*github.com.*"] = {
-            takeover = "always",
-            selector = "textarea:not([readonly])",
-          },
+          -- [".*github.com.*"] = {
+          --   takeover = "always",
+          --   selector = "textarea:not([readonly])",
+          -- },
         },
       }
-
-      -- TODO:this
-      --   function! SetFontSizeFirenvim(timer)
-      --     set guifont=Monaco:h18
-      --   endfunction
-      --
-      --   function! OnUIEnter()
-      --     call timer_start(200, function("SetFontSizeFirenvim"))
-      --   endfunction
-      --
-      --   " Workaround for https://github.com/glacambre/firenvim/issues/800
-      --   autocmd UIEnter * call OnUIEnter()
-      --
-      --   au BufEnter github.com_*.txt set filetype=markdown
-      -- endif
     end,
   },
 }
