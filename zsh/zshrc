@@ -6,7 +6,14 @@
 
 # pass unmatched globs verbatim to the command, allowing things like `HEAD^` to work
 setopt NO_NOMATCH
+
 setopt promptsubst
+setopt inc_append_history
+setopt share_history
+
+HISTSIZE=1000
+SAVEHIST=50000
+HISTFILE=${XDG_STATE_HOME:-$HOME/.local/state}/.zsh_history
 
 export CLICOLOR=1
 
@@ -141,45 +148,31 @@ zi light-mode for \
     zdharma-continuum/zinit-annex-rust
 
 function zvm_after_lazy_keybindings() {
-    zvm_bindkey vicmd 'k' up-line-or-search
-    zvm_bindkey vicmd 'j' down-line-or-select
-
-    zvm_bindkey vicmd '[A' up-line-or-search
-    zvm_bindkey vicmd '[B' down-line-or-select
-
-    zvm_bindkey vicmd 'N' history-search-backward
-    zvm_bindkey vicmd 'n' menu-select
-
-    zvm_bindkey vicmd '/' history-incremental-search-backward
-    zvm_bindkey vicmd '?' menu-search
+    zvm_bindkey vicmd 'k' history-substring-search-up
+    zvm_bindkey vicmd 'j' history-substring-search-down
+    zvm_bindkey vicmd '[A' history-substring-search-up
+    zvm_bindkey vicmd '[B' history-substring-search-down
 }
 
 zi ice depth=1
 zi light jeffreytse/zsh-vi-mode
-
-zi ice depth=1  atload"
-    bindkey '\\t' menu-select \"$terminfo[kcbt]\" menu-select
-    bindkey -M viins '\\t' menu-select \"$terminfo[kcbt]\" menu-select
-    bindkey -M menuselect '\\t' menu-complete \"$terminfo[kcbt]\" reverse-menu-complete
-
-    bindkey -M viins '[A' up-line-or-search
-    bindkey -M viins '[B' down-line-or-select
-
-    bindkey -M menuselect '\r' .accept-line
-
-    # allow fuzzy file completion ala fish
-    zstyle ':completion:*' completer _expand _complete _complete:-loose _complete:-fuzzy _ignored
-    zstyle ':autocomplete:*' min-input 1
-
-    zstyle ':autocomplete:*complete*:*' insert-unambiguous yes
- "
-zi light marlonrichert/zsh-autocomplete
 
 zi wait lucid for \
   atinit"zicompinit; zicdreplay" \
       zdharma-continuum/fast-syntax-highlighting \
   blockf atpull'zinit creinstall -q .' \
       zsh-users/zsh-completions
+
+zinit ice wait"0a" lucid atload'
+    bindkey "$terminfo[kcuu1]" history-substring-search-up;
+    bindkey "$terminfo[kcud1]" history-substring-search-down;
+    bindkey "^[[A" history-substring-search-up;
+    bindkey "^[[B" history-substring-search-down;
+    '
+zinit load zsh-users/zsh-history-substring-search
+
+zinit ice wait"0b" lucid atload"_zsh_autosuggest_start"
+zinit load zsh-users/zsh-autosuggestions
 
 zi ice as"completion"
 zi load "${HOME}/dotfiles/zsh/completion"
