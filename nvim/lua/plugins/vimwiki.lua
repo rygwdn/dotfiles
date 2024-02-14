@@ -5,6 +5,10 @@ return {
       { "<leader>ww", "<Plug>VimwikiIndex", desc = "Open today" },
       { "<leader>w<leader>w", "<Plug>VimwikiMakeDiaryNote", desc = "Open vimwiki" },
     },
+    cmd = {
+      "VimwikiIndex",
+      "VimwikiMakeDiaryNote",
+    },
     dependencies = {
       { "powerman/vim-plugin-AnsiEsc", ft = "vimwiki" },
     },
