@@ -5,6 +5,17 @@ return {
   { "rygwdn/vim-tmux-navigator" },
 
   {
+    "folke/flash.nvim",
+    opts = {
+      modes = {
+        char = {
+          keys = { "f", "F", "t", "T", ";", [","] = "\\" },
+        },
+      },
+    },
+  },
+
+  {
     "stevearc/oil.nvim",
     opts = {},
     dependencies = { "nvim-tree/nvim-web-devicons" },

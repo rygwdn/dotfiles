@@ -1,6 +1,13 @@
 return {
   {
     "vimwiki/vimwiki",
+    keys = {
+      { "<leader>ww", "<Plug>VimwikiIndex", desc = "Open today" },
+      { "<leader>w<leader>w", "<Plug>VimwikiMakeDiaryNote", desc = "Open vimwiki" },
+    },
+    dependencies = {
+      { "powerman/vim-plugin-AnsiEsc", ft = "vimwiki" },
+    },
     init = function()
       vim.api.nvim_create_autocmd("FileType", {
         pattern = "vimwiki",
@@ -14,7 +21,7 @@ return {
       })
 
       vim.api.nvim_create_autocmd("BufNewFile", {
-        pattern = "~/Documents/notes/diary/*.md",
+        pattern = "*/notes/diary/*.md",
         desc = "diary template",
         callback = function()
           require("vimwikidiary")
@@ -33,6 +40,4 @@ return {
       }
     end,
   },
-
-  { "powerman/vim-plugin-AnsiEsc", ft = "vimwiki" },
 }
