@@ -7,6 +7,13 @@ right_format = """$all"""
 
 command_timeout = 1000
 
+[directory]
+repo_root_format = '[](purple)[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style) '
+fish_style_pwd_dir_length = 1
+repo_root_style = "bold cyan"
+truncate_to_repo = true
+truncation_length = 10
+
 [status]
 disabled = false
 
