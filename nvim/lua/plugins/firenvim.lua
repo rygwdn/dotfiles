@@ -37,6 +37,14 @@ return {
         end,
       })
 
+      if vim.fn.executable("pbpaste") == 1 then
+        vim.g.clipboard = {
+          name = "pbcopy",
+          copy = { ["+"] = { "pbcopy" }, ["*"] = { "pbcopy" } },
+          paste = { ["+"] = { "pbpaste" }, ["*"] = { "pbpaste" } },
+        }
+      end
+
       vim.g.firenvim_config = {
         globalSettings = {
           alt = "all",
