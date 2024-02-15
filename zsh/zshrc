@@ -17,115 +17,6 @@ HISTFILE=${XDG_STATE_HOME:-$HOME/.local/state}/.zsh_history
 
 export CLICOLOR=1
 
-path+=("$HOME/dotfiles/bin")
-
-# Keys {{{ 
-
-# Rebind Alt-Dot after prezto breaks it..
-bindkey '^[1' digit-argument
-bindkey '^[2' digit-argument
-bindkey '^[3' digit-argument
-bindkey '^[4' digit-argument
-bindkey '^[5' digit-argument
-bindkey '^[6' digit-argument
-bindkey '^[7' digit-argument
-bindkey '^[8' digit-argument
-bindkey '^[9' digit-argument
-bindkey '^[.' insert-last-word
-bindkey '^A' beginning-of-line
-bindkey '^[OH' beginning-of-line
-bindkey '^E' end-of-line
-bindkey '^[OF' end-of-line
-bindkey '<M-b>' backward-word
-bindkey '<M-f>' forward-word
-
-# Alt-Comma to copy earlier arguments after Alt-Dot
-autoload -U copy-earlier-word
-zle -N copy-earlier-word
-bindkey '^[,' copy-earlier-word
-
-# Ctrl-O to stash the current line
-bindkey '^o' push-line
-
-# }}}
-
-# Aliases {{{ 
-
-alias st='git status'
-alias ci='git commit'
-alias co='git checkout'
-alias gd='git diff'
-alias gdc='git diff --cached'
-alias gmt='git mergetool'
-alias br='git branch'
-alias show='git show'
-alias rb='git rebase'
-alias rbc='git rebase --continue'
-alias rbi='git rebase -i --autosquash'
-alias rbim='git rebase -i --autosquash origin/main'
-alias fup='git fixup'
-alias f='git fixup'
-alias fa='git fixup --amend'
-alias af='git add . && git fixup'
-alias afa='git add . && git fixup --amend'
-
-alias pff='git pull --ff-only'
-alias pnf='git pull --no-ff'
-
-alias mff='git merge --ff-only'
-alias mnf='git merge --no-ff'
-
-alias po='git push origin'
-alias pof='git push origin --force-with-lease'
-alias gph='git push origin --set-upstream HEAD'
-
-alias ga='git add'
-alias gap='git add --patch'
-
-alias gfu='git fetch origin'
-alias gfo='git fetch origin'
-
-alias pr='gh pr create --web'
-
-alias rg='rg -S'
-alias prl='pr -l'
-
-alias stfu="osascript -e 'set volume output muted true'"
-alias flushdns="dscacheutil -flushcache"
-
-alias vw="nvim +VimwikiIndex +'lcd %:p:h'"
-
-alias tm='tmux new-session -A'
-
-# }}}
-
-# function H {{{ 
-
-function h() {
-  if [[ -z $1 ]]; then
-    fc -l
-    return
-  fi
-
-  fc -l 0 | grep "$@"
-}
-
-# }}}
-
-# function setup_macos {{{ 
-
-function setup_macos() {
-    # Faster keyboard repeat rate. The defaults available are so slow and it takes ages to delete a lot of text.
-    defaults write NSGlobalDomain KeyRepeat -int 1
-    defaults write NSGlobalDomain InitialKeyRepeat -int 12
-    defaults write com.microsoft.VSCode ApplePressAndHoldEnabled -bool false
-    defaults write -g ApplePressAndHoldEnabled -bool false
-
-    # Show hidden files in finder. I want to see everything.
-    defaults write com.apple.finder AppleShowAllFiles YES
-}
-# }}}
-
 # Install & Setup zinit {{{ 
 
 if [[ ! -f $HOME/.local/share/zinit/zinit.git/zinit.zsh ]]; then
@@ -141,8 +32,7 @@ autoload -Uz _zinit
 (( ${+_comps} )) && _comps[zinit]=_zinit
 
 # }}}
-
-# Install & configure plugins {{{ 
+# Annexes (extensions) for zinit {{{ 
 
 # Annexes for zinit
 zi light-mode for \
@@ -151,14 +41,35 @@ zi light-mode for \
     zdharma-continuum/zinit-annex-patch-dl \
     zdharma-continuum/zinit-annex-rust
 
+# }}}
+# Load my config {{{ 
+zi ice as-id"local" lucid wait
+zi load "${HOME}/dotfiles/zsh/plugins"
+
+zi ice light-mode lucid link wait has'tmux'
+zi snippet "$HOME/dotfiles/zsh/snippets/zsh-tmux-auto-title.plugin.zsh"
+
+# }}}
+# Load other plugins {{{
+
 function zvm_after_lazy_keybindings() {
     zvm_bindkey vicmd 'k' history-substring-search-up
     zvm_bindkey vicmd 'j' history-substring-search-down
     zvm_bindkey vicmd '[A' history-substring-search-up
     zvm_bindkey vicmd '[B' history-substring-search-down
+
+    zvm_bindkey '^A' beginning-of-line
+    zvm_bindkey '^[OH' beginning-of-line
+    zvm_bindkey '^[[1~' beginning-of-line
+
+    zvm_bindkey '^E' end-of-line
+    zvm_bindkey '^[OF' end-of-line
+    zvm_bindkey '^[[4~' end-of-line
 }
 
-zi ice depth=1
+zi ice depth=1 atload'
+    ZVM_LINE_INIT_MODE=$ZVM_MODE_INSERT
+    '
 zi light jeffreytse/zsh-vi-mode
 
 zi wait lucid for \
@@ -177,12 +88,6 @@ zinit load zsh-users/zsh-history-substring-search
 
 zinit ice wait"0b" lucid atload"_zsh_autosuggest_start"
 zinit load zsh-users/zsh-autosuggestions
-
-zi ice as-id"local"
-zi load "${HOME}/dotfiles/zsh/plugins"
-
-zi ice light-mode link has'tmux'
-zi snippet "$HOME/dotfiles/zsh/snippets/zsh-tmux-auto-title.plugin.zsh"
 
 # Set up starship theme
 export STARSHIP_CONFIG="${STARSHIP_CONFIG:-${0:a:h}/starship.toml}"

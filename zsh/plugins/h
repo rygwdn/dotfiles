@@ -1,0 +1,8 @@
+#!/bin/env zsh
+
+if [[ -z $1 ]]; then
+  fc -l
+  return
+fi
+
+fc -l 0 | grep "$@"
