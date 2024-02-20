@@ -18,12 +18,12 @@ require("lazy").setup({
     version = false,
   },
   checker = {
-    enabled = not vim.g.started_by_firenvim,
-    notify = not vim.g.started_by_firenvim,
+    enabled = not vim.g.started_by_firenvim and not vim.g.vscode,
+    notify = not vim.g.started_by_firenvim and not vim.g.vscode,
   },
   change_detection = {
-    enabled = not vim.g.started_by_firenvim,
-    notify = not vim.g.started_by_firenvim,
+    enabled = not vim.g.started_by_firenvim and not vim.g.vscode,
+    notify = not vim.g.started_by_firenvim and not vim.g.vscode,
   },
   performance = {
     rtp = {

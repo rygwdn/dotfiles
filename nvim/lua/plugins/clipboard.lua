@@ -2,6 +2,7 @@ return {
   {
     "ojroques/nvim-osc52",
     lazy = vim.g.started_by_firenvim,
+    cond = not vim.g.vscode,
     config = function()
       local osc = require("osc52")
       osc.setup({ silent = true })
