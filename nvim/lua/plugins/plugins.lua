@@ -1,13 +1,11 @@
 return {
-  { "tpope/vim-eunuch" },
-  { "tpope/vim-git", cond = not vim.g.vscode },
-  { "tpope/vim-fugitive", cond = not vim.g.vscode },
-  { "rygwdn/vim-tmux-navigator", cond = not vim.g.vscode },
-  { "echasnovski/mini.indentscope", cond = not vim.g.vscode },
+  { "tpope/vim-eunuch", vscode = true },
+  { "tpope/vim-git" },
+  { "tpope/vim-fugitive" },
+  { "rygwdn/vim-tmux-navigator" },
 
   {
     "folke/flash.nvim",
-    cond = not vim.g.vscode,
     opts = {
       modes = {
         char = {
@@ -19,7 +17,6 @@ return {
 
   {
     "stevearc/oil.nvim",
-    cond = not vim.g.vscode,
     opts = {},
     dependencies = { "nvim-tree/nvim-web-devicons" },
     keys = {
