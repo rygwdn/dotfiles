@@ -1,10 +1,12 @@
 return {
-  { "folke/noice.nvim", cond = not vim.g.started_by_firenvim },
+  {
+    "folke/noice.nvim",
+    cond = not vim.g.started_by_firenvim and not vim.g.vscode,
+  },
 
   {
     "glacambre/firenvim",
     lazy = not vim.g.started_by_firenvim,
-    cond = not vim.g.vscode,
     build = function()
       vim.fn["firenvim#install"](0)
     end,
