@@ -1,16 +1,17 @@
 return {
   {
     "jackMort/ChatGPT.nvim",
-    event = "VeryLazy",
+    lazy = true,
     config = function()
       require("chatgpt").setup({
-        api_host_cmd = "get-open-ai-host",
-        api_key_cmd = "get-open-ai-key",
+        api_host_cmd = "get-openai base",
+        api_key_cmd = "get-openai key",
         openai_params = {
           model = "gpt-4",
         },
       })
     end,
+    commands = { "ChatGPT", "ChatGPTActAs", "ChatGPTEditWithInstructions", "ChatGPTRun" },
     keys = {
       { "<leader>ac", "<cmd>ChatGPT<CR>", desc = "ChatGPT" },
       { "<leader>ae", "<cmd>ChatGPTEditWithInstruction<CR>", desc = "Edit with instruction", mode = { "n", "v" } },
