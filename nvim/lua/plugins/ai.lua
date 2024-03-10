@@ -11,7 +11,7 @@ return {
         },
       })
     end,
-    commands = { "ChatGPT", "ChatGPTActAs", "ChatGPTEditWithInstructions", "ChatGPTRun" },
+    cmd = { "ChatGPT", "ChatGPTActAs", "ChatGPTEditWithInstructions", "ChatGPTRun" },
     keys = {
       { "<leader>ac", "<cmd>ChatGPT<CR>", desc = "ChatGPT" },
       { "<leader>ae", "<cmd>ChatGPTEditWithInstruction<CR>", desc = "Edit with instruction", mode = { "n", "v" } },
