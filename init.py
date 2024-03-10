@@ -11,6 +11,7 @@ all_platforms = [
     "zsh",
     "zsh/zshrc",
     "ripgreprc",
+    "hammerspoon",
     ("fish", ".config/fish"),
     ("tridactyl", ".config/tridactyl"),
 ]
