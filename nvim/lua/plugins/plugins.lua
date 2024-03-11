@@ -18,9 +18,40 @@ return {
     },
   },
 
-  { "tpope/vim-eunuch", vscode = true },
-  { "tpope/vim-git" },
-  { "tpope/vim-fugitive" },
+  {
+    "tpope/vim-eunuch",
+    vscode = true,
+    cmd = {
+      "Remove",
+      "Delete",
+      "Move",
+      "Chmod",
+      "Mkdir",
+      "Cfind",
+      "Clocate",
+      "Lfind",
+      "Llocalte",
+      "Wall",
+      "SudoWrite",
+      "SudoEdit",
+    },
+  },
+  {
+    "tpope/vim-fugitive",
+    cmd = {
+      "Git",
+      "Gedit",
+      "Gsplit",
+      "Gdiffsplit",
+      "Gvdiffsplit",
+      "Gread",
+      "Gwrite",
+      "Ggrep",
+      "GMove",
+      "GDelete",
+      "GBrowse",
+    },
+  },
 
   {
     "rygwdn/vim-tmux-navigator",

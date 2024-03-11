@@ -31,4 +31,21 @@ return {
       end
     end,
   },
+  {
+    "HakonHarnes/img-clip.nvim",
+    ft = { "markdown" },
+    cmd = {
+      "PasteImage",
+    },
+    opts = {
+      dirs = {
+        ["~/Documents/notes/"] = {
+          prompt_for_file_name = false,
+        },
+      },
+    },
+    keys = {
+      { "<leader>p", "<cmd>PasteImage<cr>", desc = "Paste clipboard image" },
+    },
+  },
 }
