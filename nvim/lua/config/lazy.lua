@@ -18,8 +18,8 @@ require("lazy").setup({
     version = false,
   },
   checker = {
-    enabled = not vim.g.started_by_firenvim and not vim.g.vscode,
-    notify = not vim.g.started_by_firenvim and not vim.g.vscode,
+    enabled = not vim.g.started_by_firenvim and not vim.g.vscode and not vim.env.SSH_CONNECTION,
+    notify = true,
   },
   change_detection = {
     enabled = not vim.g.started_by_firenvim and not vim.g.vscode,
