@@ -24,10 +24,16 @@ return {
           key = "f",
         },
         {
-          action = "ene | startinsert",
+          action = "ene",
           desc = " New file",
           icon = " ",
           key = "n",
+        },
+        {
+          action = 'ene | normal "+p',
+          desc = " New from Clipboard",
+          icon = " ",
+          key = "p",
         },
         {
           action = "Telescope oldfiles",
