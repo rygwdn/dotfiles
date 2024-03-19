@@ -6,7 +6,7 @@ if vim.g.vscode then
     { "n", "x", "o" },
     "gc",
     "VSCodeCommentary",
-    { expr = true, silent = true, describe = "Comment selection" }
+    { expr = true, silent = true, desc = "Comment selection" }
   )
   vim.keymap.set({ "n" }, "gcc", "VSCodeCommentaryLine", { expr = true, silent = true, desc = "Comment line" })
 end

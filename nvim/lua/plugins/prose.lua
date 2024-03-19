@@ -38,6 +38,7 @@ return {
   },
 
   -- wiki-like navigation of markdown
+  -- TODO: use https://github.com/epwalsh/obsidian.nvim ?
   {
     "jakewvincent/mkdnflow.nvim",
     ft = { "markdown", "mkd" },
@@ -49,33 +50,6 @@ return {
       },
       links = {
         implicit_extension = "md",
-      },
-    },
-  },
-
-  {
-    "vhyrro/luarocks.nvim",
-    opts = {
-      rocks = { "magick" },
-    },
-  },
-
-  -- inline images
-  {
-    "3rd/image.nvim",
-    ft = { "markdown", "mkd" },
-    opts = {
-      tmux_show_only_in_active_window = true,
-      editor_only_render_when_focused = true,
-      --kitty_method = "unicode-placeholders",
-    },
-    dependencies = {
-      "nvim-lua/plenary.nvim",
-      {
-        "vhyrro/luarocks.nvim",
-        opts = {
-          rocks = { "magick" },
-        },
       },
     },
   },
