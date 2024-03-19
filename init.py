@@ -14,6 +14,7 @@ all_platforms = [
     "hammerspoon",
     ("fish", ".config/fish"),
     ("tridactyl", ".config/tridactyl"),
+    ("kitty.conf", ".config/kitty/kitty.conf"),
 ]
 
 windows_links = all_platforms + [
