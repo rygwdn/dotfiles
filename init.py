@@ -97,6 +97,7 @@ def main():
 
     if not args.dry:
         Path(Path.home(), ".config").mkdir(exist_ok=True)
+        Path(Path.home(), ".config/kitty").mkdir(exist_ok=True)
 
         for op in operations:
             if op:
