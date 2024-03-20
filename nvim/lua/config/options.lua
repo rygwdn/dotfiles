@@ -6,3 +6,5 @@ vim.opt.diffopt = { "filler", "iwhite" } -- ignore all whitespace and sync
 
 vim.g.mapleader = ","
 vim.g.maplocalleader = ","
+
+vim.opt.clipboard = 'unnamed'
