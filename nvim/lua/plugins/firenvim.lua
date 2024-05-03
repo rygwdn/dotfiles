@@ -30,11 +30,11 @@ return {
           local client = vim.api.nvim_get_chan_info(vim.v.event.chan).client
           if client ~= nil and client.name == "Firenvim" then
             vim.o.laststatus = 0
-            vim.opt.guifont = "Firacode Nerd Font Mono:h18"
+            vim.opt.guifont = "Monaco Nerd Font:h18"
 
             -- Workaround for https://github.com/glacambre/firenvim/issues/800
             vim.defer_fn(function()
-              vim.opt.guifont = "Firacode Nerd Font Mono:h18"
+              vim.opt.guifont = "Monaco Nerd Font:h18"
             end, 50)
           end
         end,
