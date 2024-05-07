@@ -90,10 +90,13 @@ def main():
 
     operations = []
     for link in links:
-        if type(link) is tuple:
-            operations.append(dolink(link[0], link[1]))
-        else:
-            operations.append(dolink(link))
+        src, dest = type(link) is tuple and link or [link, None]
+        operation = dolink(src, dest)
+        if operation:
+            operations.append(operation)
+
+    if args.dry:
+        exit(1 if operations else 0)
 
     if not args.dry:
         Path(Path.home(), ".config").mkdir(exist_ok=True)
