@@ -70,6 +70,7 @@ function zvm_after_lazy_keybindings() {
 zi ice depth=1 atload'
     ZVM_LINE_INIT_MODE=$ZVM_MODE_INSERT
     '
+# TODO: causes VS Code to end up in that repo???
 zi light jeffreytse/zsh-vi-mode
 
 zi wait lucid for \

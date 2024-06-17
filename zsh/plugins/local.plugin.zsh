@@ -7,6 +7,7 @@ autoload _git-fixup
 compdef _git-fixup git-fixup
 
 path+=("$HOME/dotfiles/bin")
+path+=("/Applications/WezTerm.app/Contents/MacOS")
 
 # Keys {{{ 
 
@@ -27,10 +28,13 @@ bindkey '^[.' insert-last-word
 bindkey '^A' beginning-of-line
 bindkey '^[OH' beginning-of-line
 bindkey '^[[1~' beginning-of-line
+bindkey '^[[1;3D' beginning-of-line
 
 bindkey '^E' end-of-line
 bindkey '^[OF' end-of-line
 bindkey '^[[4~' end-of-line
+bindkey '^[[1;3C' end-of-line
+
 
 bindkey '<M-b>' backward-word
 bindkey '<M-f>' forward-word
