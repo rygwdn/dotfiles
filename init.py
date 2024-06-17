@@ -12,6 +12,7 @@ all_platforms = [
     "zsh/zshrc",
     "ripgreprc",
     "hammerspoon",
+    "wezterm.lua",
     ("fish", ".config/fish"),
     ("tridactyl", ".config/tridactyl"),
     ("kitty.conf", ".config/kitty/kitty.conf"),
