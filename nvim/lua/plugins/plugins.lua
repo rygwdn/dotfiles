@@ -26,6 +26,11 @@ return {
       }
     }
   },
+  {
+    "williamboman/mason.nvim",
+    -- TODO: if macos..
+    enabled = false,
+  },
 
   {
     "tpope/vim-eunuch",

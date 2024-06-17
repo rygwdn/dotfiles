@@ -5,9 +5,9 @@ return {
     "williamboman/mason.nvim",
     opts = {
       ensure_installed = {
-        "vale",
-        "vale-ls",
-        "marksman",
+        --"vale",
+        --"vale-ls",
+        --"marksman",
       },
     },
   },

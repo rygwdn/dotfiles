@@ -5,18 +5,19 @@ return {
     "nvimdev/dashboard-nvim",
     opts = function(_, opts)
       opts.config.center = {
-        {
-          action = "e ~/Documents/notes/index.md",
-          desc = " Wiki Index",
-          icon = "󱓧 ",
-          key = "w",
-        },
-        {
-          action = [[lua require('telescope.builtin').live_grep({ prompt_title = 'Find Wiki', cwd = '~/Documents/notes/' })]],
-          desc = " Wiki Search",
-          icon = "󰺄 ",
-          key = "s",
-        },
+        -- {
+        --   action = "e ~/Documents/notes/index.md",
+        --   desc = " Wiki Index",
+        --   icon = "󱓧 ",
+        --   key = "w",
+        -- },
+        -- {
+        --   action = [[lua require('telescope.builtin').live_grep({ prompt_title = 'Find Wiki', cwd = '~/Documents/notes/' })]],
+        --   desc = " Wiki Search",
+        --   icon = "󰺄 ",
+        --   key = "s",
+        -- },
+        -- TODO: replace..
         {
           action = Util.telescope("files"),
           desc = " Find file",
