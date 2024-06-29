@@ -4,7 +4,7 @@ local u = require("utils")
 
 -- for more apps, run
 -- $ ls /Applications
-hs.hotkey.bind({}, "F1", u.toggleApp("Kitty"))
+hs.hotkey.bind({}, "F1", u.toggleApp("Wezterm"))
 hs.hotkey.bind({ "shift" }, "F1", u.toggleApp("Obsidian"))
 
 --hs.hotkey.bind(cmd2, "1", u.weakFocus("Slack"))
