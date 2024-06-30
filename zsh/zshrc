@@ -91,7 +91,7 @@ zinit ice wait"0b" lucid atload"_zsh_autosuggest_start"
 zinit load zsh-users/zsh-autosuggestions
 
 # Set up starship theme
-export STARSHIP_CONFIG="${STARSHIP_CONFIG:-${0:a:h}/starship.toml}"
+export STARSHIP_CONFIG="${STARSHIP_CONFIG:-${HOME}/dotfiles/starship.toml}"
 zi ice as"command" from"gh-r" \
           atclone"./starship init zsh > init.zsh; ./starship completions zsh > _starship" \
           atpull"%atclone" src"init.zsh"
