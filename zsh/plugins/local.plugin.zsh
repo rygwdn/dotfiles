@@ -50,6 +50,8 @@ bindkey '^o' push-line
 # }}}
 # Aliases {{{ 
 
+alias mdf='cd ~/dotfiles'
+
 alias st='git status'
 alias ci='git commit'
 alias co='git checkout'
@@ -92,10 +94,6 @@ alias prl='pr -l'
 
 alias stfu="osascript -e 'set volume output muted true'"
 alias flushdns="dscacheutil -flushcache"
-
-alias vw="nvim +VimwikiIndex +'lcd %:p:h'"
-
-alias tm='tmux new-session -A'
 
 # }}}
 
