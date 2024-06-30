@@ -10,14 +10,6 @@ return {
   },
 
   {
-    "mfussenegger/nvim-lint",
-    opts = {
-      linters_by_ft = {
-        vimwiki = { "vale" },
-      },
-    },
-  },
-  {
     "stevearc/conform.nvim",
     opts = {
       formatters_by_ft = {
@@ -25,11 +17,6 @@ return {
         typescript = { { "prettierd", "prettier" } },
       }
     }
-  },
-  {
-    "williamboman/mason.nvim",
-    -- TODO: if macos..
-    enabled = false,
   },
 
   {
@@ -67,23 +54,6 @@ return {
     },
   },
 
-  {
-    "rygwdn/vim-tmux-navigator",
-    cmd = {
-      "TmuxNavigateLeft",
-      "TmuxNavigateDown",
-      "TmuxNavigateUp",
-      "TmuxNavigateRight",
-      "TmuxNavigatePrevious",
-    },
-    keys = {
-      { "<c-h>",  "<cmd><C-U>TmuxNavigateLeft<cr>" },
-      { "<c-j>",  "<cmd><C-U>TmuxNavigateDown<cr>" },
-      { "<c-k>",  "<cmd><C-U>TmuxNavigateUp<cr>" },
-      { "<c-l>",  "<cmd><C-U>TmuxNavigateRight<cr>" },
-      { "<c-\\>", "<cmd><C-U>TmuxNavigatePrevious<cr>" },
-    },
-  },
   {
     "folke/tokyonight.nvim",
     opts = {

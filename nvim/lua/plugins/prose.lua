@@ -1,17 +1,5 @@
 return {
 
-  -- Ensure vale & marksman are installed
-  {
-    "williamboman/mason.nvim",
-    opts = {
-      ensure_installed = {
-        --"vale",
-        --"vale-ls",
-        --"marksman",
-      },
-    },
-  },
-
   -- Add zen-mode
   {
     "folke/zen-mode.nvim",

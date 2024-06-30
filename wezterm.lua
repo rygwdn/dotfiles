@@ -21,7 +21,9 @@ config.keys = {
 
   { key = 'Escape', mods = 'LEADER',      action = act.ActivateCopyMode },
   { key = "-",      mods = "LEADER",      action = act { SplitVertical = { domain = "CurrentPaneDomain" } } },
+  { key = "_",      mods = "LEADER",      action = act { SplitVertical = { domain = "CurrentPaneDomain" } } },
   { key = "\\",     mods = "LEADER",      action = act { SplitHorizontal = { domain = "CurrentPaneDomain" } } },
+  { key = "|",     mods = "LEADER",      action = act { SplitHorizontal = { domain = "CurrentPaneDomain" } } },
   { key = "c",      mods = "LEADER",      action = act { SpawnTab = "CurrentPaneDomain" } },
   { key = "h",      mods = "LEADER",      action = act { ActivatePaneDirection = "Left" } },
   { key = "j",      mods = "LEADER",      action = act { ActivatePaneDirection = "Down" } },
