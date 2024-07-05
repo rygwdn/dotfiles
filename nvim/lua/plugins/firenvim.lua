@@ -4,37 +4,29 @@ local spec = { -- the default when not invoked by the browser addon
     vim.fn["firenvim#install"](0)
   end,
   module = false, -- prevent other code to require("firenvim")
-  lazy = true, -- never load, except when lazy.nvim is building the plugin
+  lazy = true,    -- never load, except when lazy.nvim is building the plugin
 }
 
 if vim.g.started_by_firenvim == true then -- set by the browser addon
   spec = {
-    { "noice.nvim", cond = false }, -- can't work with gui having ext_cmdline
-    { "lualine.nvim", cond = false }, -- not useful in the browser
+    { "noice.nvim",   cond = false },     -- can't work with gui having ext_cmdline
+    { "lualine.nvim", cond = false },     -- not useful in the browser
     vim.tbl_extend("force", spec, {
-      lazy = false, -- must load at start in browser
-      opts = {
-        globalSettings = {
-          alt = "all",
-        },
-        localSettings = {
-          [".*"] = {
-            cmdline = "firenvim",
-            --cmdline = "neovim", -- "firenvim"
-            content = "text",
-            priority = 0,
-            takeover = "never",
+      lazy = false,                       -- must load at start in browser
+      config = function(opts)
+        vim.g.firenvim_config = {
+          globalSettings = {
+            alt = "all",
           },
-          -- [".*github.com.*"] = {
-          --   takeover = "always",
-          --   selector = "textarea:not([readonly])",
-          -- },
-        },
-      },
-      config = function()
-        if type(opts) == "table" and (opts.localSettings or opts.globalSettings) then
-          vim.g.firenvim_config = opts
-        end
+          localSettings = {
+            [".*"] = {
+              cmdline = "firenvim",
+              content = "text",
+              priority = 0,
+              takeover = "never",
+            },
+          },
+        }
 
         vim.api.nvim_create_autocmd({ "BufEnter" }, {
           pattern = "logs.shopify.io*.txt",
