@@ -90,6 +90,9 @@ zinit load zsh-users/zsh-history-substring-search
 zinit ice wait"0b" lucid atload"_zsh_autosuggest_start"
 zinit load zsh-users/zsh-autosuggestions
 
+zinit ice light
+zinit snippet 'https://github.com/wez/wezterm/raw/main/assets/shell-integration/wezterm.sh'
+
 # Set up starship theme
 export STARSHIP_CONFIG="${STARSHIP_CONFIG:-${HOME}/dotfiles/starship.toml}"
 zi ice as"command" from"gh-r" \
