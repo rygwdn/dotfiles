@@ -17,21 +17,23 @@ smart_splits.apply_to_config(config, {
 })
 
 local keys = {
-  { key = "a",      mods = "LEADER|CTRL", action = act.ActivateLastTab },
-  { key = "a",      mods = "LEADER",      action = act.SendKey(config.leader) },
-  { key = "Escape", mods = "LEADER",      action = act.ActivateCopyMode },
+  { key = "a",          mods = "LEADER|CTRL", action = act.ActivateLastTab },
+  { key = "a",          mods = "LEADER",      action = act.SendKey(config.leader) },
+  { key = "Escape",     mods = "LEADER",      action = act.ActivateCopyMode },
 
-  { key = "-",      mods = "LEADER",      action = act({ SplitVertical = { domain = "CurrentPaneDomain" } }) },
-  { key = "_",      mods = "LEADER",      action = act({ SplitVertical = { domain = "CurrentPaneDomain" } }) },
-  { key = "\\",     mods = "LEADER",      action = act({ SplitHorizontal = { domain = "CurrentPaneDomain" } }) },
-  { key = "|",      mods = "LEADER",      action = act({ SplitHorizontal = { domain = "CurrentPaneDomain" } }) },
+  { key = "-",          mods = "LEADER",      action = act({ SplitVertical = { domain = "CurrentPaneDomain" } }) },
+  { key = "_",          mods = "LEADER",      action = act({ SplitVertical = { domain = "CurrentPaneDomain" } }) },
+  { key = "\\",         mods = "LEADER",      action = act({ SplitHorizontal = { domain = "CurrentPaneDomain" } }) },
+  { key = "|",          mods = "LEADER",      action = act({ SplitHorizontal = { domain = "CurrentPaneDomain" } }) },
 
-  { key = "Space",  mods = "LEADER",      action = act.QuickSelect },
+  { key = "Space",      mods = "LEADER",      action = act.QuickSelect },
 
-  { key = "p",      mods = "CMD|SHIFT",   action = act.ActivateCommandPalette },
-  { key = "k",      mods = "CMD",         action = act.ActivateCommandPalette },
+  { key = "p",          mods = "CMD|SHIFT",   action = act.ActivateCommandPalette },
+  { key = "k",          mods = "CMD",         action = act.ActivateCommandPalette },
 
-  { key = "t",      mods = "CMD|SHIFT",   action = act({ ShowLauncherArgs = { flags = 'TABS|LAUNCH_MENU_ITEMS|DOMAINS' } }) },
+  { key = "t",          mods = "CMD|SHIFT",   action = act({ ShowLauncherArgs = { flags = 'TABS|LAUNCH_MENU_ITEMS|DOMAINS' } }) },
+  { key = 'LeftArrow',  mods = 'CMD',         action = wezterm.action.SendKey { key = 'Home' }, },
+  { key = 'RightArrow', mods = 'CMD',         action = wezterm.action.SendKey { key = 'End' }, },
 }
 
 for _, key in ipairs(keys) do
