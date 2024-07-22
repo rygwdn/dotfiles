@@ -12,3 +12,10 @@
 -- end
 
 vim.keymap.set({ "n", "v" }, "Q", "gq", { silent = true })
+
+vim.api.nvim_create_user_command("PasteSong", "%!pbpaste -pboard general -Prefer public.rtf | textutil -stdin -convert txt -stdout", { nargs = 0 })
+
+vim.api.nvim_create_user_command("CopySong", function()
+  vim.cmd("%s/^./\\U\\0")
+  vim.cmd("%yank +")
+end, { nargs = 0 })
