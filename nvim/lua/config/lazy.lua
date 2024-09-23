@@ -7,6 +7,9 @@ if not vim.loop.fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(vim.env.LAZY or lazypath)
 
+local api_only = vim.g.started_by_firenvim or vim.g.vscode
+local is_remote = vim.env.SSH_CONNECTION or vim.env.USER == "spin"
+
 require("lazy").setup({
   spec = {
     { "LazyVim/LazyVim",                                import = "lazyvim.plugins" },
@@ -19,12 +22,12 @@ require("lazy").setup({
     version = false,
   },
   checker = {
-    enabled = not vim.g.started_by_firenvim and not vim.g.vscode and not vim.env.SSH_CONNECTION,
-    notify = true,
+    enabled = not api_only and not is_remote,
+    notify = not api_only and not is_remote,
   },
   change_detection = {
-    enabled = not vim.g.started_by_firenvim and not vim.g.vscode,
-    notify = not vim.g.started_by_firenvim and not vim.g.vscode,
+    enabled = not api_only,
+    notify = not api_only,
   },
   performance = {
     rtp = {
