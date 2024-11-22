@@ -9,6 +9,11 @@ compdef _git-fixup git-fixup
 path+=("$HOME/dotfiles/bin")
 path+=("/Applications/WezTerm.app/Contents/MacOS")
 
+
+export PNPM_HOME="$HOME/Library/pnpm"
+path+=("$HOME/Library/pnpm")
+
+
 # Keys {{{ 
 
 # Keep keys in here so that zsh-vi-mode doesn't overwrite them
@@ -94,6 +99,16 @@ alias prl='pr -l'
 
 alias stfu="osascript -e 'set volume output muted true'"
 alias flushdns="dscacheutil -flushcache"
+
+if hash gt; then
+  alias gm='gt modify --commit'
+  alias gl='gt log'
+  alias co='gt checkout'
+  alias gab='gt absorb'
+  alias gs='gt sync'
+  alias gsu='gt submit'
+  alias gc='gt create'
+fi
 
 # }}}
 
