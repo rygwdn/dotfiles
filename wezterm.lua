@@ -16,10 +16,13 @@ smart_splits.apply_to_config(config, {
   modifiers = { move = "CTRL", resize = "META" },
 })
 
+local modal = wezterm.plugin.require("https://github.com/MLFlexer/modal.wezterm")
+modal.apply_to_config(config)
+
 local keys = {
   { key = "a",          mods = "LEADER|CTRL", action = act.ActivateLastTab },
   { key = "a",          mods = "LEADER",      action = act.SendKey(config.leader) },
-  { key = "Escape",     mods = "LEADER",      action = act.ActivateCopyMode },
+  { key = "Escape",     mods = "LEADER",      action = modal.activate_mode("copy_mode") },
 
   { key = "-",          mods = "LEADER",      action = act({ SplitVertical = { domain = "CurrentPaneDomain" } }) },
   { key = "_",          mods = "LEADER",      action = act({ SplitVertical = { domain = "CurrentPaneDomain" } }) },
@@ -40,6 +43,9 @@ for _, key in ipairs(keys) do
   table.insert(config.keys, key)
 end
 
+wezterm.on("update-right-status", function(window, _)
+  modal.set_right_status(window)
+end)
 
 table.insert(config.key_tables.copy_mode, {
   key = 'y',
