@@ -57,6 +57,8 @@ bindkey '^o' push-line
 
 alias mdf='cd ~/dotfiles'
 
+alias c.='code .'
+
 alias st='git status'
 alias ci='git commit'
 alias co='git checkout'
@@ -100,7 +102,7 @@ alias prl='pr -l'
 alias stfu="osascript -e 'set volume output muted true'"
 alias flushdns="dscacheutil -flushcache"
 
-if hash gt; then
+if hash gt &>/dev/null; then
   alias gm='gt modify --commit'
   alias gl='gt log'
   alias co='gt checkout'
