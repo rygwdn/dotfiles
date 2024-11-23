@@ -13,7 +13,13 @@
 
 vim.keymap.set({ "n", "v" }, "Q", "gq", { silent = true })
 
-vim.api.nvim_create_user_command("PasteSong", "%!pbpaste -pboard general -Prefer public.rtf | textutil -stdin -convert txt -stdout", { nargs = 0 })
+vim.api.nvim_create_user_command("PasteSong", function()
+  vim.cmd("%!pbpaste -pboard general -Prefer public.rtf | textutil -stdin -convert txt -stdout")
+  vim.keymap.set({ "n" }, "w", "f<space><esc>")
+  vim.keymap.set({ "n" }, "b", "F<space><esc>")
+  vim.keymap.set({ "n" }, "<cr>", "i<cr><esc>")
+  vim.opt.colorcolumn = "20"
+end, { nargs = 0 })
 
 vim.api.nvim_create_user_command("CopySong", function()
   vim.cmd("%s/^./\\U\\0")

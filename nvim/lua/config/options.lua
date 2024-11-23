@@ -7,7 +7,8 @@ vim.opt.diffopt = { "filler", "iwhite" } -- ignore all whitespace and sync
 vim.g.mapleader = ","
 vim.g.maplocalleader = ","
 
-vim.opt.clipboard = 'unnamed'
+vim.opt.clipboard = "unnamed"
+vim.opt.termsync = false
 
 if os.getenv "SSH_CLIENT" ~= nil or os.getenv "SSH_TTY" ~= nil then
     local function my_paste(_)
