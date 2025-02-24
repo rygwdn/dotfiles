@@ -11,7 +11,12 @@ function __async_prompt_setup_on_startup --on-event fish_prompt
     end
 
     for func in (__async_prompt_config_functions)
+        functions --copy $func __async_orig_$func
         function $func -V func
+            if test "$RIGHT_TRANSIENT" = 1 && test $func = fish_right_prompt
+                __async_orig_$func
+                return
+            end
             test -e $__async_prompt_tmpdir'/'$fish_pid'_'$func
             and cat $__async_prompt_tmpdir'/'$fish_pid'_'$func
         end
@@ -25,6 +30,9 @@ end
 not set -q async_prompt_on_variable
 and set async_prompt_on_variable fish_bind_mode
 function __async_prompt_fire --on-event fish_prompt (for var in $async_prompt_on_variable; printf '%s\n' --on-variable $var; end)
+    if test "$RIGHT_TRANSIENT" = 1
+        return
+    end
     for func in (__async_prompt_config_functions)
         set -l tmpfile $__async_prompt_tmpdir'/'$fish_pid'_'$func
 

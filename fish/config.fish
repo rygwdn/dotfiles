@@ -90,6 +90,7 @@ if which starship &>/dev/null
 end
 
 set -U async_prompt_functions fish_right_prompt
+set async_prompt_inherit_variables all
 
 function fish_right_prompt_loading_indicator -a last_prompt
     echo -n "$last_prompt" | sed -r 's/\x1B\[[0-9;]*[JKmsu]//g' | read -zl uncolored_last_prompt
