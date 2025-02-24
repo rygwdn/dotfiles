@@ -5,7 +5,7 @@ add_newline = false
 format = """$directory$character"""
 right_format = """$all"""
 
-command_timeout = 1000
+command_timeout = 5000
 
 [directory]
 repo_root_format = '[](purple)[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style) '
@@ -30,8 +30,7 @@ disabled = true
 disabled = true
 
 [git_status]
-# git is too slow on the repos I use..
-disabled = true
+disabled = false
 
 [git_branch]
 format = '[$symbol$branch(:$remote_branch)]($style) '
