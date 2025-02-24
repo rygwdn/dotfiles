@@ -10,8 +10,8 @@ path+=("$HOME/dotfiles/bin")
 path+=("/Applications/WezTerm.app/Contents/MacOS")
 
 
-export PNPM_HOME="$HOME/Library/pnpm"
-path+=("$HOME/Library/pnpm")
+#export PNPM_HOME="$HOME/Library/pnpm"
+#path+=("$HOME/Library/pnpm")
 
 
 # Keys {{{ 
@@ -105,11 +105,11 @@ alias flushdns="dscacheutil -flushcache"
 if hash gt &>/dev/null; then
   alias gm='gt modify --commit'
   alias gl='gt log'
-  alias co='gt checkout'
+  #alias co='gt checkout'
   alias gab='gt absorb'
-  alias gs='gt sync'
-  alias gsu='gt submit'
-  alias gc='gt create'
+  alias gsync='gt sync'
+  alias gsub='gt submit'
+  alias gcr='gt create'
 fi
 
 # }}}
