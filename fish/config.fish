@@ -57,6 +57,7 @@ fish_add_path \
     /usr/local/sbin \
     /usr/local/bin \
     /opt/local/bin \
+    /opt/homebrew/bin \
     ~/.fzf/bin \
     ~/.poetry/bin
 
@@ -78,7 +79,6 @@ set fish_vi_force_cursor 1
 set fish_cursor_default block
 set fish_cursor_insert line
 set fish_cursor_replace_one underscore
-#fish_vi_cursor 
 
 if which zoxide &>/dev/null
     zoxide init fish | source
@@ -87,6 +87,8 @@ end
 function starship_transient_rprompt_func
     starship module time
 end
+
+set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
 
 if which starship &>/dev/null
     starship init fish | source
@@ -100,3 +102,5 @@ function fish_right_prompt_loading_indicator -a last_prompt
     echo -n "$last_prompt" | sed -r 's/\x1B\[[0-9;]*[JKmsu]//g' | read -zl uncolored_last_prompt
     echo -n (set_color brblack)"$uncolored_last_prompt"(set_color normal)
 end
+
+test -e ~/.config.local.fish && source ~/.config.local.fish
