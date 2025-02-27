@@ -4,6 +4,10 @@
 #     fisher update
 # end
 #
+
+# Disable default greeting
+set -g fish_greeting
+
 abbr ll ls -l
 abbr la ls -A
 
