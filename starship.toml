@@ -29,8 +29,5 @@ disabled = true
 [container]
 disabled = true
 
-[git_status]
-disabled = false
-
 [git_branch]
 format = '[$symbol$branch(:$remote_branch)]($style) '
