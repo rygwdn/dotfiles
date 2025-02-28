@@ -84,10 +84,6 @@ if which zoxide &>/dev/null
     zoxide init fish | source
 end
 
-function starship_transient_rprompt_func
-    starship module time
-end
-
 set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
 
 if which starship &>/dev/null
