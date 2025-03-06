@@ -44,6 +44,8 @@ abbr unwip git unwip
 abbr rg rg -S
 abbr prl pr -l
 
+abbr mdf cd ~/dotfiles
+
 set -U __done_exclude '(git (?!push|pull)|vim)'
 
 fish_add_path \
