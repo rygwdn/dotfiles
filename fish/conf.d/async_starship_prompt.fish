@@ -1,6 +1,11 @@
 status is-interactive
 or exit 0
 
+set -g STARSHIP_CMD $(which starship || /usr/local/bin/starship)
+
+test -f STARSHIP_CMD
+or exit 0
+
 set -g __async_prompt_var _async_prompt_$fish_pid
 
 # Setup after the user defined prompt functions are loaded.
@@ -60,7 +65,7 @@ function __async_prompt_spawn -a cmd
     set STARSHIP_DURATION "$CMD_DURATION$cmd_duration"
     set STARSHIP_JOBS (count (jobs -p))
 
-    set -l prompt_cmd "/usr/local/bin/starship prompt --right --terminal-width=\"$COLUMNS\" --status=$STARSHIP_CMD_STATUS --pipestatus=\"$STARSHIP_CMD_PIPESTATUS\" --keymap=$STARSHIP_KEYMAP --cmd-duration=$STARSHIP_DURATION --jobs=$STARSHIP_JOBS"
+    set -l prompt_cmd "$STARSHIP_CMD prompt --right --terminal-width=\"$COLUMNS\" --status=$STARSHIP_CMD_STATUS --pipestatus=\"$STARSHIP_CMD_PIPESTATUS\" --keymap=$STARSHIP_KEYMAP --cmd-duration=$STARSHIP_DURATION --jobs=$STARSHIP_JOBS"
 
     set -l script "
       set -U $__async_prompt_var"_"$cmd ($prompt_cmd)

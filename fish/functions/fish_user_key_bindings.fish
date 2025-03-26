@@ -1,3 +1,5 @@
+# Hacks to make vi mode a bit more like vim. Hopefully will get some of these upstream soon
+
 function fish_user_key_bindings
     # Note: fish_key_reader helps build bindings
 

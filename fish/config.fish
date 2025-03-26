@@ -11,8 +11,6 @@ set -g fish_greeting
 abbr ll ls -l
 abbr la ls -A
 
-# abbr h "history search --reverse | grep"
-
 abbr st git st
 abbr ci git commit
 abbr co git checkout
@@ -72,7 +70,7 @@ set -x PAGER less
 # show colors in less
 set -x LESS -R
 
-# local stuff
+# locale stuff
 set -x LC_ALL 'en_US.UTF-8'
 set -x LANG 'en_US.UTF-8'
 set -x LC_CTYPE C
@@ -81,10 +79,6 @@ set fish_vi_force_cursor 1
 set fish_cursor_default block
 set fish_cursor_insert line
 set fish_cursor_replace_one underscore
-
-if which zoxide &>/dev/null
-    zoxide init fish | source
-end
 
 set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
 
