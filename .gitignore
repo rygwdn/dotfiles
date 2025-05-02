@@ -3,3 +3,5 @@
 *.zwc.old
 .DS_store
 fish/fish_variables
+
+**/.claude/settings.local.json

@@ -2,17 +2,42 @@
 
 add_newline = false
 
-format = """$directory$character"""
+format = "${custom.path_prefix}${custom.path_shortened}${custom.path_normal}$character"
 right_format = """$all"""
 
 command_timeout = 5000
 
 [directory]
+disabled = true
 repo_root_format = '[](purple)[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style) '
 fish_style_pwd_dir_length = 1
 repo_root_style = "bold cyan"
 truncate_to_repo = true
 truncation_length = 10
+
+[custom.path_prefix]
+command = "shortpath -s prefix \"$PWD\""
+when = "true"
+format = "[$output]($style)"
+style = "purple"
+shell = ["bash", "--noprofile", "--norc"]
+description = "Path prefix"
+
+[custom.path_shortened]
+command = "shortpath -s shortened \"$PWD\""
+when = "true"
+format = "[$output]($style)"
+style = "cyan"
+shell = ["bash", "--noprofile", "--norc"]
+description = "Path infix - shortened segments"
+
+[custom.path_normal]
+command = "shortpath -s normal \"$PWD\""
+when = "true"
+format = "[$output]($style) "
+style = "bold cyan"
+shell = ["bash", "--noprofile", "--norc"]
+description = "Path suffix - full segments"
 
 [status]
 disabled = false

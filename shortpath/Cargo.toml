@@ -1,0 +1,12 @@
+[package]
+name = "shortpath"
+version = "0.1.0"
+edition = "2024"
+description = "Path shortening utility for shell prompts"
+authors = ["Ryan Wooden"]
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+dirs = "5.0"
+git2 = "0.18"
+regex = "1.10"
