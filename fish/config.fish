@@ -54,6 +54,7 @@ fish_add_path \
     ~/.cabal/bin \
     ~/.cargo/bin \
     ~/.rvm/bin \
+    ~/go/bin \
     /usr/local/sbin \
     /usr/local/bin \
     /opt/local/bin \
