@@ -29,7 +29,7 @@ when = "true"
 format = "[$output]($style)"
 style = "cyan"
 shell = ["bash", "--noprofile", "--norc"]
-description = "Path infix - shortened segments"
+description = "Shortened path segments"
 
 [custom.path_normal]
 command = "shortpath -s normal \"$PWD\""
@@ -37,7 +37,7 @@ when = "true"
 format = "[$output]($style) "
 style = "bold cyan"
 shell = ["bash", "--noprofile", "--norc"]
-description = "Path suffix - full segments"
+description = "Full path segments"
 
 [status]
 disabled = false
