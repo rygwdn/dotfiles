@@ -11,21 +11,34 @@ set -g fish_greeting
 abbr ll ls -l
 abbr la ls -A
 
-if which gt &>/dev/null
-    abbr co gt checkout
-    abbr ci gt modify --commit
-    abbr pff git pull --ff-only
-else
-    abbr co git checkout
-    abbr ci git commit
-    abbr pff git pull --ff-only
+function config_gt_abbrs --on-variable PWD
+    set -l git_root (git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo '/dev/null')
 
-    # disable these abbrs when running with graphite to avoid accidentially breaking stuff with muscle memory
-    abbr pof git push origin --force-with-lease
-    abbr gph git push origin --set-upstream HEAD
-    abbr rbc git rebase --continue
-    abbr rbi git rbi
+    if which gt &>/dev/null && test "$git_root" != /dev/null && test -f "$git_root/.graphite_repo_config"
+        abbr gfu gt sync --no-restack
+        abbr co gt checkout
+        abbr ci gt modify --commit
+        abbr pff git pull --ff-only
+    else
+        if test "$git_root" = /dev/null || git config --list 2>/dev/null | grep -q '^remote\.upstream\.'
+            abbr gfu git fetch --prune --tags upstream
+        else
+            abbr gfu git fetch --prune --tags origin
+        end
+
+        abbr co git checkout
+        abbr ci git commit
+        abbr pff git pull --ff-only
+
+        # disable these abbrs when running with graphite to avoid accidentially breaking stuff with muscle memory
+        abbr pof git push origin --force-with-lease
+        abbr gph git push origin --set-upstream HEAD
+        abbr rbc git rebase --continue
+        abbr rbi git rbi
+    end
 end
+
+config_gt_abbrs
 
 abbr st git st
 abbr gd git diff
