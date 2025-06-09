@@ -1,6 +1,9 @@
 #!/bin/bash
 
 
-upstream=$(gite config --list | grep -q '^remote\.origin\.' && echo 'origin' || echo 'upstream')
-[[ "$(gite config credential.helper)" == "lastpass" ]] &&  lpass sync
-gite fetch --prune --tags ${upstream} "$@"
+if which gt &>/dev/null && [[ -f "$(git rev-parse --path-format=absolute --git-common-dir)/.graphite_repo_config" ]]; then
+  exec gt sync --no-restack
+else
+  upstream=$(gite config --list | grep -q '^remote\.origin\.' && echo 'origin' || echo 'upstream')
+  exec gite fetch --prune --tags ${upstream} "$@"
+fi

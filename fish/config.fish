@@ -11,36 +11,30 @@ set -g fish_greeting
 abbr ll ls -l
 abbr la ls -A
 
+if which gt &>/dev/null
+    abbr co gt checkout
+    abbr ci gt modify --commit
+    abbr pff git pull --ff-only
+else
+    abbr co git checkout
+    abbr ci git commit
+    abbr pff git pull --ff-only
+
+    # disable these abbrs when running with graphite to avoid accidentially breaking stuff with muscle memory
+    abbr pof git push origin --force-with-lease
+    abbr gph git push origin --set-upstream HEAD
+    abbr rbc git rebase --continue
+    abbr rbi git rbi
+end
+
 abbr st git st
-abbr ci git commit
-abbr co git checkout
 abbr gd git diff
 abbr gdc git diff --cached
 abbr gmt git mergetool
 abbr br git branch
 abbr show git show
-abbr rb git rebase
-abbr rbc git rebase --continue
-abbr rbi git rbi
-
-abbr pff git pull --ff-only
-abbr pnf git pull --no-ff
-
-abbr mff git merge --ff-only
-abbr mnf git merge --no-ff
-
-abbr fugitive vim -c "Ge :"
-abbr fu vim -c "Ge :"
-
-abbr po git push origin
-abbr pof git push origin --force-with-lease
-abbr gph git push origin --set-upstream HEAD
-
-abbr wip git wip
-abbr unwip git unwip
 
 abbr rg rg -S
-abbr prl pr -l
 
 abbr mdf cd ~/dotfiles
 
@@ -81,19 +75,31 @@ set fish_cursor_default block
 set fish_cursor_insert line
 set fish_cursor_replace_one underscore
 
-set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
-
-if which starship &>/dev/null
-    starship init fish | source
-    enable_transience
+if test -n "$COMPOSER_NO_INTERACTION" || ! status is-interactive
+    set -x FISH_NOT_INTERACTIVE 1
 end
 
-set -U async_prompt_functions fish_right_prompt
-set async_prompt_inherit_variables all
+if test "$TERM_PROGRAM" = vscode || test -n "$FISH_NOT_INTERACTIVE"
+    set -x FISH_SIMPLE_TERM 1
+end
+
+set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
+
+if which starship &>/dev/null && test -z $FISH_SIMPLE_TERM
+    starship init fish | source
+    enable_transience
+
+    set -U async_prompt_functions fish_right_prompt
+    set async_prompt_inherit_variables all
+end
 
 function fish_right_prompt_loading_indicator -a last_prompt
     echo -n "$last_prompt" | sed -r 's/\x1B\[[0-9;]*[JKmsu]//g' | read -zl uncolored_last_prompt
     echo -n (set_color brblack)"$uncolored_last_prompt"(set_color normal)
+end
+
+if which zoxide &>/dev/null
+    zoxide init fish --cmd j --hook prompt | source
 end
 
 test -e ~/.config.local.fish && source ~/.config.local.fish

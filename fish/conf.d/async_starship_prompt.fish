@@ -1,5 +1,5 @@
-status is-interactive
-or exit 0
+status is-interactive || exit 0
+test -z "$FISH_SIMPLE_TERM" || exit 0
 
 set -g STARSHIP_CMD $(which starship || /usr/local/bin/starship)
 

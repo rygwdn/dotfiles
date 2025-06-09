@@ -9,6 +9,8 @@ elseif wezterm.run_child_process({ "/usr/bin/fish", "--version" }) then
 	config.default_prog = { "/usr/bin/fish", "-l" }
 end
 
+config.scrollback_lines = 100000
+
 -- Keys
 config.leader = { key = "a", mods = "CTRL" }
 config.keys = {}
