@@ -28,7 +28,6 @@ shortpath [OPTIONS] [PATH]
 ### Options
 
 - `-n, --max-segments <MAX_SEGMENTS>`: Number of segments to keep unshortened (default: 1)
-- `-p, --prefixes <PREFIXES>`: Comma-separated list of prefix=replacement pairs
 - `-s, --section <SECTION>`: Section to output (prefix, shortened, normal, full)
 - `-h, --help`: Print help
 
@@ -46,7 +45,7 @@ Shortpath handles different path types with specialized formatting:
 
 - **Git repositories**: Shows repo name with git branch symbol
 - **Home directory**: Uses `~/` prefix with shortened paths
-- **World trees paths**: Custom formatting for specific project organization pattern with format `🌎+work-tree//component/path` (optimized for my personal work development environment)
+- **World trees paths**: Custom formatting for specific project organization pattern with format `🌎work-tree//component/path` (optimized for my personal work development environment)
 - **Regular paths**: Standard path shortening
 
 ## Integration with Starship
@@ -83,7 +82,7 @@ shell = ["bash", "--noprofile", "--norc"]
 - `/usr/local/bin` → `/u/l/bin`
 - `~/Documents/projects` → `~/D/projects`
 - Inside git repo: `⎇ repo-name/s/file.txt`
-- World trees path: `~/world/trees/worktree-name/src/areas/clients/project/components` → `🌎+worktree-name//project/components`
+- World trees path: `~/world/trees/worktree-name/src/areas/clients/project/components` → `🌎worktree-name//project/components`
 
 ## Note
 

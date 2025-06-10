@@ -1,0 +1,5 @@
+# Clippy configuration
+msrv = "1.70.0"
+
+# Warn on common restrictions
+warn-on-all-wildcard-imports = true

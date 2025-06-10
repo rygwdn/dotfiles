@@ -1,9 +1,14 @@
 use clap::{Arg, ArgAction, Command};
 use git2::Repository;
 use regex::Regex;
-use std::collections::HashMap;
 use std::env;
 use std::path::{Path, PathBuf};
+
+// Symbol constants
+const SYMBOL_WORLD: &str = "\u{f484}"; // nf-oct-globe
+const SYMBOL_GIT: &str = "\u{e0a0}"; // nf-pl-branch
+const SYMBOL_HOME: &str = "~";
+const SYMBOL_ROOT: &str = "/";
 
 #[derive(Debug, Clone, PartialEq)]
 struct ShortPath {
@@ -18,8 +23,10 @@ impl ShortPath {
     }
 }
 
+#[allow(clippy::expect_used)]
 fn main() {
     let matches = Command::new("shortpath")
+        .version(env!("CARGO_PKG_VERSION"))
         .about("Shortens paths for shell prompts")
         .arg(
             Arg::new("max_segments")
@@ -28,14 +35,6 @@ fn main() {
                 .value_name("MAX_SEGMENTS")
                 .help("Number of segments to keep unshortened (default: 1)")
                 .default_value("1"),
-        )
-        .arg(
-            Arg::new("prefixes")
-                .short('p')
-                .long("prefixes")
-                .value_name("PREFIXES")
-                .help("Comma-separated list of prefix=replacement pairs")
-                .default_value(""),
         )
         .arg(
             Arg::new("section")
@@ -55,18 +54,15 @@ fn main() {
         )
         .get_matches();
 
-    let path = matches.get_one::<String>("path").unwrap();
+    let path = matches.get_one::<String>("path").expect("path is required");
     let max_segments = matches
         .get_one::<String>("max_segments")
-        .unwrap()
+        .expect("max_segments has a default value")
         .parse::<usize>()
         .unwrap_or(1);
-    let section = matches.get_one::<String>("section").unwrap();
-    let prefixes_str = matches.get_one::<String>("prefixes").unwrap();
-
-    let prefixes = parse_prefixes(prefixes_str);
+    let section = matches.get_one::<String>("section").expect("section has a default value");
     let path_to_shorten = expand_path(path);
-    let short_path = shorten_path(&path_to_shorten, max_segments, &prefixes);
+    let short_path = shorten_path(&path_to_shorten, max_segments);
 
     match section.as_str() {
         "prefix" => print!("{}", short_path.prefix),
@@ -74,18 +70,6 @@ fn main() {
         "normal" => print!("{}", short_path.normal),
         _ => print!("{}", short_path.full()),
     }
-}
-
-fn parse_prefixes(prefixes_str: &str) -> HashMap<String, String> {
-    let mut prefixes = HashMap::new();
-    if !prefixes_str.is_empty() {
-        for pair in prefixes_str.split(',') {
-            if let Some((key, value)) = pair.split_once('=') {
-                prefixes.insert(key.to_string(), value.to_string());
-            }
-        }
-    }
-    prefixes
 }
 
 fn expand_path(path: &str) -> PathBuf {
@@ -102,7 +86,7 @@ fn expand_path(path: &str) -> PathBuf {
     }
 }
 
-fn shorten_path(path: &Path, max_segments: usize, _custom_prefixes: &HashMap<String, String>) -> ShortPath {
+fn shorten_path(path: &Path, max_segments: usize) -> ShortPath {
     let path_str = path.to_string_lossy().into_owned();
 
     // Check for world trees paths (highest priority)
@@ -127,31 +111,34 @@ fn shorten_path(path: &Path, max_segments: usize, _custom_prefixes: &HashMap<Str
 fn check_world_tree_path(path_str: &str) -> Option<ShortPath> {
     // Regex to match world trees path pattern
     let re = Regex::new(r"/world/trees/([^/]+)(?:/src/areas/[^/]+/([^/]+))?(?:/(.*))?").ok()?;
-    
+
     if let Some(caps) = re.captures(path_str) {
         let project = caps.get(1)?.as_str();
         let component = caps.get(2).map_or("", |m| m.as_str());
         let remaining = caps.get(3).map_or("", |m| m.as_str());
-        
+
         let prefix = if component.is_empty() {
-            format!("🌎+{}/", project)
+            format!("{}{}/", SYMBOL_WORLD, project)
         } else {
-            format!("🌎+{}//{}{}",
-                   project,
-                   component,
-                   if !remaining.is_empty() { "/" } else { "" })
+            format!(
+                "{}{}//{}{}",
+                SYMBOL_WORLD,
+                project,
+                component,
+                if !remaining.is_empty() { "/" } else { "" }
+            )
         };
-        
+
         let shortened = String::new(); // No shortened part for world trees
         let normal = remaining.to_string();
-        
+
         return Some(ShortPath {
             prefix,
             shortened,
             normal,
         });
     }
-    
+
     None
 }
 
@@ -159,33 +146,30 @@ fn check_git_path(path: &Path) -> Option<ShortPath> {
     // Try to open a git repository at the given path or any parent
     let repo = Repository::discover(path).ok()?;
     let repo_path = repo.workdir().unwrap_or_else(|| repo.path());
-    
+
     // Extract the repo name from the repository path
     let repo_name = repo_path
         .file_name()
         .map(|name| name.to_string_lossy().to_string())
         .unwrap_or_default();
-    
+
     // We no longer need the parent folder
-    
+
     // Get relative path within the repository
     let rel_path = path.strip_prefix(repo_path).ok()?;
     let rel_path_str = rel_path.to_string_lossy();
-    
-    // Use Unicode value for git branch symbol (U+E0A0 - the standard git branch symbol in most dev fonts)
-    let branch_symbol = "\u{e0a0}";
-    
+
     // If we're at the repo root, return just the repo name
     if rel_path_str.is_empty() || rel_path_str == "." {
         let repo_display = repo_name;
-        
+
         return Some(ShortPath {
-            prefix: format!("{}", branch_symbol),
+            prefix: SYMBOL_GIT.to_string(),
             shortened: "".to_string(),
             normal: repo_display,
         });
     }
-    
+
     // Split into components
     let components: Vec<&str> = rel_path_str.split('/').filter(|s| !s.is_empty()).collect();
     let shortened_components: Vec<String> = components
@@ -193,15 +177,14 @@ fn check_git_path(path: &Path) -> Option<ShortPath> {
         .take(components.len().saturating_sub(1))
         .map(|comp| comp.chars().next().unwrap_or_default().to_string())
         .collect();
-    
-    let normal = if components.is_empty() {
-        "".to_string()
-    } else {
-        components.last().unwrap().to_string()
-    };
-    
+
+    let normal = components
+        .last()
+        .map(|s| s.to_string())
+        .unwrap_or_default();
+
     Some(ShortPath {
-        prefix: format!("{}{}/", branch_symbol, repo_name),
+        prefix: format!("{}{}/", SYMBOL_GIT, repo_name),
         shortened: if !shortened_components.is_empty() {
             format!("{}/", shortened_components.join("/"))
         } else {
@@ -214,29 +197,29 @@ fn check_git_path(path: &Path) -> Option<ShortPath> {
 fn check_home_path(path_str: &str) -> Option<ShortPath> {
     let home_dir = dirs::home_dir()?;
     let home_str = home_dir.to_string_lossy();
-    
+
     if path_str.starts_with(&*home_str) {
         let rel_path = path_str.strip_prefix(&*home_str)?;
         let rel_path = rel_path.strip_prefix('/').unwrap_or(rel_path);
-        
+
         if rel_path.is_empty() {
             return Some(ShortPath {
-                prefix: "~".to_string(),
+                prefix: SYMBOL_HOME.to_string(),
                 shortened: "".to_string(),
                 normal: "".to_string(),
             });
         }
-        
+
         let components: Vec<&str> = rel_path.split('/').filter(|s| !s.is_empty()).collect();
         let component_count = components.len();
-        
+
         let (shortened_part, normal_part) = if component_count <= 1 {
             (Vec::new(), components.clone())
         } else {
             let (a, b) = components.split_at(component_count - 1);
             (a.to_vec(), b.to_vec())
         };
-        
+
         let shortened: String = if shortened_part.is_empty() {
             String::new()
         } else {
@@ -247,37 +230,37 @@ fn check_home_path(path_str: &str) -> Option<ShortPath> {
                 .join("/");
             format!("{}/", short)
         };
-        
+
         let normal = normal_part.join("/");
-        
+
         return Some(ShortPath {
-            prefix: "~/".to_string(),
+            prefix: format!("{}/", SYMBOL_HOME),
             shortened,
             normal,
         });
     }
-    
+
     None
 }
 
 fn create_regular_path(path_str: &str, max_segments: usize) -> ShortPath {
     let components: Vec<&str> = path_str.split('/').filter(|s| !s.is_empty()).collect();
     let component_count = components.len();
-    
+
     // For empty or root path
     if component_count == 0 {
         return ShortPath {
-            prefix: "/".to_string(),
+            prefix: SYMBOL_ROOT.to_string(),
             shortened: "".to_string(),
             normal: "".to_string(),
         };
     }
-    
+
     let normal_count = component_count.min(max_segments);
     let shortened_count = component_count - normal_count;
-    
+
     let (shortened_part, normal_part) = components.split_at(shortened_count);
-    
+
     let shortened = if shortened_part.is_empty() {
         String::new()
     } else {
@@ -288,11 +271,11 @@ fn create_regular_path(path_str: &str, max_segments: usize) -> ShortPath {
             .join("/");
         format!("{}/", short)
     };
-    
+
     let normal = normal_part.join("/");
-    
+
     ShortPath {
-        prefix: "/".to_string(),
+        prefix: SYMBOL_ROOT.to_string(),
         shortened,
         normal,
     }
@@ -301,21 +284,6 @@ fn create_regular_path(path_str: &str, max_segments: usize) -> ShortPath {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_parse_prefixes() {
-        let empty = parse_prefixes("");
-        assert!(empty.is_empty());
-
-        let single = parse_prefixes("foo=bar");
-        assert_eq!(single.len(), 1);
-        assert_eq!(single.get("foo"), Some(&"bar".to_string()));
-
-        let multiple = parse_prefixes("foo=bar,baz=qux");
-        assert_eq!(multiple.len(), 2);
-        assert_eq!(multiple.get("foo"), Some(&"bar".to_string()));
-        assert_eq!(multiple.get("baz"), Some(&"qux".to_string()));
-    }
 
     #[test]
     fn test_regular_path() {
@@ -350,15 +318,22 @@ mod tests {
 
     #[test]
     fn test_world_tree_path() {
-        let path = "/Users/username/world/trees/project-name/src/areas/clients/checkout-web/components";
+        let path =
+            "/Users/username/world/trees/project-name/src/areas/clients/checkout-web/components";
         let result = check_world_tree_path(path);
         assert!(result.is_some());
-        
+
         let result = result.unwrap();
-        assert_eq!(result.prefix, "🌎+project-name//checkout-web/");
+        assert_eq!(
+            result.prefix,
+            format!("{}project-name//checkout-web/", SYMBOL_WORLD)
+        );
         assert_eq!(result.shortened, "");
         assert_eq!(result.normal, "components");
-        assert_eq!(result.full(), "🌎+project-name//checkout-web/components");
+        assert_eq!(
+            result.full(),
+            format!("{}project-name//checkout-web/components", SYMBOL_WORLD)
+        );
     }
 
     #[test]
@@ -373,21 +348,21 @@ mod tests {
     #[test]
     fn test_create_regular_path_with_max_segments() {
         let path = "/a/b/c/d/e";
-        
+
         // Test with max_segments = 1 (default)
         let result = create_regular_path(path, 1);
         assert_eq!(result.prefix, "/");
         assert_eq!(result.shortened, "a/b/c/d/");
         assert_eq!(result.normal, "e");
         assert_eq!(result.full(), "/a/b/c/d/e");
-        
+
         // Test with max_segments = 2
         let result = create_regular_path(path, 2);
         assert_eq!(result.prefix, "/");
         assert_eq!(result.shortened, "a/b/c/");
         assert_eq!(result.normal, "d/e");
         assert_eq!(result.full(), "/a/b/c/d/e");
-        
+
         // Test with max_segments > number of segments
         let result = create_regular_path(path, 10);
         assert_eq!(result.prefix, "/");

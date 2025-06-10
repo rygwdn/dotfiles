@@ -39,9 +39,6 @@ style = "bold cyan"
 shell = ["bash", "--noprofile", "--norc"]
 description = "Full path segments"
 
-[status]
-disabled = false
-
 [username]
 disabled = true
 
@@ -52,6 +49,9 @@ disabled = true
 disabled = true
 
 [container]
+disabled = true
+
+[git_status]
 disabled = true
 
 [git_branch]
