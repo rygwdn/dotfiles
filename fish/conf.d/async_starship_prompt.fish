@@ -1,5 +1,6 @@
+# Skip async prompt for simple terminals and non-interactive shells
+test -n "$FISH_SIMPLE_TERM" && exit 0
 status is-interactive || exit 0
-test -z "$FISH_SIMPLE_TERM" || exit 0
 
 set -g STARSHIP_CMD $(which starship || /usr/local/bin/starship)
 

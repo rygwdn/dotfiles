@@ -98,12 +98,18 @@ end
 
 set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
 
-if which starship &>/dev/null && test -z $FISH_SIMPLE_TERM
-    starship init fish | source
-    enable_transience
-
-    set -U async_prompt_functions fish_right_prompt
-    set async_prompt_inherit_variables all
+if which starship &>/dev/null
+    if test -n "$FISH_SIMPLE_TERM"
+        # For FISH_SIMPLE_TERM, use simple prompt without rprompt, async, or transient
+        set -x STARSHIP_CONFIG "$HOME/dotfiles/starship-simple.toml"
+        starship init fish | source
+    else
+        # Full starship with all features
+        starship init fish | source
+        enable_transience
+        set -U async_prompt_functions fish_right_prompt
+        set async_prompt_inherit_variables all
+    end
 end
 
 function fish_right_prompt_loading_indicator -a last_prompt
