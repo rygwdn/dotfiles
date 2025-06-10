@@ -52,7 +52,7 @@ The project follows a single-file architecture with all code in `src/main.rs`. K
 
 1. **World Trees Path Pattern**: Highly specific to author's environment
    - Pattern: `/world/trees/[project]/src/areas/[area]/[component]/...`
-   - Output: `[SYMBOL_WORLD][project]//[component]/...`
+   - Output: `[SYMBOL_WORLD] [project]//[component]/...`
 
 2. **Rust Edition**: Uses 2024 edition
 3. **Dependencies**: Uses latest versions of clap, dirs, git2, and regex

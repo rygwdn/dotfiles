@@ -118,10 +118,10 @@ fn check_world_tree_path(path_str: &str) -> Option<ShortPath> {
         let remaining = caps.get(3).map_or("", |m| m.as_str());
 
         let prefix = if component.is_empty() {
-            format!("{}{}/", SYMBOL_WORLD, project)
+            format!("{} {}/", SYMBOL_WORLD, project)
         } else {
             format!(
-                "{}{}//{}{}",
+                "{} {}//{}{}",
                 SYMBOL_WORLD,
                 project,
                 component,
@@ -326,13 +326,13 @@ mod tests {
         let result = result.unwrap();
         assert_eq!(
             result.prefix,
-            format!("{}project-name//checkout-web/", SYMBOL_WORLD)
+            format!("{} project-name//checkout-web/", SYMBOL_WORLD)
         );
         assert_eq!(result.shortened, "");
         assert_eq!(result.normal, "components");
         assert_eq!(
             result.full(),
-            format!("{}project-name//checkout-web/components", SYMBOL_WORLD)
+            format!("{} project-name//checkout-web/components", SYMBOL_WORLD)
         );
     }
 
