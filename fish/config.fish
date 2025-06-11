@@ -118,10 +118,8 @@ if which starship &>/dev/null
     if test -n "$FISH_SIMPLE_TERM"
         # For FISH_SIMPLE_TERM, use simple prompt without rprompt, async, or transient
         set -x STARSHIP_CONFIG "$HOME/dotfiles/starship-simple.toml"
-        starship init fish | source
     else
         # Full starship with all features
-        starship init fish | source
         enable_transience
     end
 end
