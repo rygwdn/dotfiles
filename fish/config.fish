@@ -123,14 +123,7 @@ if which starship &>/dev/null
         # Full starship with all features
         starship init fish | source
         enable_transience
-        set -U async_prompt_functions fish_right_prompt
-        set async_prompt_inherit_variables all
     end
-end
-
-function fish_right_prompt_loading_indicator -a last_prompt
-    echo -n "$last_prompt" | sed -r 's/\x1B\[[0-9;]*[JKmsu]//g' | read -zl uncolored_last_prompt
-    echo -n (set_color brblack)"$uncolored_last_prompt"(set_color normal)
 end
 
 if which zoxide &>/dev/null
