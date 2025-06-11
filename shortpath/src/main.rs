@@ -409,20 +409,20 @@ mod tests {
     #[test]
     fn test_world_tree_path() {
         let path =
-            "/Users/username/world/trees/project-name/src/areas/clients/checkout-web/components";
+            "/Users/username/world/trees/project-name/src/areas/clients/some-web/components";
         let result = check_world_tree_path(path);
         assert!(result.is_some());
 
         let result = result.unwrap();
         assert_eq!(
             result.prefix,
-            format!("{} project-name//checkout-web/", SYMBOL_WORLD)
+            format!("{} project-name//some-web/", SYMBOL_WORLD)
         );
         assert_eq!(result.shortened, "");
         assert_eq!(result.normal, "components");
         assert_eq!(
             result.full(),
-            format!("{} project-name//checkout-web/components", SYMBOL_WORLD)
+            format!("{} project-name//some-web/components", SYMBOL_WORLD)
         );
     }
 
