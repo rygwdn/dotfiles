@@ -2,13 +2,19 @@ use clap::{Arg, ArgAction, Command};
 use git2::Repository;
 use regex::Regex;
 use std::env;
+use std::io::{self, BufRead, BufReader};
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 // Symbol constants
 const SYMBOL_WORLD: &str = "\u{f484}"; // nf-oct-globe
 const SYMBOL_GIT: &str = "\u{e0a0}"; // nf-pl-branch
+const SYMBOL_GITHUB: &str = "\u{ea84}"; // nf-cod-github
 const SYMBOL_HOME: &str = "~";
 const SYMBOL_ROOT: &str = "/";
+
+// Lazy static regex for world trees pattern
+static WORLD_TREES_RE: OnceLock<Regex> = OnceLock::new();
 
 #[derive(Debug, Clone, PartialEq)]
 struct ShortPath {
@@ -41,8 +47,14 @@ fn main() {
                 .short('s')
                 .long("section")
                 .value_name("SECTION")
-                .help("Section to output (prefix, shortened, normal, full)")
+                .help("Section(s) to output (prefix, shortened, normal, full). Can be comma-separated for multiple sections.")
                 .default_value("full"),
+        )
+        .arg(
+            Arg::new("stdin")
+                .long("stdin")
+                .help("Read paths from stdin (one per line) and output shortened paths")
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("path")
@@ -54,21 +66,75 @@ fn main() {
         )
         .get_matches();
 
-    let path = matches.get_one::<String>("path").expect("path is required");
     let max_segments = matches
         .get_one::<String>("max_segments")
         .expect("max_segments has a default value")
         .parse::<usize>()
         .unwrap_or(1);
-    let section = matches.get_one::<String>("section").expect("section has a default value");
-    let path_to_shorten = expand_path(path);
-    let short_path = shorten_path(&path_to_shorten, max_segments);
+    let section = matches
+        .get_one::<String>("section")
+        .expect("section has a default value");
+    let use_stdin = matches.get_flag("stdin");
 
-    match section.as_str() {
-        "prefix" => print!("{}", short_path.prefix),
-        "shortened" => print!("{}", short_path.shortened),
-        "normal" => print!("{}", short_path.normal),
-        _ => print!("{}", short_path.full()),
+    // Parse comma-separated sections
+    let sections: Vec<&str> = section.split(',').map(|s| s.trim()).collect();
+
+    // Validate sections
+    let valid_sections = ["prefix", "shortened", "normal", "full"];
+    for s in &sections {
+        if !valid_sections.contains(s) {
+            eprintln!("Error: Invalid section '{}'. Valid sections are: prefix, shortened, normal, full", s);
+            std::process::exit(1);
+        }
+    }
+
+    // Validate that multiple sections are only used without stdin
+    if use_stdin && sections.len() > 1 {
+        eprintln!("Error: Multiple sections are not supported with --stdin");
+        std::process::exit(1);
+    }
+
+    if use_stdin {
+        // Batch mode: read paths from stdin
+        let stdin = io::stdin();
+        let reader = BufReader::new(stdin);
+
+        for path in reader.lines().map_while(Result::ok) {
+            let path_to_shorten = expand_path(&path);
+            let short_path = shorten_path(&path_to_shorten, max_segments);
+
+            // stdin mode only supports single section
+            match sections[0] {
+                "prefix" => println!("{}", short_path.prefix),
+                "shortened" => println!("{}", short_path.shortened),
+                "normal" => println!("{}", short_path.normal),
+                _ => println!("{}", short_path.full()),
+            }
+        }
+    } else {
+        // Single path mode
+        let path = matches.get_one::<String>("path").expect("path is required");
+        let path_to_shorten = expand_path(path);
+        let short_path = shorten_path(&path_to_shorten, max_segments);
+
+        for (i, section) in sections.iter().enumerate() {
+            match section {
+                &"prefix" => print!("{}", short_path.prefix),
+                &"shortened" => print!("{}", short_path.shortened),
+                &"normal" => print!("{}", short_path.normal),
+                _ => print!("{}", short_path.full()),
+            }
+
+            // Add newline between sections (but not after the last one)
+            if i < sections.len() - 1 {
+                println!();
+            }
+        }
+
+        // Print trailing newline only if multiple sections were requested
+        if sections.len() > 1 {
+            println!();
+        }
     }
 }
 
@@ -109,8 +175,11 @@ fn shorten_path(path: &Path, max_segments: usize) -> ShortPath {
 }
 
 fn check_world_tree_path(path_str: &str) -> Option<ShortPath> {
-    // Regex to match world trees path pattern
-    let re = Regex::new(r"/world/trees/([^/]+)(?:/src/areas/[^/]+/([^/]+))?(?:/(.*))?").ok()?;
+    // Use lazy static regex to avoid recompiling
+    let re = WORLD_TREES_RE.get_or_init(|| {
+        Regex::new(r"/world/trees/([^/]+)(?:/src/areas/[^/]+/([^/]+))?(?:/(.*))?")
+            .expect("Invalid world trees regex")
+    });
 
     if let Some(caps) = re.captures(path_str) {
         let project = caps.get(1)?.as_str();
@@ -142,18 +211,44 @@ fn check_world_tree_path(path_str: &str) -> Option<ShortPath> {
     None
 }
 
+fn extract_github_info(repo_path_str: &str) -> Option<(String, String)> {
+    // Check if this is a GitHub repository path
+    let github_idx = repo_path_str.find("github.com")?;
+
+    // Extract owner and repo from path like /some/path/github.com/{owner}/{repo}
+    let after_github = &repo_path_str[github_idx + "github.com".len()..];
+    let parts: Vec<&str> = after_github
+        .trim_start_matches('/')
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    // Only return if we have exactly owner and repo (2 parts)
+    // More parts means it's a subdirectory, not the repo root
+    if parts.len() == 2 {
+        Some((parts[0].to_string(), parts[1].to_string()))
+    } else {
+        None
+    }
+}
+
 fn check_git_path(path: &Path) -> Option<ShortPath> {
     // Try to open a git repository at the given path or any parent
     let repo = Repository::discover(path).ok()?;
     let repo_path = repo.workdir().unwrap_or_else(|| repo.path());
+    let repo_path_str = repo_path.to_string_lossy();
 
-    // Extract the repo name from the repository path
-    let repo_name = repo_path
-        .file_name()
-        .map(|name| name.to_string_lossy().to_string())
-        .unwrap_or_default();
-
-    // We no longer need the parent folder
+    // Check if this is a GitHub repository path
+    let (symbol, repo_display) = if let Some((owner, repo)) = extract_github_info(&repo_path_str) {
+        (SYMBOL_GITHUB, format!("{}/{}", owner, repo))
+    } else {
+        // Regular git repository
+        let repo_name = repo_path
+            .file_name()
+            .map(|name| name.to_string_lossy().to_string())
+            .unwrap_or_default();
+        (SYMBOL_GIT, repo_name)
+    };
 
     // Get relative path within the repository
     let rel_path = path.strip_prefix(repo_path).ok()?;
@@ -161,12 +256,10 @@ fn check_git_path(path: &Path) -> Option<ShortPath> {
 
     // If we're at the repo root, return just the repo name
     if rel_path_str.is_empty() || rel_path_str == "." {
-        let repo_display = repo_name;
-
         return Some(ShortPath {
-            prefix: SYMBOL_GIT.to_string(),
+            prefix: format!("{} {}", symbol, repo_display),
             shortened: "".to_string(),
-            normal: repo_display,
+            normal: "".to_string(),
         });
     }
 
@@ -178,13 +271,10 @@ fn check_git_path(path: &Path) -> Option<ShortPath> {
         .map(|comp| comp.chars().next().unwrap_or_default().to_string())
         .collect();
 
-    let normal = components
-        .last()
-        .map(|s| s.to_string())
-        .unwrap_or_default();
+    let normal = components.last().map(|s| s.to_string()).unwrap_or_default();
 
     Some(ShortPath {
-        prefix: format!("{}{}/", SYMBOL_GIT, repo_name),
+        prefix: format!("{} {}/", symbol, repo_display),
         shortened: if !shortened_components.is_empty() {
             format!("{}/", shortened_components.join("/"))
         } else {
@@ -369,5 +459,49 @@ mod tests {
         assert_eq!(result.shortened, "");
         assert_eq!(result.normal, "a/b/c/d/e");
         assert_eq!(result.full(), "/a/b/c/d/e");
+    }
+
+    #[test]
+    fn test_extract_github_info() {
+        // Test successful extraction
+        assert_eq!(
+            extract_github_info("/home/user/github.com/owner/repo"),
+            Some(("owner".to_string(), "repo".to_string()))
+        );
+
+        assert_eq!(
+            extract_github_info("/Users/user/work/github.com/myorg/myproject"),
+            Some(("myorg".to_string(), "myproject".to_string()))
+        );
+
+        assert_eq!(
+            extract_github_info("/some/deeply/nested/path/github.com/foo/bar"),
+            Some(("foo".to_string(), "bar".to_string()))
+        );
+
+        // Test with trailing slash
+        assert_eq!(
+            extract_github_info("/path/github.com/owner/repo/"),
+            Some(("owner".to_string(), "repo".to_string()))
+        );
+
+        // Test failures - too many parts (should return None)
+        assert_eq!(
+            extract_github_info("/some/path/to/github.com/too/many/parts/"),
+            None
+        );
+
+        assert_eq!(
+            extract_github_info("/path/github.com/owner/repo/subdir"),
+            None
+        );
+
+        // Test failures - too few parts
+        assert_eq!(extract_github_info("/path/github.com/onlyowner"), None);
+
+        assert_eq!(extract_github_info("/path/github.com/"), None);
+
+        // Test no github.com in path
+        assert_eq!(extract_github_info("/path/gitlab.com/owner/repo"), None);
     }
 }

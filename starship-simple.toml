@@ -3,32 +3,23 @@
 add_newline = false
 
 # Simple format - left prompt only with path and all enabled modules
-format = "${custom.path_prefix}${custom.path_shortened}${custom.path_normal}$git_branch$character"
+format = "${env_var.STARSHIP_PATH_PREFIX}${env_var.STARSHIP_PATH_SHORTENED}${env_var.STARSHIP_PATH_NORMAL}$git_branch$character"
 
 command_timeout = 5000
 
-[custom.path_prefix]
-command = "shortpath -s prefix \"$PWD\""
-when = "true"
-format = "[$output]($style)"
+[env_var.STARSHIP_PATH_PREFIX]
+format = "[$env_value]($style)"
 style = "purple"
-shell = ["bash", "--noprofile", "--norc"]
 description = "Path prefix"
 
-[custom.path_shortened]
-command = "shortpath -s shortened \"$PWD\""
-when = "true"
-format = "[$output]($style)"
+[env_var.STARSHIP_PATH_SHORTENED]
+format = "[$env_value]($style)"
 style = "cyan"
-shell = ["bash", "--noprofile", "--norc"]
 description = "Shortened path segments"
 
-[custom.path_normal]
-command = "shortpath -s normal \"$PWD\""
-when = "true"
-format = "[$output]($style) "
+[env_var.STARSHIP_PATH_NORMAL]
+format = "[$env_value]($style) "
 style = "bold cyan"
-shell = ["bash", "--noprofile", "--norc"]
 description = "Full path segments"
 
 [git_branch]

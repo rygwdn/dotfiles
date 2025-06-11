@@ -1,6 +1,6 @@
 [package]
 name = "shortpath"
-version = "0.2.0"
+version = "0.2.4"
 edition = "2024"
 description = "Path shortening utility for shell prompts"
 authors = ["Ryan Wooden"]
