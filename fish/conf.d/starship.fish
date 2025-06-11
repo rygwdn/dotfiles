@@ -2,6 +2,13 @@ set -g STARSHIP_CMD $(which starship || /usr/local/bin/starship)
 test -f "$STARSHIP_CMD" || exit 0
 
 function fish_prompt
+    ## Begin my modifications
+    # This is a hack to avoid putting non-ascii characters in the env
+    set -fx STARSHIP_PATH_PREFIX "$STARSHIP_PATH_PREFIX"
+    set -fx STARSHIP_PATH_SHORTENED "$STARSHIP_PATH_SHORTENED"
+    set -fx STARSHIP_PATH_NORMAL "$STARSHIP_PATH_NORMAL"
+    ## End my modifications
+
     switch "$fish_key_bindings"
         case fish_hybrid_key_bindings fish_vi_key_bindings
             set STARSHIP_KEYMAP "$fish_bind_mode"
@@ -29,6 +36,13 @@ function fish_prompt
 end
 
 function fish_right_prompt
+    ## Begin my modifications
+    # This is a hack to avoid putting non-ascii characters in the env
+    set -fx STARSHIP_PATH_PREFIX "$STARSHIP_PATH_PREFIX"
+    set -fx STARSHIP_PATH_SHORTENED "$STARSHIP_PATH_SHORTENED"
+    set -fx STARSHIP_PATH_NORMAL "$STARSHIP_PATH_NORMAL"
+    ## End my modifications
+
     switch "$fish_key_bindings"
         case fish_hybrid_key_bindings fish_vi_key_bindings
             set STARSHIP_KEYMAP "$fish_bind_mode"

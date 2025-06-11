@@ -44,13 +44,13 @@ function update_path_segments --on-variable PWD
     if which shortpath &>/dev/null
         set -l segments (shortpath -s prefix,shortened,normal "$PWD")
 
-        set -gx STARSHIP_PATH_PREFIX $segments[1]
-        set -gx STARSHIP_PATH_SHORTENED $segments[2]
-        set -gx STARSHIP_PATH_NORMAL $segments[3]
+        set -g STARSHIP_PATH_PREFIX $segments[1]
+        set -g STARSHIP_PATH_SHORTENED $segments[2]
+        set -g STARSHIP_PATH_NORMAL $segments[3]
     else
-        set -gx STARSHIP_PATH_PREFIX ""
-        set -gx STARSHIP_PATH_SHORTENED ""
-        set -gx STARSHIP_PATH_NORMAL (basename "$PWD")
+        set -g STARSHIP_PATH_PREFIX ""
+        set -g STARSHIP_PATH_SHORTENED ""
+        set -g STARSHIP_PATH_NORMAL (basename "$PWD")
     end
 end
 
