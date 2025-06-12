@@ -4,68 +4,31 @@ pub mod scorer_test_utils {
     use crate::path_shortener::shorten_path;
     use std::path::Path;
 
-    pub fn create_candidate_from_text(text: &str) -> Candidate {
-        // Create a simple candidate where the text appears in the match string
-        let path = format!("/home/user/{}", text);
-        Candidate {
-            score: 0.0,
-            zoxide_score: 0.0,
-            base_score: 0.0,
-            query_score: 0.0,
-            total_score: 0.0,
-            path: path.clone(),
-            shortpath: shorten_path(&Path::new(&path)),
-            branch: None,
-        }
-    }
+    pub fn candidate(pattern: &str) -> Candidate {
+        let text = pattern.replace("[", "").replace("]", "").replace("🌍 ", "");
 
-    pub fn create_candidate_with_branch(project: &str, branch: &str) -> Candidate {
-        let path = format!("/world/trees/root/src/areas/category/{}", project);
-        Candidate {
-            score: 0.0,
-            zoxide_score: 0.0,
-            base_score: 0.0,
-            query_score: 0.0,
-            total_score: 0.0,
-            path: path.clone(),
-            shortpath: shorten_path(&Path::new(&path)),
-            branch: Some(branch.to_string()),
+        if !text.contains("//") {
+            let home_path = format!("/home/user/{}", text);
+            return Candidate {
+                path: home_path.clone(),
+                shortpath: shorten_path(&Path::new(&home_path)),
+                branch: None,
+            };
         }
-    }
 
-    pub fn create_worktree_candidate(worktree: &str, project: &str) -> Candidate {
+        let (worktree, rest): (&str, &str) = text.split_once("//").unwrap();
+        let (project, branch): (&str, &str) = rest.split_once(" ").unwrap_or((rest, ""));
         let path = format!("/world/trees/{}/src/areas/category/{}", worktree, project);
-        Candidate {
-            score: 0.0,
-            zoxide_score: 0.0,
-            base_score: 0.0,
-            query_score: 0.0,
-            total_score: 0.0,
+
+        return Candidate {
             path: path.clone(),
             shortpath: shorten_path(&Path::new(&path)),
-            branch: None,
-        }
-    }
-
-    pub fn create_candidate_from_pattern(pattern: &str) -> Candidate {
-        // Extract the actual text from the pattern (removing brackets)
-        let text = pattern.replace("[", "").replace("]", "");
-
-        if text.contains("//") && text.contains("🌍") {
-            let parts: Vec<&str> = text.trim_start_matches("🌍 ").splitn(2, "//").collect();
-            if parts.len() == 2 {
-                let project_branch: Vec<&str> = parts[1].splitn(2, " ").collect();
-                if project_branch.len() == 2 {
-                    create_candidate_with_branch(project_branch[0], project_branch[1])
-                } else {
-                    create_worktree_candidate(parts[0], parts[1])
-                }
+            branch: if branch.is_empty() {
+                None
             } else {
-                create_candidate_from_text(&text)
-            }
-        } else {
-            create_candidate_from_text(&text)
-        }
+                Some(branch.to_string())
+            },
+        };
     }
 
     pub fn add_brackets_to_match_text(match_text: &str, positions: &[usize]) -> String {
@@ -90,10 +53,5 @@ pub mod scorer_test_utils {
         }
 
         result
-    }
-
-    pub fn normalize_pattern_for_comparison(pattern: &str) -> String {
-        // Remove the emoji icon and following space from the pattern
-        pattern.replace("🌍 ", "")
     }
 }

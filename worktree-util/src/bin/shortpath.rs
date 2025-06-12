@@ -95,7 +95,7 @@ fn main() {
         let path_to_shorten = expand_path(path);
         let short_path = shorten_path(&path_to_shorten);
 
-        for (i, part) in sections.iter().enumerate() {
+        for part in sections.iter() {
             match *part {
                 "all" => {
                     println!("Full:       {}", short_path.full(max_segments));
@@ -108,11 +108,6 @@ fn main() {
                 "shortened" => println!("{}", short_path.shortened(max_segments)),
                 "normal" => println!("{}", short_path.normal(max_segments)),
                 _ => eprintln!("Unknown part: {}", part),
-            }
-
-            // Add newline between sections (but not after the last one)
-            if i < sections.len() - 1 {
-                println!();
             }
         }
     }

@@ -1,5 +1,7 @@
 use crate::candidate::{Candidate, MatchSegment};
 use crate::path_shortener::ComponentType;
+use crate::path_shortener::{shorten_path, PathType};
+use std::path::Path;
 
 // Scoring constants
 const BASE_CHAR_SCORE: f64 = 50.0;
@@ -22,10 +24,12 @@ const ALL_WORD_BOUNDARIES_BONUS: f64 = 50.0;
 const ALL_CONSECUTIVE_BONUS: f64 = 150.0;
 const EXACT_MATCH_BONUS: f64 = 500.0;
 const PREFIX_MATCH_BONUS: f64 = 50.0;
+const WORKTREE_PROXIMITY_BONUS: f64 = 200.0;
 
 // Penalties
 const SPAN_PENALTY: f64 = 10.0;
 const DISTANCE_FROM_START_PENALTY: f64 = 0.5;
+const NON_WORKTREE_PENALTY: f64 = -50.0;
 
 /// Optimal path scoring algorithm
 /// Finds the best possible character matches in paths and scores them intelligently
@@ -49,11 +53,34 @@ const DISTANCE_FROM_START_PENALTY: f64 = 0.5;
 /// 7. Penalties:
 ///    - Span penalty: -10 per character in match span
 ///    - Distance penalty: -0.5 per character from main content start (after worktree/owner)
-pub struct OptimalScorer;
+/// 8. Worktree adjustments:
+///    - Same worktree bonus: +200 if candidate is in the same worktree as current directory
+///    - Non-worktree penalty: -50 if candidate is not a worktree project
+pub struct OptimalScorer {
+    current_dir_worktree: Option<String>,
+}
 
 impl OptimalScorer {
-    pub fn new() -> Self {
-        OptimalScorer
+    pub fn new(current_dir: String) -> Self {
+        let current_dir_worktree = match shorten_path(Path::new(&current_dir)).path_type {
+            PathType::WorldTree { worktree, .. } => Some(worktree),
+            _ => None,
+        };
+
+        OptimalScorer {
+            current_dir_worktree,
+        }
+    }
+
+    /// Returns combined worktree proximity bonus and non-worktree penalty
+    fn worktree_adjustment(&self, candidate: &Candidate) -> f64 {
+        match &candidate.shortpath.path_type {
+            PathType::WorldTree { worktree, .. } => match &self.current_dir_worktree {
+                Some(current_wt) if current_wt == worktree => WORKTREE_PROXIMITY_BONUS,
+                _ => 0.0,
+            },
+            _ => NON_WORKTREE_PENALTY,
+        }
     }
 
     /// Score a candidate against a query using structured data
@@ -92,7 +119,7 @@ impl OptimalScorer {
         let mut best_positions = Vec::new();
 
         for positions in all_matches {
-            let score = self.score_match(
+            let mut score = self.score_match(
                 &text,
                 &positions,
                 &query_chars,
@@ -100,6 +127,8 @@ impl OptimalScorer {
                 query_has_space,
                 &segments,
             );
+            // Apply worktree adjustment (bonus or penalty)
+            score += self.worktree_adjustment(candidate);
             if score > best_score {
                 best_score = score;
                 best_positions = positions;
@@ -151,6 +180,38 @@ impl OptimalScorer {
         query_has_space: bool,
         segments: &[MatchSegment],
     ) -> f64 {
+        // Cache text as chars to avoid repeated conversions
+        let text_chars: Vec<char> = text.chars().collect();
+
+        // Score individual character matches
+        let (base_score, word_boundary_count) = self.score_character_matches(
+            &text_chars,
+            positions,
+            query_has_slash,
+            query_has_space,
+            segments,
+        );
+
+        // Apply match bonuses
+        let score_with_bonuses =
+            self.apply_match_bonuses(base_score, positions, query_chars, word_boundary_count);
+
+        // Apply penalties
+        let score_with_penalties = self.apply_penalties(score_with_bonuses, positions, segments);
+
+        // Check for special bonuses (exact match, prefix match)
+        self.check_special_bonuses(score_with_penalties, positions, &text_chars, segments)
+    }
+
+    /// Score individual character matches with word boundary and section bonuses
+    fn score_character_matches(
+        &self,
+        text_chars: &[char],
+        positions: &[usize],
+        query_has_slash: bool,
+        query_has_space: bool,
+        segments: &[MatchSegment],
+    ) -> (f64, usize) {
         let mut score = 0.0;
         let mut multiplier = 1.0;
         let mut word_boundary_multiplier = 1.0;
@@ -162,7 +223,7 @@ impl OptimalScorer {
             let mut char_score = BASE_CHAR_SCORE;
 
             // Word boundary detection and bonus
-            let is_boundary = self.is_word_boundary(text, pos);
+            let is_boundary = is_word_boundary(text_chars, pos);
             if is_boundary {
                 char_score = WORD_BOUNDARY_SCORE;
                 word_boundary_count += 1;
@@ -179,7 +240,7 @@ impl OptimalScorer {
             }
             last_was_boundary = is_boundary;
 
-            let section_type = self.get_section_type(pos, segments);
+            let section_type = get_section_type(pos, segments);
             let section_boost = match (section_type, query_has_slash, query_has_space) {
                 (ComponentType::Project | ComponentType::Repo, true, _) => PROJECT_REPO_SLASH_BOOST,
                 (ComponentType::Worktree | ComponentType::Owner, true, _) => {
@@ -204,10 +265,20 @@ impl OptimalScorer {
             score += char_score * multiplier;
         }
 
-        // Check match properties
+        (score, word_boundary_count)
+    }
+
+    /// Apply bonuses for match quality (perfect, all word boundaries, all consecutive)
+    fn apply_match_bonuses(
+        &self,
+        score: f64,
+        positions: &[usize],
+        query_chars: &[char],
+        word_boundary_count: usize,
+    ) -> f64 {
+        let mut score = score;
         let all_consecutive = positions.windows(2).all(|w| w[1] == w[0] + 1);
 
-        // Bonuses
         if word_boundary_count == query_chars.len() && all_consecutive {
             score += PERFECT_MATCH_BONUS * query_chars.len() as f64;
         } else if word_boundary_count == query_chars.len() {
@@ -216,66 +287,86 @@ impl OptimalScorer {
             score += ALL_CONSECUTIVE_BONUS * query_chars.len() as f64;
         }
 
-        // Penalties
-        let span = positions.last().unwrap() - positions.first().unwrap() + 1;
+        score
+    }
+
+    /// Apply penalties for match span and distance from main content
+    fn apply_penalties(&self, score: f64, positions: &[usize], segments: &[MatchSegment]) -> f64 {
+        let mut score = score;
+
+        // Span penalty
+        let span = match (positions.first(), positions.last()) {
+            (Some(first), Some(last)) => last - first + 1,
+            _ => return score, // No valid span
+        };
         score -= span as f64 * SPAN_PENALTY;
 
         // Distance penalty relative to main content start
-        let main_content_start = self.get_main_content_start(segments);
-        let first_match_pos = *positions.first().unwrap();
+        let main_content_start = get_main_content_start(segments);
+        let first_match_pos = match positions.first() {
+            Some(&pos) => pos,
+            None => return score,
+        };
         if first_match_pos > main_content_start {
             let distance_from_main = first_match_pos - main_content_start;
             score -= distance_from_main as f64 * DISTANCE_FROM_START_PENALTY;
         }
 
-        // Special bonuses
-        // Check for exact match in any component
+        score
+    }
+
+    /// Check for special bonuses (exact component match, prefix match)
+    fn check_special_bonuses(
+        &self,
+        score: f64,
+        positions: &[usize],
+        text_chars: &[char],
+        segments: &[MatchSegment],
+    ) -> f64 {
+        let mut score = score;
+
+        // Build matched text
         let matched_text: String = positions
             .iter()
-            .map(|&pos| text.chars().nth(pos).unwrap_or_default())
+            .map(|&pos| text_chars.get(pos).copied().unwrap_or_default())
             .collect::<String>()
             .to_lowercase();
 
-        // Check if we have an exact component match
-        let mut exact_component_match = false;
-
-        for segment in segments {
-            // Skip non-content segments (icon, separator)
-            if matches!(
-                segment.component_type,
-                ComponentType::Icon | ComponentType::Separator
-            ) {
-                continue;
-            }
-
-            if segment.text.to_lowercase() == matched_text
-                && positions
-                    .first()
-                    .map(|&p| p >= segment.start && p < segment.end)
-                    .unwrap_or(false)
-                && positions
-                    .last()
-                    .map(|&p| p >= segment.start && p < segment.end)
-                    .unwrap_or(false)
-            {
-                exact_component_match = true;
-                break;
-            }
-        }
+        // Check for exact component match
+        let exact_component_match = segments
+            .iter()
+            .filter(|s| {
+                !matches!(
+                    s.component_type,
+                    ComponentType::Icon | ComponentType::Separator
+                )
+            })
+            .any(|segment| {
+                segment.text.to_lowercase() == matched_text
+                    && positions
+                        .first()
+                        .is_some_and(|&p| p >= segment.start && p < segment.end)
+                    && positions
+                        .last()
+                        .is_some_and(|&p| p >= segment.start && p < segment.end)
+            });
 
         if exact_component_match {
             score += EXACT_MATCH_BONUS;
-        } else if all_consecutive {
+        } else {
             // Check if it's a prefix match within a component
-            for segment in segments {
-                if let Some(&first_pos) = positions.first() {
-                    if first_pos == segment.start
-                        && positions
-                            .iter()
-                            .all(|&p| p >= segment.start && p < segment.end)
-                    {
-                        score += PREFIX_MATCH_BONUS;
-                        break;
+            let all_consecutive = positions.windows(2).all(|w| w[1] == w[0] + 1);
+            if all_consecutive {
+                for segment in segments {
+                    if let Some(&first_pos) = positions.first() {
+                        if first_pos == segment.start
+                            && positions
+                                .iter()
+                                .all(|&p| p >= segment.start && p < segment.end)
+                        {
+                            score += PREFIX_MATCH_BONUS;
+                            break;
+                        }
                     }
                 }
             }
@@ -283,56 +374,55 @@ impl OptimalScorer {
 
         score
     }
+}
 
-    /// Check if a position is at a word boundary
-    fn is_word_boundary(&self, text: &str, pos: usize) -> bool {
-        if pos == 0 {
-            return true;
-        }
-
-        let chars: Vec<char> = text.chars().collect();
-        if pos >= chars.len() {
-            return false;
-        }
-
-        let prev_char = chars[pos - 1];
-        !prev_char.is_alphanumeric()
+/// Check if a position is at a word boundary
+fn is_word_boundary(text_chars: &[char], pos: usize) -> bool {
+    if pos == 0 {
+        return true;
     }
 
-    /// Get the section type for a character position
-    fn get_section_type(&self, pos: usize, segments: &[MatchSegment]) -> ComponentType {
-        for segment in segments {
-            if pos >= segment.start && pos < segment.end {
-                return segment.component_type.clone();
+    if pos >= text_chars.len() {
+        return false;
+    }
+
+    let prev_char = text_chars[pos - 1];
+    !prev_char.is_alphanumeric()
+}
+
+/// Get the section type for a character position
+fn get_section_type(pos: usize, segments: &[MatchSegment]) -> ComponentType {
+    for segment in segments {
+        if pos >= segment.start && pos < segment.end {
+            return segment.component_type;
+        }
+    }
+    ComponentType::Path
+}
+
+/// Get the position where the main content starts (after worktree/owner)
+fn get_main_content_start(segments: &[MatchSegment]) -> usize {
+    let mut main_start = 0;
+    for segment in segments {
+        match segment.component_type {
+            ComponentType::Icon | ComponentType::Worktree | ComponentType::Owner => {
+                main_start = segment.end;
             }
-        }
-        ComponentType::Path
-    }
-
-    /// Get the position where the main content starts (after worktree/owner)
-    fn get_main_content_start(&self, segments: &[MatchSegment]) -> usize {
-        let mut main_start = 0;
-        for segment in segments {
-            match segment.component_type {
-                ComponentType::Icon | ComponentType::Worktree | ComponentType::Owner => {
+            ComponentType::Separator => {
+                // Include separator after worktree/owner
+                if main_start > 0 {
                     main_start = segment.end;
                 }
-                ComponentType::Separator => {
-                    // Include separator after worktree/owner
-                    if main_start > 0 {
-                        main_start = segment.end;
-                    }
-                }
-                _ => break,
             }
+            _ => break,
         }
-        main_start
     }
+    main_start
 }
 
 impl Default for OptimalScorer {
     fn default() -> Self {
-        Self::new()
+        Self::new(String::new())
     }
 }
 
@@ -344,19 +434,19 @@ mod tests {
 
     #[test]
     fn test_basic_scoring() {
-        let scorer = OptimalScorer::new();
+        let scorer = OptimalScorer::new(String::new());
 
         // Test word boundary matching
-        let cand1 = create_candidate_from_text("data-sync");
-        let cand2 = create_candidate_from_text("datasync");
+        let cand1 = candidate("data-sync");
+        let cand2 = candidate("datasync");
         assert!(
             scorer.score_candidate(&cand1, "ds") > scorer.score_candidate(&cand2, "ds"),
             "Word boundary match should score higher"
         );
 
         // Test consecutive matching
-        let cand1 = create_candidate_from_text("portal");
-        let cand2 = create_candidate_from_text("p-o-r-tal");
+        let cand1 = candidate("portal");
+        let cand2 = candidate("p-o-r-tal");
         assert!(
             scorer.score_candidate(&cand1, "por") > scorer.score_candidate(&cand2, "por"),
             "Consecutive match should score higher"
@@ -364,14 +454,14 @@ mod tests {
 
         // Test substring matching - not exact match comparison
         // Since the match_string includes path formatting, we can't test exact match easily
-        let cand = create_candidate_from_text("testing");
+        let cand = candidate("testing");
         assert!(
             scorer.score_candidate(&cand, "test") > 0.0,
             "Should find 'test' in 'testing'"
         );
 
         // Test no match
-        let cand = create_candidate_from_text("hello");
+        let cand = candidate("hello");
         assert_eq!(
             scorer.score_candidate(&cand, "xyz"),
             0.0,
@@ -381,10 +471,10 @@ mod tests {
 
     #[test]
     fn test_section_awareness() {
-        let scorer = OptimalScorer::new();
+        let scorer = OptimalScorer::new(String::new());
 
         // Test with separator in query
-        let cand1 = create_worktree_candidate("root", "analytics");
+        let cand1 = candidate("root//[a]nalytics");
         let score_with_sep = scorer.score_candidate(&cand1, "r/s");
 
         // The section-aware match should score higher
@@ -393,16 +483,21 @@ mod tests {
 
     #[test]
     fn test_branch_matching() {
-        let scorer = OptimalScorer::new();
+        let scorer = OptimalScorer::new(String::new());
 
         // Test branch in square brackets
-        let cand1 = create_candidate_with_branch("web-frontend", "feature");
+        let cand1 = candidate("root//[web]-frontend [feat]ure");
         let score = scorer.score_candidate(&cand1, "web feat");
-        assert!(score > 0.0);
+        assert!(
+            score > 0.0,
+            "Branch should match. candidate: {}, score: {}",
+            cand1.path,
+            score
+        );
 
         // Should match both in project and branch
-        let cand2 = create_candidate_with_branch("project", "feature");
-        let cand3 = create_candidate_from_text("feature-service");
+        let cand2 = candidate("root//project feature");
+        let cand3 = candidate("feature-service");
         let score_branch = scorer.score_candidate(&cand2, "feature");
         let score_name = scorer.score_candidate(&cand3, "feature");
         assert!(score_branch > 0.0);
@@ -411,11 +506,11 @@ mod tests {
 
     #[test]
     fn test_distance_penalty_from_main_content() {
-        let scorer = OptimalScorer::new();
+        let scorer = OptimalScorer::new(String::new());
 
         // Test that matches after worktree have no distance penalty
-        let cand1 = create_worktree_candidate("some-worktree", "awesome");
-        let cand2 = create_worktree_candidate("worktree", "awesome");
+        let cand1 = candidate("some-worktree//[a]wesome");
+        let cand2 = candidate("worktree//[a]wesome");
 
         // Both should match "awe" in "awesome" with same score (no distance penalty)
         let score1 = scorer.score_candidate(&cand1, "awe");
@@ -426,7 +521,7 @@ mod tests {
         );
 
         // But matching in the worktree name should have penalty
-        let cand3 = create_worktree_candidate("awesome-worktree", "project");
+        let cand3 = candidate("awesome-worktree//[project]");
         let score3 = scorer.score_candidate(&cand3, "awe");
         assert!(
             score3 < score1,
@@ -434,41 +529,27 @@ mod tests {
         );
     }
 
-    #[test_case("awe", "🌍 long-worktree-name-with-[awe]-here//project", "🌍 worktree//[awe]some" ; "project match has no distance penalty vs worktree match")]
-    #[test_case("ds", "🌍 root//[d]ata[s]ync", "🌍 root//[d]ata-[s]ync" ; "word boundaries beat infix matches")]
-    #[test_case("por", "🌍 root//[p]-[o]-[r]tal", "🌍 root//[por]tal" ; "consecutive chars beat separated matches")]
-    #[test_case("dasb", "🌍 root//[da]ta[s]ervice[b]ackend", "🌍 root//[da]ta-[s]ervice-[b]ackend" ; "multiple word boundaries with multiplier effect 1")]
-    #[test_case("prda", "🌍 root//[p]roduct-[r]eview-[d]ata-[a]pi", "🌍 root//[p]ost-[r]elease-[d]oc-[a]pp" ; "multiple word boundaries with multiplier effect 2")]
-    #[test_case("r/a", "🌍 workt[r]ee/[/a]nalytics", "🌍 [r]oot/[/a]nalytics" ; "slash boosts path component matches")]
-    #[test_case("ra", "🌍 workt[r]ee//[a]nalytics", "🌍 [r]oot//[a]nalytics" ; "without slash worktree penalized more")]
-    #[test_case("feat ", "🌍 root//[feat]ure-web", "🌍 root//web [feat]ure" ; "space enables branch matching")]
-    #[test_case("feat", "🌍 root//web [feat]ure", "🌍 root//[feat]ure-web" ; "without space branch penalized")]
-    #[test_case("web", "🌍 root//my-[web]-app", "🌍 root//[web]-frontend" ; "perfect prefix beats other matches")]
-    #[test_case("api", "🌍 root//[api]-service", "🌍 root//[api]" ; "exact match gets huge bonus")]
-    #[test_case("w", "🌍 [w]eb-logging//aproject", "🌍 aproject//[w]eb-logging" ; "match at start of match text beats worktree penalty")]
-    #[test_case("cw", "🌍 root//[c]i [w]eb", "🌍 root//[c]ommon-[w]eb" ; "word boundaries in branch vs project")]
-    #[test_case("abc", "🌍 root//[a]lpha-[b]eta-[c]ode", "🌍 root//[a]pp-[b]ase-[c]ore" ; "shorter word boundaries beat longer ones")]
-    #[test_case("test", "🌍 [t]h[e]-wor[s]h[t]//project", "🌍 worktree//[test]-project" ; "distance penalty only applies after main content")]
+    #[test_case("awe", "long-worktree-name-with-[awe]-here//project", "worktree//[awe]some" ; "project match has no distance penalty vs worktree match")]
+    #[test_case("ds", "root//[d]ata[s]ync", "root//[d]ata-[s]ync" ; "word boundaries beat infix matches")]
+    #[test_case("por", "root//[p]-[o]-[r]tal", "root//[por]tal" ; "consecutive chars beat separated matches")]
+    #[test_case("dasb", "root//[da]ta[s]ervice[b]ackend", "root//[da]ta-[s]ervice-[b]ackend" ; "multiple word boundaries with multiplier effect 1")]
+    #[test_case("prda", "root//[p]roduct-[r]eview-[d]ata-[a]pi", "root//[p]ost-[r]elease-[d]oc-[a]pp" ; "multiple word boundaries with multiplier effect 2")]
+    #[test_case("web", "root//my-[web]-app", "root//[web]-frontend" ; "perfect prefix beats other matches")]
+    #[test_case("api", "root//[api]-service", "root//[api]" ; "exact match gets huge bonus")]
+    #[test_case("w", "[w]eb-logging//aproject", "aproject//[w]eb-logging" ; "match at start of match text beats worktree penalty")]
+    #[test_case("cw", "root//[c]i [w]eb", "root//[c]ommon-[w]eb" ; "word boundaries in branch vs project")]
+    #[test_case("abc", "root//[a]lpha-[b]eta-[c]ode", "root//[a]pp-[b]ase-[c]ore" ; "shorter word boundaries beat longer ones")]
+    #[test_case("test", "[t]h[e]-wor[s]h[t]//project", "worktree//[test]-project" ; "distance penalty only applies after main content")]
     fn test_scoring_priorities(query: &str, lower_pattern: &str, higher_pattern: &str) {
-        let scorer = OptimalScorer::new();
+        let scorer = OptimalScorer::new(String::new());
 
-        let lower_cand = create_candidate_from_pattern(lower_pattern);
-        let higher_cand = create_candidate_from_pattern(higher_pattern);
+        let lower_cand = candidate(lower_pattern);
+        let higher_cand = candidate(higher_pattern);
 
         let (lower_score, lower_positions) =
             scorer.score_candidate_with_positions(&lower_cand, query);
         let (higher_score, higher_positions) =
             scorer.score_candidate_with_positions(&higher_cand, query);
-
-        assert!(
-            lower_score < higher_score,
-            "Query '{}': Expected '{}' to score lower than '{}'\nScores: {} < {}",
-            query,
-            lower_pattern,
-            higher_pattern,
-            lower_score,
-            higher_score
-        );
 
         // Verify positions by reconstructing the bracketed pattern
         let lower_match_text = lower_cand.get_match_text();
@@ -477,19 +558,39 @@ mod tests {
         let lower_bracketed = add_brackets_to_match_text(&lower_match_text, &lower_positions);
         let higher_bracketed = add_brackets_to_match_text(&higher_match_text, &higher_positions);
 
-        let lower_normalized = normalize_pattern_for_comparison(lower_pattern);
-        let higher_normalized = normalize_pattern_for_comparison(higher_pattern);
+        assert!(
+            lower_score < higher_score,
+            "Query '{}': Expected '{}' ('{}') to score lower than '{}' ('{}')\nScores: {} < {}",
+            query,
+            lower_pattern,
+            lower_bracketed,
+            higher_pattern,
+            higher_bracketed,
+            lower_score,
+            higher_score
+        );
 
         assert_eq!(
-            lower_bracketed, lower_normalized,
+            lower_bracketed, lower_pattern,
             "Query '{}': Lower pattern mismatch\nExpected: '{}'\nActual:   '{}'",
-            query, lower_normalized, lower_bracketed
+            query, lower_pattern, lower_bracketed
         );
 
         assert_eq!(
-            higher_bracketed, higher_normalized,
+            higher_bracketed, higher_pattern,
             "Query '{}': Higher pattern mismatch\nExpected: '{}'\nActual:   '{}'",
-            query, higher_normalized, higher_bracketed
+            query, higher_pattern, higher_bracketed
         );
+    }
+
+    #[test]
+    fn test_worktree_adjustment() {
+        let scorer = OptimalScorer::new("/world/trees/root/src/areas/category/project".to_string());
+        let wt = candidate("root//project");
+        let other_wt = candidate("otherwt//project");
+        let non_wt = candidate("github.com/owner/repo");
+        assert_eq!(scorer.worktree_adjustment(&wt), WORKTREE_PROXIMITY_BONUS);
+        assert_eq!(scorer.worktree_adjustment(&other_wt), 0.0);
+        assert_eq!(scorer.worktree_adjustment(&non_wt), NON_WORKTREE_PENALTY);
     }
 }

@@ -1,6 +1,6 @@
 use clap::{Arg, ArgAction, Command};
 use std::env;
-use worktree_util::{clean_for_list, shell_init, WorktreeNavigator};
+use worktree_util::{shell_init, WorktreeNavigator};
 
 fn main() {
     let matches = Command::new("worktree-nav")
@@ -11,7 +11,7 @@ fn main() {
                 .long("init")
                 .help("Output shell integration script (format: shell or shell:function_name)")
                 .value_name("SHELL[:NAME]")
-                .conflicts_with_all(&["list", "scores", "filter", "query"]),
+                .conflicts_with_all(["list", "scores", "filter", "query"]),
         )
         .arg(
             Arg::new("list")
@@ -77,7 +77,7 @@ fn main() {
     let show_scores = matches.get_flag("scores");
 
     if matches.get_flag("list") {
-        list(&navigator, show_scores);
+        filter_output(&navigator, "", show_scores);
     } else if matches.get_flag("filter") {
         let query = matches
             .get_many::<String>("query")
@@ -93,47 +93,10 @@ fn main() {
     }
 }
 
-fn list(navigator: &WorktreeNavigator, show_scores: bool) {
-    let candidates = navigator.get_candidates();
-
-    if show_scores {
-        for c in candidates {
-            let scores = format!(
-                "total:{} (zoxide:{}, base:{}, query:0)",
-                c.score, c.zoxide_score, c.base_score
-            );
-            println!("{} {}", scores, clean_for_list(&c.get_match_text()));
-        }
-    } else {
-        for c in candidates {
-            println!("{}", clean_for_list(&c.get_match_text()));
-        }
-    }
-}
-
 fn filter_output(navigator: &WorktreeNavigator, query: &str, show_scores: bool) {
-    let candidates = navigator.get_candidates();
-
-    let filtered = if query.is_empty() {
-        candidates
-    } else {
-        navigator.filter_and_score(&candidates, query)
-    };
-
-    if show_scores {
-        for c in filtered {
-            let total = c.total_score;
-            let query_score = c.query_score;
-            let scores = format!(
-                "total:{} (zoxide:{}, base:{}, query:{})",
-                total, c.zoxide_score, c.base_score, query_score
-            );
-            println!("{} {}", scores, c.display());
-        }
-    } else {
-        for c in filtered {
-            println!("{}\t{}", c.display(), c.path);
-        }
+    let paths = navigator.list(query, show_scores);
+    for path in paths {
+        println!("{}", path);
     }
 }
 

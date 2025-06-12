@@ -1,8 +1,5 @@
 use crate::path_shortener::{ComponentType, PathType, ShortPath, ShortPathPart};
 use serde::Serialize;
-use skim::prelude::*;
-use skim::{AnsiString, DisplayContext, ItemPreview, PreviewContext};
-use std::borrow::Cow;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MatchSegment {
@@ -15,32 +12,9 @@ pub struct MatchSegment {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Candidate {
-    pub score: f64,
-    pub zoxide_score: f64,
-    pub base_score: f64,
-    pub query_score: f64,
-    pub total_score: f64,
     pub path: String,
     pub shortpath: ShortPath,
     pub branch: Option<String>,
-}
-
-impl SkimItem for Candidate {
-    fn text(&self) -> Cow<str> {
-        Cow::Owned(self.get_match_text())
-    }
-
-    fn display<'a>(&'a self, _context: DisplayContext<'a>) -> AnsiString<'a> {
-        AnsiString::parse(self.display().as_str())
-    }
-
-    fn preview(&self, _context: PreviewContext) -> ItemPreview {
-        ItemPreview::Text(self.path.clone())
-    }
-
-    fn output(&self) -> Cow<str> {
-        Cow::Borrowed(&self.path)
-    }
 }
 
 impl Candidate {
@@ -145,11 +119,6 @@ mod tests {
         };
 
         Candidate {
-            score: 100.0,
-            zoxide_score: 50.0,
-            base_score: 50.0,
-            query_score: 0.0,
-            total_score: 100.0,
             path: path.clone(),
             shortpath: shorten_path(&Path::new(&path)),
             branch: branch.map(String::from),
