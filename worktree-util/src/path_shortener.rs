@@ -1,0 +1,472 @@
+use git2::Repository;
+use regex::Regex;
+use serde::Serialize;
+use std::path::Path;
+use std::sync::OnceLock;
+
+// Symbol constants
+pub const SYMBOL_WORLD: &str = "\u{f484} "; // nf-oct-globe
+pub const SYMBOL_GIT: &str = "\u{e0a0} "; // nf-pl-branch
+pub const SYMBOL_GITHUB: &str = "\u{ea84} "; // nf-cod-github
+pub const SYMBOL_HOME: &str = "~";
+pub const SYMBOL_ROOT: &str = "/";
+
+// Lazy static regex for world trees pattern
+static WORLD_TREES_RE: OnceLock<Regex> = OnceLock::new();
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum PathType {
+    WorldTree { worktree: String, project: String },
+    GitHub { owner: String, repo: String },
+    Git { repo_name: String },
+    Home,
+    Regular,
+}
+
+/// Builder for path components that tracks the current part type
+struct ComponentBuilder {
+    components: Vec<(ShortPathPart, ComponentType, String)>,
+    current_part: ShortPathPart,
+}
+
+impl ComponentBuilder {
+    fn new() -> Self {
+        Self {
+            components: Vec::new(),
+            current_part: ShortPathPart::Prefix,
+        }
+    }
+
+    fn add(&mut self, component_type: ComponentType, text: String) {
+        self.components
+            .push((self.current_part, component_type, text));
+    }
+
+    fn set_part(&mut self, part: ShortPathPart) {
+        self.current_part = part;
+    }
+
+    fn finish(self) -> Vec<(ShortPathPart, ComponentType, String)> {
+        self.components
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ShortPath {
+    pub path_type: PathType,
+    pub segments: Vec<String>, // All path segments after the prefix (unshortened)
+}
+
+impl ShortPath {
+    pub fn full(&self, max_segments: usize) -> String {
+        self.components(max_segments, None)
+            .into_iter()
+            .map(|(_, _, text)| text)
+            .collect()
+    }
+
+    pub fn prefix(&self, max_segments: usize) -> String {
+        self.filter_by_segment_type(max_segments, ShortPathPart::Prefix)
+    }
+
+    pub fn shortened(&self, max_segments: usize) -> String {
+        self.filter_by_segment_type(max_segments, ShortPathPart::Infix)
+    }
+
+    pub fn normal(&self, max_segments: usize) -> String {
+        self.filter_by_segment_type(max_segments, ShortPathPart::Suffix)
+    }
+
+    fn filter_by_segment_type(&self, max_segments: usize, target_type: ShortPathPart) -> String {
+        self.components(max_segments, None)
+            .into_iter()
+            .filter_map(|(segment_type, _, text)| {
+                if segment_type == target_type {
+                    Some(text)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn components(
+        &self,
+        max_segments: usize,
+        branch: Option<String>,
+    ) -> Vec<(ShortPathPart, ComponentType, String)> {
+        let mut builder = ComponentBuilder::new();
+
+        // Add prefix components
+        match &self.path_type {
+            PathType::WorldTree { worktree, project } => {
+                builder.add(ComponentType::Icon, SYMBOL_WORLD.to_string());
+                builder.add(ComponentType::Worktree, worktree.clone());
+                builder.add(ComponentType::Separator, "//".to_string());
+                builder.add(ComponentType::Project, project.clone());
+            }
+            PathType::GitHub { owner, repo } => {
+                builder.add(ComponentType::Icon, SYMBOL_GITHUB.to_string());
+                builder.add(ComponentType::Owner, owner.clone());
+                builder.add(ComponentType::Separator, "/".to_string());
+                builder.add(ComponentType::Repo, repo.clone());
+            }
+            PathType::Git { repo_name } => {
+                builder.add(ComponentType::Icon, SYMBOL_GIT.to_string());
+                builder.add(ComponentType::Repo, repo_name.clone());
+            }
+            PathType::Home => {
+                builder.add(ComponentType::Icon, SYMBOL_HOME.to_string());
+            }
+            PathType::Regular => {
+                builder.add(ComponentType::Icon, SYMBOL_ROOT.to_string());
+            }
+        }
+
+        let shorten_count = self.segments.len().saturating_sub(max_segments);
+
+        builder.set_part(ShortPathPart::Infix);
+        for (i, segment) in self.segments.iter().enumerate() {
+            if i >= shorten_count {
+                builder.set_part(ShortPathPart::Suffix);
+            }
+
+            // Add separator before segments (for Regular paths, the root "/" is the icon)
+            // For other types, we need a separator before the first segment
+            let needs_separator = i > 0 || (i == 0 && !matches!(self.path_type, PathType::Regular));
+            if needs_separator {
+                builder.add(ComponentType::Separator, "/".to_string());
+            }
+            if i < shorten_count {
+                builder.add(
+                    ComponentType::Shortened,
+                    segment.chars().next().unwrap_or_default().to_string(),
+                );
+            } else {
+                builder.add(ComponentType::Path, segment.clone());
+            }
+        }
+
+        if let Some(branch) = branch {
+            builder.set_part(ShortPathPart::Branch);
+            builder.add(ComponentType::Separator, " ".to_string());
+            builder.add(ComponentType::Branch, branch.clone());
+        }
+
+        builder.finish()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ComponentType {
+    Icon,
+    Worktree,
+    Project,
+    Owner,
+    Repo,
+    Separator,
+    Shortened,
+    Path,
+    Branch,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ShortPathPart {
+    Prefix,
+    Infix,
+    Suffix,
+    Branch,
+}
+
+pub fn shorten_path(path: &Path) -> ShortPath {
+    let path_str = path.to_string_lossy().into_owned();
+
+    // Check for world trees paths (highest priority)
+    if let Some(world_path) = check_world_tree_path(&path_str) {
+        return world_path;
+    }
+
+    // Check for git repository (second priority)
+    if let Some(git_path) = check_git_path(path) {
+        return git_path;
+    }
+
+    // Check for home directory (third priority)
+    if let Some(home_path) = check_home_path(&path_str) {
+        return home_path;
+    }
+
+    // Regular path (lowest priority)
+    create_regular_path(&path_str)
+}
+
+fn check_world_tree_path(path_str: &str) -> Option<ShortPath> {
+    // Use lazy static regex to avoid recompiling
+    let re = WORLD_TREES_RE.get_or_init(|| {
+        Regex::new(r"/world/trees/([^/]+)(?:/src/areas/[^/]+/([^/]+))?(?:/(.*))?")
+            .expect("Invalid world trees regex")
+    });
+
+    if let Some(caps) = re.captures(path_str) {
+        let project = caps.get(1)?.as_str();
+        let component = caps.get(2).map_or("", |m| m.as_str());
+        let remaining = caps.get(3).map_or("", |m| m.as_str());
+
+        // Split remaining into segments
+        let segments: Vec<String> = if remaining.is_empty() {
+            Vec::new()
+        } else {
+            remaining
+                .split('/')
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .collect()
+        };
+
+        return Some(ShortPath {
+            path_type: PathType::WorldTree {
+                worktree: project.to_string(),
+                project: component.to_string(),
+            },
+            segments,
+        });
+    }
+
+    None
+}
+
+fn extract_github_info(repo_path_str: &str) -> Option<(String, String)> {
+    // Check if this is a GitHub repository path
+    let github_idx = repo_path_str.find("github.com")?;
+
+    // Extract owner and repo from path like /some/path/github.com/{owner}/{repo}
+    let after_github = &repo_path_str[github_idx + "github.com".len()..];
+    let parts: Vec<&str> = after_github
+        .trim_start_matches('/')
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    // Only return if we have exactly owner and repo (2 parts)
+    // More parts means it's a subdirectory, not the repo root
+    if parts.len() == 2 {
+        Some((parts[0].to_string(), parts[1].to_string()))
+    } else {
+        None
+    }
+}
+
+fn check_git_path(path: &Path) -> Option<ShortPath> {
+    // Try to open a git repository at the given path or any parent
+    let repo = Repository::discover(path).ok()?;
+    let repo_path = repo.workdir().unwrap_or_else(|| repo.path());
+    let repo_path_str = repo_path.to_string_lossy();
+
+    // Get relative path within the repository
+    let rel_path = path.strip_prefix(repo_path).ok()?;
+    let rel_path_str = rel_path.to_string_lossy();
+
+    // Split into segments for the remaining path
+    let segments: Vec<String> = if rel_path_str.is_empty() || rel_path_str == "." {
+        Vec::new()
+    } else {
+        rel_path_str
+            .split('/')
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+            .collect()
+    };
+
+    // Check if this is a GitHub repository path
+    if let Some((owner, repo)) = extract_github_info(&repo_path_str) {
+        return Some(ShortPath {
+            path_type: PathType::GitHub { owner, repo },
+            segments,
+        });
+    }
+
+    // Regular git repository
+    let repo_name = repo_path
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    Some(ShortPath {
+        path_type: PathType::Git { repo_name },
+        segments,
+    })
+}
+
+fn check_home_path(path_str: &str) -> Option<ShortPath> {
+    let home_dir = dirs::home_dir()?;
+    let home_str = home_dir.to_string_lossy();
+
+    if path_str.starts_with(&*home_str) {
+        let rel_path = path_str.strip_prefix(&*home_str)?;
+        let rel_path = rel_path.strip_prefix('/').unwrap_or(rel_path);
+
+        let segments: Vec<String> = if rel_path.is_empty() {
+            Vec::new()
+        } else {
+            rel_path
+                .split('/')
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .collect()
+        };
+
+        return Some(ShortPath {
+            path_type: PathType::Home,
+            segments,
+        });
+    }
+
+    None
+}
+
+fn create_regular_path(path_str: &str) -> ShortPath {
+    let segments: Vec<String> = path_str
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect();
+
+    ShortPath {
+        path_type: PathType::Regular,
+        segments,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_regular_path() {
+        let path = "/usr/local/share/man/man1/bash.1";
+        let result = create_regular_path(path);
+        assert_eq!(result.prefix(1), "/");
+        assert_eq!(result.shortened(1), "u/l/s/m/m");
+        assert_eq!(result.normal(1), "/bash.1");
+        assert_eq!(result.full(1), "/u/l/s/m/m/bash.1");
+
+        // Test with more preserved segments
+        let result = create_regular_path(path);
+        assert_eq!(result.prefix(2), "/");
+        assert_eq!(result.shortened(2), "u/l/s/m");
+        assert_eq!(result.normal(2), "/man1/bash.1");
+        assert_eq!(result.full(2), "/u/l/s/m/man1/bash.1");
+    }
+
+    #[test]
+    fn test_home_path() {
+        // This test is a bit tricky since it depends on the home directory
+        // We can only check the structure of the output
+        if let Some(home_dir) = dirs::home_dir() {
+            let test_path = home_dir.join("Documents/projects/notes/todo.txt");
+            if let Some(result) = check_home_path(&test_path.to_string_lossy()) {
+                assert_eq!(result.prefix(1), "~");
+                // The shortened and normal parts will depend on the actual path
+                assert!(result.shortened(1).len() > 0 || result.normal(1).len() > 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_world_tree_path() {
+        let path = "/Users/username/world/trees/project-name/src/areas/clients/some-web/components";
+        let result = check_world_tree_path(path);
+        assert!(result.is_some());
+
+        let result = result.unwrap();
+        assert_eq!(
+            result.prefix(1),
+            format!("{}project-name//some-web", SYMBOL_WORLD)
+        );
+        assert_eq!(result.shortened(1), "");
+        assert_eq!(result.normal(1), "/components");
+        assert_eq!(
+            result.full(1),
+            format!("{}project-name//some-web/components", SYMBOL_WORLD)
+        );
+    }
+
+    #[test]
+    fn test_create_regular_path_root() {
+        let result = create_regular_path("/");
+        assert_eq!(result.prefix(1), "/");
+        assert_eq!(result.shortened(1), "");
+        assert_eq!(result.normal(1), "");
+        assert_eq!(result.full(1), "/");
+    }
+
+    #[test]
+    fn test_create_regular_path_with_max_segments() {
+        let path = "/a/b/c/d/e";
+
+        // Test with max_segments = 1 (default)
+        let result = create_regular_path(path);
+        assert_eq!(result.prefix(1), "/");
+        assert_eq!(result.shortened(1), "a/b/c/d");
+        assert_eq!(result.normal(1), "/e");
+        assert_eq!(result.full(1), "/a/b/c/d/e");
+
+        // Test with max_segments = 2
+        let result = create_regular_path(path);
+        assert_eq!(result.prefix(2), "/");
+        assert_eq!(result.shortened(2), "a/b/c");
+        assert_eq!(result.normal(2), "/d/e");
+        assert_eq!(result.full(2), "/a/b/c/d/e");
+
+        // Test with max_segments > number of segments
+        let result = create_regular_path(path);
+        assert_eq!(result.prefix(10), "/");
+        assert_eq!(result.shortened(10), "");
+        assert_eq!(result.normal(10), "a/b/c/d/e");
+        assert_eq!(result.full(10), "/a/b/c/d/e");
+    }
+
+    #[test]
+    fn test_extract_github_info() {
+        // Test successful extraction
+        assert_eq!(
+            extract_github_info("/home/user/github.com/owner/repo"),
+            Some(("owner".to_string(), "repo".to_string()))
+        );
+
+        assert_eq!(
+            extract_github_info("/Users/user/work/github.com/myorg/myproject"),
+            Some(("myorg".to_string(), "myproject".to_string()))
+        );
+
+        assert_eq!(
+            extract_github_info("/some/deeply/nested/path/github.com/foo/bar"),
+            Some(("foo".to_string(), "bar".to_string()))
+        );
+
+        // Test with trailing slash
+        assert_eq!(
+            extract_github_info("/path/github.com/owner/repo/"),
+            Some(("owner".to_string(), "repo".to_string()))
+        );
+
+        // Test failures - too many parts (should return None)
+        assert_eq!(
+            extract_github_info("/some/path/to/github.com/too/many/parts/"),
+            None
+        );
+
+        assert_eq!(
+            extract_github_info("/path/github.com/owner/repo/subdir"),
+            None
+        );
+
+        // Test failures - too few parts
+        assert_eq!(extract_github_info("/path/github.com/onlyowner"), None);
+
+        assert_eq!(extract_github_info("/path/github.com/"), None);
+
+        // Test no github.com in path
+        assert_eq!(extract_github_info("/path/gitlab.com/owner/repo"), None);
+    }
+}
