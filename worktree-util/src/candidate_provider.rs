@@ -51,9 +51,7 @@ impl CandidateProvider {
         let Ok(category_entries) = fs::read_dir(areas_path) else {
             return;
         };
-        let branch = areas_path
-            .to_str()
-            .and_then(Self::get_repository_branch);
+        let branch = areas_path.to_str().and_then(Self::get_repository_branch);
 
         for category_entry in category_entries.filter_map(Result::ok) {
             let category_dir = category_entry.path();
@@ -148,10 +146,13 @@ impl CandidateProvider {
     pub fn expand_path(path: &str) -> PathBuf {
         if path.starts_with('~') {
             if let Some(home) = dirs::home_dir() {
-                return home.join(&path[2..]);
+                home.join(&path[2..])
+            } else {
+                PathBuf::from(path)
             }
+        } else {
+            PathBuf::from(path)
         }
-        PathBuf::from(path)
     }
 
     pub fn get_repository_branch(repo_path: &str) -> Option<String> {

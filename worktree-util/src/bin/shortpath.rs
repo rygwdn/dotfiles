@@ -3,6 +3,7 @@ use std::env;
 use std::io::{self, BufRead, BufReader};
 use std::path::PathBuf;
 use worktree_util::shorten_path;
+use worktree_util::ShortPathPart::*;
 
 #[allow(clippy::expect_used)]
 fn main() {
@@ -55,11 +56,11 @@ fn main() {
     let sections: Vec<&str> = section.split(',').map(|s| s.trim()).collect();
 
     // Validate sections
-    let valid_sections = ["prefix", "shortened", "normal", "full"];
+    let valid_sections = ["prefix", "shortened", "normal", "full", "all"];
     for s in &sections {
         if !valid_sections.contains(s) {
             eprintln!(
-                "Error: Invalid section '{}'. Valid sections are: prefix, shortened, normal, full",
+                "Error: Invalid section '{}'. Valid sections are: prefix, shortened, normal, full, all",
                 s
             );
             std::process::exit(1);
@@ -83,10 +84,13 @@ fn main() {
 
             // stdin mode only supports single section
             match sections[0] {
-                "prefix" => println!("{}", short_path.prefix(max_segments)),
-                "shortened" => println!("{}", short_path.shortened(max_segments)),
-                "normal" => println!("{}", short_path.normal(max_segments)),
-                _ => println!("{}", short_path.full(max_segments)),
+                "prefix" => println!("{}", short_path.build(max_segments, &[Prefix])),
+                "shortened" => println!("{}", short_path.build(max_segments, &[Infix])),
+                "normal" => println!("{}", short_path.build(max_segments, &[Suffix])),
+                _ => println!(
+                    "{}",
+                    short_path.build(max_segments, &[Prefix, Infix, Suffix])
+                ),
             }
         }
     } else {
@@ -98,15 +102,21 @@ fn main() {
         for part in sections.iter() {
             match *part {
                 "all" => {
-                    println!("Full:       {}", short_path.full(max_segments));
-                    println!("Prefix:     {}", short_path.prefix(max_segments));
-                    println!("Shortened:  {}", short_path.shortened(max_segments));
-                    println!("Normal:     {}", short_path.normal(max_segments));
+                    println!(
+                        "Full:       {}",
+                        short_path.build(max_segments, &[Prefix, Infix, Suffix])
+                    );
+                    println!("Prefix:     {}", short_path.build(max_segments, &[Prefix]));
+                    println!("Shortened:  {}", short_path.build(max_segments, &[Infix]));
+                    println!("Normal:     {}", short_path.build(max_segments, &[Suffix]));
                 }
-                "full" => println!("{}", short_path.full(max_segments)),
-                "prefix" => println!("{}", short_path.prefix(max_segments)),
-                "shortened" => println!("{}", short_path.shortened(max_segments)),
-                "normal" => println!("{}", short_path.normal(max_segments)),
+                "full" => println!(
+                    "{}",
+                    short_path.build(max_segments, &[Prefix, Infix, Suffix])
+                ),
+                "prefix" => println!("{}", short_path.build(max_segments, &[Prefix])),
+                "shortened" => println!("{}", short_path.build(max_segments, &[Infix])),
+                "normal" => println!("{}", short_path.build(max_segments, &[Suffix])),
                 _ => eprintln!("Unknown part: {}", part),
             }
         }

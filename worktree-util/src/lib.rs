@@ -12,6 +12,6 @@ pub mod test_utils;
 pub use candidate::Candidate;
 pub use candidate_provider::CandidateProvider;
 pub use navigator::WorktreeNavigator;
-pub use path_shortener::{shorten_path, ShortPath};
+pub use path_shortener::{shorten_path, ShortPath, ShortPathPart};
 pub use scorer::OptimalScorer;
 pub use zoxide_scores::ZoxideScores;

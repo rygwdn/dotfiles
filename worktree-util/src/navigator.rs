@@ -15,11 +15,12 @@ struct CandidateItem {
     pub candidate: Candidate,
     pub score: f64,
     pub zoxide_score: f64,
+    pub worktree_adjustment: f64,
 }
 
 impl CandidateItem {
     fn total_score(&self) -> f64 {
-        self.score + self.zoxide_score
+        self.score + self.zoxide_score + self.worktree_adjustment
     }
 }
 
@@ -62,17 +63,17 @@ impl WorktreeCollector {
     }
 
     fn filter_and_score(&self, query: &str) -> Vec<Arc<CandidateItem>> {
-        let mut scored: Vec<CandidateItem> = self
+        let mut items: Vec<CandidateItem> = self
             .candidates
             .iter()
             .filter_map(|candidate| {
                 let score = self.scorer.score_candidate(candidate, query);
-                let zoxide_score = self.zoxide_scores.get_score(&candidate.path);
-                if score > 0.0 {
+                if score > 0.0 || query.is_empty() {
                     Some(CandidateItem {
                         candidate: candidate.clone(),
                         score,
-                        zoxide_score,
+                        zoxide_score: self.zoxide_scores.get_score(&candidate.path),
+                        worktree_adjustment: self.scorer.worktree_adjustment(candidate),
                     })
                 } else {
                     None
@@ -80,13 +81,13 @@ impl WorktreeCollector {
             })
             .collect();
 
-        scored.sort_by(|a, b| {
+        items.sort_by(|a, b| {
             b.total_score()
                 .partial_cmp(&a.total_score())
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        scored.into_iter().map(Arc::new).collect()
+        items.into_iter().map(Arc::new).collect()
     }
 }
 
@@ -123,10 +124,11 @@ impl WorktreeNavigator {
         for item in items {
             if show_scores {
                 paths.push(format!(
-                    "(total:{:.2}, score:{:.2}, zoxide:{:.2}) {}",
+                    "(total:{:.2}, score:{:.2}, zoxide:{:.2}, worktree:{:.2}) {}",
                     item.total_score(),
                     item.score,
                     item.zoxide_score,
+                    item.worktree_adjustment,
                     item.candidate.path
                 ));
             } else {
@@ -164,7 +166,9 @@ impl WorktreeNavigator {
             .map(|out| out.selected_items)
             .unwrap_or_default();
 
-        selected_items.first().map(|item| item.output().into_owned())
+        selected_items
+            .first()
+            .map(|item| item.output().into_owned())
     }
 }
 

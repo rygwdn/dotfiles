@@ -73,7 +73,7 @@ impl OptimalScorer {
     }
 
     /// Returns combined worktree proximity bonus and non-worktree penalty
-    fn worktree_adjustment(&self, candidate: &Candidate) -> f64 {
+    pub fn worktree_adjustment(&self, candidate: &Candidate) -> f64 {
         match &candidate.shortpath.path_type {
             PathType::WorldTree { worktree, .. } => match &self.current_dir_worktree {
                 Some(current_wt) if current_wt == worktree => WORKTREE_PROXIMITY_BONUS,

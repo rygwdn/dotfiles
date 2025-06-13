@@ -33,7 +33,7 @@ impl ComponentBuilder {
     fn new() -> Self {
         Self {
             components: Vec::new(),
-            current_part: ShortPathPart::Prefix,
+            current_part: Prefix,
         }
     }
 
@@ -57,31 +57,15 @@ pub struct ShortPath {
     pub segments: Vec<String>, // All path segments after the prefix (unshortened)
 }
 
+use ComponentType::*;
+use ShortPathPart::*;
+
 impl ShortPath {
-    pub fn full(&self, max_segments: usize) -> String {
-        self.components(max_segments, None)
-            .into_iter()
-            .map(|(_, _, text)| text)
-            .collect()
-    }
-
-    pub fn prefix(&self, max_segments: usize) -> String {
-        self.filter_by_segment_type(max_segments, ShortPathPart::Prefix)
-    }
-
-    pub fn shortened(&self, max_segments: usize) -> String {
-        self.filter_by_segment_type(max_segments, ShortPathPart::Infix)
-    }
-
-    pub fn normal(&self, max_segments: usize) -> String {
-        self.filter_by_segment_type(max_segments, ShortPathPart::Suffix)
-    }
-
-    fn filter_by_segment_type(&self, max_segments: usize, target_type: ShortPathPart) -> String {
+    pub fn build(&self, max_segments: usize, target_types: &[ShortPathPart]) -> String {
         self.components(max_segments, None)
             .into_iter()
             .filter_map(|(segment_type, _, text)| {
-                if segment_type == target_type {
+                if target_types.contains(&segment_type) {
                     Some(text)
                 } else {
                     None
@@ -100,57 +84,57 @@ impl ShortPath {
         // Add prefix components
         match &self.path_type {
             PathType::WorldTree { worktree, project } => {
-                builder.add(ComponentType::Icon, SYMBOL_WORLD.to_string());
-                builder.add(ComponentType::Worktree, worktree.clone());
-                builder.add(ComponentType::Separator, "//".to_string());
-                builder.add(ComponentType::Project, project.clone());
+                builder.add(Icon, SYMBOL_WORLD.to_string());
+                builder.add(Worktree, worktree.clone());
+                builder.add(Separator, "//".to_string());
+                builder.add(Project, project.clone());
             }
             PathType::GitHub { owner, repo } => {
-                builder.add(ComponentType::Icon, SYMBOL_GITHUB.to_string());
-                builder.add(ComponentType::Owner, owner.clone());
-                builder.add(ComponentType::Separator, "/".to_string());
-                builder.add(ComponentType::Repo, repo.clone());
+                builder.add(Icon, SYMBOL_GITHUB.to_string());
+                builder.add(Owner, owner.clone());
+                builder.add(Separator, "/".to_string());
+                builder.add(Repo, repo.clone());
             }
             PathType::Git { repo_name } => {
-                builder.add(ComponentType::Icon, SYMBOL_GIT.to_string());
-                builder.add(ComponentType::Repo, repo_name.clone());
+                builder.add(Icon, SYMBOL_GIT.to_string());
+                builder.add(Repo, repo_name.clone());
             }
             PathType::Home => {
-                builder.add(ComponentType::Icon, SYMBOL_HOME.to_string());
+                builder.add(Icon, SYMBOL_HOME.to_string());
             }
             PathType::Regular => {
-                builder.add(ComponentType::Icon, SYMBOL_ROOT.to_string());
+                builder.add(Icon, SYMBOL_ROOT.to_string());
             }
         }
 
         let shorten_count = self.segments.len().saturating_sub(max_segments);
 
-        builder.set_part(ShortPathPart::Infix);
+        builder.set_part(Infix);
         for (i, segment) in self.segments.iter().enumerate() {
             if i >= shorten_count {
-                builder.set_part(ShortPathPart::Suffix);
+                builder.set_part(Suffix);
             }
 
             // Add separator before segments (for Regular paths, the root "/" is the icon)
             // For other types, we need a separator before the first segment
             let needs_separator = i > 0 || (i == 0 && !matches!(self.path_type, PathType::Regular));
             if needs_separator {
-                builder.add(ComponentType::Separator, "/".to_string());
+                builder.add(Separator, "/".to_string());
             }
             if i < shorten_count {
                 builder.add(
-                    ComponentType::Shortened,
+                    Shortened,
                     segment.chars().next().unwrap_or_default().to_string(),
                 );
             } else {
-                builder.add(ComponentType::Path, segment.clone());
+                builder.add(Path, segment.clone());
             }
         }
 
         if let Some(branch) = branch {
-            builder.set_part(ShortPathPart::Branch);
-            builder.add(ComponentType::Separator, " ".to_string());
-            builder.add(ComponentType::Branch, branch.clone());
+            builder.set_part(BranchPart);
+            builder.add(Separator, " ".to_string());
+            builder.add(Branch, branch.clone());
         }
 
         builder.finish()
@@ -175,7 +159,7 @@ pub enum ShortPathPart {
     Prefix,
     Infix,
     Suffix,
-    Branch,
+    BranchPart,
 }
 
 pub fn shorten_path(path: &Path) -> ShortPath {
@@ -345,17 +329,23 @@ mod tests {
     fn test_regular_path() {
         let path = "/usr/local/share/man/man1/bash.1";
         let result = create_regular_path(path);
-        assert_eq!(result.prefix(1), "/");
-        assert_eq!(result.shortened(1), "u/l/s/m/m");
-        assert_eq!(result.normal(1), "/bash.1");
-        assert_eq!(result.full(1), "/u/l/s/m/m/bash.1");
+        assert_eq!(result.build(1, &[Prefix]), "/");
+        assert_eq!(result.build(1, &[Infix]), "u/l/s/m/m");
+        assert_eq!(result.build(1, &[Suffix]), "/bash.1");
+        assert_eq!(
+            result.build(1, &[Prefix, Infix, Suffix]),
+            "/u/l/s/m/m/bash.1"
+        );
 
         // Test with more preserved segments
         let result = create_regular_path(path);
-        assert_eq!(result.prefix(2), "/");
-        assert_eq!(result.shortened(2), "u/l/s/m");
-        assert_eq!(result.normal(2), "/man1/bash.1");
-        assert_eq!(result.full(2), "/u/l/s/m/man1/bash.1");
+        assert_eq!(result.build(2, &[Prefix]), "/");
+        assert_eq!(result.build(2, &[Infix]), "u/l/s/m");
+        assert_eq!(result.build(2, &[Suffix]), "/man1/bash.1");
+        assert_eq!(
+            result.build(2, &[Prefix, Infix, Suffix]),
+            "/u/l/s/m/man1/bash.1"
+        );
     }
 
     #[test]
@@ -365,9 +355,11 @@ mod tests {
         if let Some(home_dir) = dirs::home_dir() {
             let test_path = home_dir.join("Documents/projects/notes/todo.txt");
             if let Some(result) = check_home_path(&test_path.to_string_lossy()) {
-                assert_eq!(result.prefix(1), "~");
+                assert_eq!(result.build(1, &[Prefix]), "~");
                 // The shortened and normal parts will depend on the actual path
-                assert!(result.shortened(1).len() > 0 || result.normal(1).len() > 0);
+                assert!(
+                    result.build(1, &[Infix]).len() > 0 || result.build(1, &[Suffix]).len() > 0
+                );
             }
         }
     }
@@ -380,13 +372,13 @@ mod tests {
 
         let result = result.unwrap();
         assert_eq!(
-            result.prefix(1),
+            result.build(1, &[Prefix]),
             format!("{}project-name//some-web", SYMBOL_WORLD)
         );
-        assert_eq!(result.shortened(1), "");
-        assert_eq!(result.normal(1), "/components");
+        assert_eq!(result.build(1, &[Infix]), "");
+        assert_eq!(result.build(1, &[Suffix]), "/components");
         assert_eq!(
-            result.full(1),
+            result.build(1, &[Prefix, Infix, Suffix]),
             format!("{}project-name//some-web/components", SYMBOL_WORLD)
         );
     }
@@ -394,10 +386,10 @@ mod tests {
     #[test]
     fn test_create_regular_path_root() {
         let result = create_regular_path("/");
-        assert_eq!(result.prefix(1), "/");
-        assert_eq!(result.shortened(1), "");
-        assert_eq!(result.normal(1), "");
-        assert_eq!(result.full(1), "/");
+        assert_eq!(result.build(1, &[Prefix]), "/");
+        assert_eq!(result.build(1, &[Infix]), "");
+        assert_eq!(result.build(1, &[Suffix]), "");
+        assert_eq!(result.build(1, &[Prefix, Infix, Suffix]), "/");
     }
 
     #[test]
@@ -406,24 +398,24 @@ mod tests {
 
         // Test with max_segments = 1 (default)
         let result = create_regular_path(path);
-        assert_eq!(result.prefix(1), "/");
-        assert_eq!(result.shortened(1), "a/b/c/d");
-        assert_eq!(result.normal(1), "/e");
-        assert_eq!(result.full(1), "/a/b/c/d/e");
+        assert_eq!(result.build(1, &[Prefix]), "/");
+        assert_eq!(result.build(1, &[Infix]), "a/b/c/d");
+        assert_eq!(result.build(1, &[Suffix]), "/e");
+        assert_eq!(result.build(1, &[Prefix, Infix, Suffix]), "/a/b/c/d/e");
 
         // Test with max_segments = 2
         let result = create_regular_path(path);
-        assert_eq!(result.prefix(2), "/");
-        assert_eq!(result.shortened(2), "a/b/c");
-        assert_eq!(result.normal(2), "/d/e");
-        assert_eq!(result.full(2), "/a/b/c/d/e");
+        assert_eq!(result.build(2, &[Prefix]), "/");
+        assert_eq!(result.build(2, &[Infix]), "a/b/c");
+        assert_eq!(result.build(2, &[Suffix]), "/d/e");
+        assert_eq!(result.build(2, &[Prefix, Infix, Suffix]), "/a/b/c/d/e");
 
         // Test with max_segments > number of segments
         let result = create_regular_path(path);
-        assert_eq!(result.prefix(10), "/");
-        assert_eq!(result.shortened(10), "");
-        assert_eq!(result.normal(10), "a/b/c/d/e");
-        assert_eq!(result.full(10), "/a/b/c/d/e");
+        assert_eq!(result.build(10, &[Prefix]), "/");
+        assert_eq!(result.build(10, &[Infix]), "");
+        assert_eq!(result.build(10, &[Suffix]), "a/b/c/d/e");
+        assert_eq!(result.build(10, &[Prefix, Infix, Suffix]), "/a/b/c/d/e");
     }
 
     #[test]
