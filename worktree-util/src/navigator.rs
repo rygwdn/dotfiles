@@ -44,6 +44,24 @@ impl WorktreeNavigator {
             return None;
         }
 
+        if !query.is_empty() {
+            let filtered = cmd_collector.filter_and_score(query);
+            if filtered.len() == 1 {
+                return Some(filtered[0].candidate.path.clone());
+            }
+
+            if filtered.len() > 1 {
+                let first_score = filtered[0].total_score();
+                let second_score = filtered[1].total_score();
+
+                let has_clear_winner =
+                    first_score / second_score > 1.5 || first_score - second_score > 100.0;
+                if has_clear_winner {
+                    return Some(filtered[0].candidate.path.clone());
+                }
+            }
+        }
+
         let options = SkimOptionsBuilder::default()
             .ansi(true)
             .height("40%".to_string())
@@ -52,7 +70,7 @@ impl WorktreeNavigator {
             .interactive(true)
             .cmd_prompt("> ".to_string())
             .select_1(true)
-            .query(Some(query.to_string()))
+            .cmd_query(Some(query.to_string()))
             .cmd_collector(Rc::from(RefCell::from(cmd_collector)))
             .cmd(Some("{}".to_string()))
             .no_sort(true)
