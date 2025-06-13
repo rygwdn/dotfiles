@@ -125,7 +125,11 @@ if which starship &>/dev/null
 end
 
 if which zoxide &>/dev/null
-    zoxide init fish --cmd j --hook prompt | source
+    zoxide init fish --hook prompt | source
+end
+
+if which worktree-nav &>/dev/null
+    worktree-nav --init=fish:j | source
 end
 
 test -e ~/.config.local.fish && source ~/.config.local.fish
