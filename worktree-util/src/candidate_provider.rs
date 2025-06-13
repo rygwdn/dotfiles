@@ -156,7 +156,12 @@ impl CandidateProvider {
     }
 
     pub fn get_repository_branch(repo_path: &str) -> Option<String> {
-        let repo = Repository::open(repo_path).ok()?;
+        let repo = Repository::open_ext(
+            repo_path,
+            git2::RepositoryOpenFlags::empty(),
+            vec![WORLD_TREES_PATH, SRC_PATH],
+        )
+        .ok()?;
         let head = repo.head().ok()?;
 
         if !head.is_branch() {

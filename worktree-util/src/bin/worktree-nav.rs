@@ -89,7 +89,7 @@ fn main() {
             .get_many::<String>("query")
             .map(|values| values.map(|s| s.as_str()).collect::<Vec<_>>().join(" "))
             .unwrap_or_default();
-        navigate(&navigator, &query);
+        navigate(&navigator, &query, show_scores);
     }
 }
 
@@ -100,8 +100,8 @@ fn filter_output(navigator: &WorktreeNavigator, query: &str, show_scores: bool) 
     }
 }
 
-fn navigate(navigator: &WorktreeNavigator, query: &str) {
-    if let Some(path) = navigator.navigate(query) {
+fn navigate(navigator: &WorktreeNavigator, query: &str, show_scores: bool) {
+    if let Some(path) = navigator.navigate(query, show_scores) {
         println!("{}", path);
     }
 }

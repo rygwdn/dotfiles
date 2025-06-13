@@ -13,7 +13,7 @@ impl WorktreeNavigator {
     }
 
     pub fn list(&self, query: &str, show_scores: bool) -> Vec<String> {
-        let collector = WorktreeCollector::new();
+        let collector = WorktreeCollector::new(show_scores);
         let items = collector.filter_and_score(query);
         let mut paths = Vec::new();
         for item in items {
@@ -33,8 +33,8 @@ impl WorktreeNavigator {
         paths
     }
 
-    pub fn navigate(&self, query: &str) -> Option<String> {
-        let cmd_collector = WorktreeCollector::new();
+    pub fn navigate(&self, query: &str, show_scores: bool) -> Option<String> {
+        let cmd_collector = WorktreeCollector::new(show_scores);
 
         if !atty::is(atty::Stream::Stdin) {
             let filtered = cmd_collector.filter_and_score(query);
@@ -49,10 +49,13 @@ impl WorktreeNavigator {
             .height("40%".to_string())
             .reverse(true)
             .multi(false)
+            .interactive(true)
+            .cmd_prompt("> ".to_string())
             .select_1(true)
             .query(Some(query.to_string()))
             .cmd_collector(Rc::from(RefCell::from(cmd_collector)))
             .cmd(Some("{}".to_string()))
+            .no_sort(true)
             .build()
             .expect("Failed to build skim options");
 

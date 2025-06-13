@@ -56,7 +56,10 @@ impl ZoxideScores {
         }
 
         // Normalize scores so the maximum is 100
-        if let Some(&max_score) = scores.values().max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)) {
+        if let Some(&max_score) = scores
+            .values()
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        {
             if max_score > 0.0 {
                 let scale_factor = 100.0 / max_score;
                 for score in scores.values_mut() {

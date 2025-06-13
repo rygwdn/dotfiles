@@ -13,6 +13,7 @@ pub struct CandidateItem {
     pub score: f64,
     pub zoxide_score: f64,
     pub worktree_adjustment: f64,
+    pub show_scores: bool,
 }
 
 impl CandidateItem {
@@ -27,7 +28,17 @@ impl SkimItem for CandidateItem {
     }
 
     fn display<'a>(&'a self, _context: DisplayContext<'a>) -> AnsiString<'a> {
-        AnsiString::parse(self.candidate.display().as_str())
+        let display_str = if self.show_scores {
+            format!(
+                "{} \x1b[2m({:.2})\x1b[0m",
+                self.candidate.display(),
+                self.total_score()
+            )
+        } else {
+            self.candidate.display()
+        };
+
+        AnsiString::parse(display_str.as_str())
     }
 
     fn preview(&self, _context: PreviewContext) -> ItemPreview {
@@ -43,10 +54,11 @@ pub struct WorktreeCollector {
     candidates: Vec<Candidate>,
     scorer: OptimalScorer,
     zoxide_scores: ZoxideScores,
+    show_scores: bool,
 }
 
 impl WorktreeCollector {
-    pub fn new() -> Self {
+    pub fn new(show_scores: bool) -> Self {
         Self {
             candidates: CandidateProvider::new().get_candidates(),
             scorer: OptimalScorer::new(
@@ -56,6 +68,7 @@ impl WorktreeCollector {
                     .to_string(),
             ),
             zoxide_scores: ZoxideScores::new(),
+            show_scores,
         }
     }
 
@@ -71,6 +84,7 @@ impl WorktreeCollector {
                         score,
                         zoxide_score: self.zoxide_scores.get_score(&candidate.path),
                         worktree_adjustment: self.scorer.worktree_adjustment(candidate),
+                        show_scores: self.show_scores,
                     })
                 } else {
                     None
