@@ -106,6 +106,11 @@ set fish_cursor_replace_one underscore
 
 if test -n "$COMPOSER_NO_INTERACTION" || ! status is-interactive
     set -x FISH_NOT_INTERACTIVE 1
+
+    set -x PAGER cat
+    set -x GIT_PAGER cat
+    set -x GH_PAGER cat
+    set -x GH_PROMPT_DISABLED true
 end
 
 if test "$TERM_PROGRAM" = vscode || test -n "$FISH_NOT_INTERACTIVE"
