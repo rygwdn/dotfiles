@@ -111,6 +111,7 @@ if test -n "$COMPOSER_NO_INTERACTION" || ! status is-interactive
     set -x GIT_PAGER cat
     set -x GH_PAGER cat
     set -x GH_PROMPT_DISABLED true
+    set -x DEV_NO_AUTO_UPDATE 1
 end
 
 if test "$TERM_PROGRAM" = vscode || test -n "$FISH_NOT_INTERACTIVE"
