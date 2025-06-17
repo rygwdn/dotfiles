@@ -77,9 +77,21 @@ worktree-nav --filter "query"
 worktree-nav --test
 
 # Generate shell integration script
-worktree-nav --init=fish         # Default: creates 'wl' function
-worktree-nav --init=fish:nav     # Custom: creates 'nav' function
-worktree-nav --init=fish:jump    # Custom: creates 'jump' function
+worktree-nav --init-navigate                    # Default shell ($SHELL), creates 'wl' function
+worktree-nav --shell fish --init-navigate       # Fish shell, creates 'wl' function
+worktree-nav --shell fish --init-navigate nav   # Fish shell, creates 'nav' function
+worktree-nav --shell bash --init-navigate jump  # Bash shell, creates 'jump' function
+
+# Generate VS Code multi-select function
+worktree-nav --init-code                        # Default shell ($SHELL), creates 'jc' function
+worktree-nav --shell fish --init-code           # Fish shell, creates 'jc' function
+worktree-nav --shell fish --init-code mc        # Fish shell, creates 'mc' function
+
+# Generate both functions at once
+worktree-nav --shell fish --init-navigate wl --init-code jc
+
+# Multi-select mode
+worktree-nav --multi              # Interactive multi-selection with TAB/Shift-TAB
 ```
 
 #### Features
@@ -127,43 +139,107 @@ function fish_prompt
 end
 ```
 
-### Shell Navigation (Fish example)
+### Shell Navigation
+
+The worktree-nav tool provides two types of shell functions:
+
+1. **Navigation functions** (`--init-navigate`): Change directory to selected worktree
+2. **VS Code functions** (`--init-code`): Open multiple worktrees in VS Code
+
+Both function types are minimal and do not include completions or comments for simplicity.
+
+#### Setting up navigation function (Fish example)
 
 ```fish
-# Set up the wl function by running this once:
-worktree-nav --init=fish | source
+# Generate with default name 'wl'
+worktree-nav --shell fish --init-navigate | source
 
-# Or with a custom function name:
-worktree-nav --init=fish:nav | source
-worktree-nav --init=fish:jump | source
+# Or with a custom function name
+worktree-nav --shell fish --init-navigate nav | source
 
-# Make it permanent by adding to config.fish:
-worktree-nav --init=fish >> ~/.config/fish/config.fish
+# Make it permanent
+worktree-nav --shell fish --init-navigate nav >> ~/.config/fish/config.fish
+```
 
-# The generated function provides:
-# - Navigation command with your chosen name
-# - Tab completion support
-# - Full path to worktree-nav (works even if not in PATH)
-# - Optional keybinding (uncomment in generated output)
+#### Setting up VS Code multi-select function (Fish example)
+
+```fish
+# Generate with default name 'jc'
+worktree-nav --shell fish --init-code | source
+
+# Or with a custom function name
+worktree-nav --shell fish --init-code mycode | source
+
+# Make it permanent
+worktree-nav --shell fish --init-code mycode >> ~/.config/fish/config.fish
+```
+
+#### Setting up both functions at once
+
+```fish
+# Generate both functions with default names
+worktree-nav --shell fish --init-navigate --init-code | source
+
+# Generate both functions with custom names
+worktree-nav --shell fish --init-navigate wl --init-code jc | source
+
+# Add to config
+worktree-nav --shell fish --init-navigate wl --init-code jc >> ~/.config/fish/config.fish
+```
+
+### Multi-Select for VS Code
+
+The VS Code function allows you to select multiple worktree paths and open them all in VS Code:
+
+```fish
+# Usage (assuming function name is 'jc')
+jc                    # Interactive multi-select, then open in VS Code
+jc platform          # Search for 'platform', multi-select matching paths
+
+# How it works:
+# 1. Run the function with optional search terms
+# 2. Use TAB to select multiple paths
+# 3. Use Shift-TAB to deselect
+# 4. Press Enter to confirm and open all selected paths in VS Code
+```
+
+This is available for all supported shells:
+```bash
+# Bash - both functions with default names
+worktree-nav --shell bash --init-navigate --init-code >> ~/.bashrc
+
+# Zsh - both functions with custom names
+worktree-nav --shell zsh --init-navigate wl --init-code jc >> ~/.zshrc
+
+# Fish - both functions with custom names
+worktree-nav --shell fish --init-navigate wl --init-code jc >> ~/.config/fish/config.fish
+
+# Auto-detect shell from $SHELL (with custom names)
+worktree-nav --init-navigate wl --init-code jc >> ~/.shellrc
 ```
 
 ### Manual Setup (Alternative)
 
-If you prefer to customize the function, here's what `--init=fish` generates:
+If you prefer to see what the functions do, here's an example of what `--shell fish --init-navigate` generates:
 
 ```fish
-function wl --description "Navigate to worktree projects"
-    set -l result (/full/path/to/worktree-nav $argv)
+function wl
+    set -l result (/path/to/worktree-nav $argv)
     if test -n "$result"
         cd $result
     end
 end
+```
 
-# Add tab completion
-complete -c wl -f -a "(/full/path/to/worktree-nav --list)"
+And here's what `--shell fish --init-code jc` generates:
 
-# Optional: Bind to a key (Ctrl+G)
-bind \cg wl
+```fish
+function jc
+    set -l paths (/path/to/worktree-nav --multi $argv)
+    if test (count $paths) -gt 0
+        code $paths
+    end
+end
 ```
 
 ## Architecture

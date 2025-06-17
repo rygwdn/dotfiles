@@ -14,6 +14,7 @@ pub struct CandidateItem {
     pub zoxide_score: f64,
     pub worktree_adjustment: f64,
     pub show_scores: bool,
+    pub index: usize,
 }
 
 impl CandidateItem {
@@ -47,6 +48,12 @@ impl SkimItem for CandidateItem {
 
     fn output(&self) -> Cow<str> {
         Cow::Borrowed(&self.candidate.path)
+    }
+    fn get_index(&self) -> usize {
+        self.index
+    }
+    fn set_index(&mut self, index: usize) {
+        self.index = index;
     }
 }
 
@@ -85,6 +92,7 @@ impl WorktreeCollector {
                         zoxide_score: self.zoxide_scores.get_score(&candidate.path),
                         worktree_adjustment: self.scorer.worktree_adjustment(candidate),
                         show_scores: self.show_scores,
+                        index: 0,
                     })
                 } else {
                     None
@@ -98,7 +106,14 @@ impl WorktreeCollector {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        items.into_iter().map(Arc::new).collect()
+        items
+            .into_iter()
+            .enumerate()
+            .map(|(i, mut item)| {
+                item.set_index(i);
+                Arc::new(item)
+            })
+            .collect()
     }
 }
 

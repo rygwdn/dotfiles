@@ -33,21 +33,27 @@ impl WorktreeNavigator {
         paths
     }
 
-    pub fn navigate(&self, query: &str, show_scores: bool) -> Option<String> {
+    pub fn navigate(
+        &self,
+        query: &str,
+        show_scores: bool,
+        multi: bool,
+        prompt: &str,
+    ) -> Vec<String> {
         let cmd_collector = WorktreeCollector::new(show_scores);
 
         if !atty::is(atty::Stream::Stdin) {
             let filtered = cmd_collector.filter_and_score(query);
-            for item in filtered {
-                println!("{}", item.candidate.path);
-            }
-            return None;
+            return filtered
+                .into_iter()
+                .map(|item| item.candidate.path.clone())
+                .collect();
         }
 
-        if !query.is_empty() {
+        if !multi && !query.is_empty() {
             let filtered = cmd_collector.filter_and_score(query);
             if filtered.len() == 1 {
-                return Some(filtered[0].candidate.path.clone());
+                return vec![filtered[0].candidate.path.clone()];
             }
 
             if filtered.len() > 1 {
@@ -57,7 +63,7 @@ impl WorktreeNavigator {
                 let has_clear_winner =
                     first_score / second_score > 1.5 || first_score - second_score > 100.0;
                 if has_clear_winner {
-                    return Some(filtered[0].candidate.path.clone());
+                    return vec![filtered[0].candidate.path.clone()];
                 }
             }
         }
@@ -66,10 +72,10 @@ impl WorktreeNavigator {
             .ansi(true)
             .height("40%".to_string())
             .reverse(true)
-            .multi(false)
+            .multi(multi)
             .interactive(true)
-            .cmd_prompt("> ".to_string())
-            .select_1(true)
+            .cmd_prompt(prompt.to_string())
+            .select_1(!multi)
             .cmd_query(Some(query.to_string()))
             .cmd_collector(Rc::from(RefCell::from(cmd_collector)))
             .cmd(Some("{}".to_string()))
@@ -83,8 +89,9 @@ impl WorktreeNavigator {
             .unwrap_or_default();
 
         selected_items
-            .first()
+            .into_iter()
             .map(|item| item.output().into_owned())
+            .collect()
     }
 }
 

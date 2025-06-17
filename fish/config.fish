@@ -135,7 +135,7 @@ if which zoxide &>/dev/null
 end
 
 if which worktree-nav &>/dev/null
-    worktree-nav --init=fish:j | source
+    worktree-nav --shell fish --init-navigate j --init-code jc | source
 end
 
 test -e ~/.config.local.fish && source ~/.config.local.fish
