@@ -62,6 +62,7 @@ abbr gdc git diff --cached
 abbr gmt git mergetool
 abbr br git branch
 abbr show git show
+abbr "c." code .
 
 abbr rg rg -S
 
