@@ -8,6 +8,7 @@ use std::sync::OnceLock;
 pub const SYMBOL_WORLD: &str = "\u{f484} "; // nf-oct-globe
 pub const SYMBOL_GIT: &str = "\u{e0a0} "; // nf-pl-branch
 pub const SYMBOL_GITHUB: &str = "\u{ea84} "; // nf-cod-github
+pub const SYMBOL_GITHUB_INVERTED: &str = "\u{f09b} "; // nf-fab-github (filled version)
 pub const SYMBOL_HOME: &str = "~";
 pub const SYMBOL_ROOT: &str = "/";
 
@@ -18,6 +19,7 @@ static WORLD_TREES_RE: OnceLock<Regex> = OnceLock::new();
 pub enum PathType {
     WorldTree { worktree: String, project: String },
     GitHub { owner: String, repo: String },
+    GitHubRemote { owner: String, repo: String },
     Git { repo_name: String },
     Home,
     Regular,
@@ -91,6 +93,12 @@ impl ShortPath {
             }
             PathType::GitHub { owner, repo } => {
                 builder.add(Icon, SYMBOL_GITHUB.to_string());
+                builder.add(Owner, owner.clone());
+                builder.add(Separator, "/".to_string());
+                builder.add(Repo, repo.clone());
+            }
+            PathType::GitHubRemote { owner, repo } => {
+                builder.add(Icon, SYMBOL_GITHUB_INVERTED.to_string());
                 builder.add(Owner, owner.clone());
                 builder.add(Separator, "/".to_string());
                 builder.add(Repo, repo.clone());
@@ -219,22 +227,14 @@ fn check_world_tree_path(path_str: &str) -> Option<ShortPath> {
     None
 }
 
-fn extract_github_info(repo_path_str: &str) -> Option<(String, String)> {
-    // Check if this is a GitHub repository path
-    let github_idx = repo_path_str.find("github.com")?;
-
-    // Extract owner and repo from path like /some/path/github.com/{owner}/{repo}
-    let after_github = &repo_path_str[github_idx + "github.com".len()..];
-    let parts: Vec<&str> = after_github
-        .trim_start_matches('/')
-        .split('/')
-        .filter(|s| !s.is_empty())
-        .collect();
-
-    // Only return if we have exactly owner and repo (2 parts)
-    // More parts means it's a subdirectory, not the repo root
-    if parts.len() == 2 {
-        Some((parts[0].to_string(), parts[1].to_string()))
+fn extract_github_info(input: &str) -> Option<(String, String)> {
+    let re = Regex::new(r"github\.com[/:@]([^/]+)/([^/\.]+)(?:\.git)?")
+        .expect("Invalid GitHub regex");
+    
+    if let Some(caps) = re.captures(input) {
+        let owner = caps.get(1)?.as_str();
+        let repo = caps.get(2)?.as_str();
+        Some((owner.to_string(), repo.to_string()))
     } else {
         None
     }
@@ -261,7 +261,7 @@ fn check_git_path(path: &Path) -> Option<ShortPath> {
             .collect()
     };
 
-    // Check if this is a GitHub repository path
+    // Check if this is a GitHub repository path (highest priority for GitHub type)
     if let Some((owner, repo)) = extract_github_info(&repo_path_str) {
         return Some(ShortPath {
             path_type: PathType::GitHub { owner, repo },
@@ -269,7 +269,19 @@ fn check_git_path(path: &Path) -> Option<ShortPath> {
         });
     }
 
-    // Regular git repository
+    // Check if the remote origin is a GitHub repository (second priority)
+    if let Ok(remote) = repo.find_remote("origin") {
+        if let Some(url) = remote.url() {
+            if let Some((owner, repo_name)) = extract_github_info(url) {
+                return Some(ShortPath {
+                    path_type: PathType::GitHubRemote { owner, repo: repo_name },
+                    segments,
+                });
+            }
+        }
+    }
+
+    // Regular git repository (fallback)
     let repo_name = repo_path
         .file_name()
         .map(|name| name.to_string_lossy().to_string())
@@ -420,7 +432,7 @@ mod tests {
 
     #[test]
     fn test_extract_github_info() {
-        // Test successful extraction
+        // Test file path extraction
         assert_eq!(
             extract_github_info("/home/user/github.com/owner/repo"),
             Some(("owner".to_string(), "repo".to_string()))
@@ -442,7 +454,31 @@ mod tests {
             Some(("owner".to_string(), "repo".to_string()))
         );
 
-        // Test failures - too many parts (should return None)
+        // Test SSH format
+        assert_eq!(
+            extract_github_info("git@github.com:owner/repo.git"),
+            Some(("owner".to_string(), "repo".to_string()))
+        );
+
+        // Test SSH format without .git suffix
+        assert_eq!(
+            extract_github_info("git@github.com:owner/repo"),
+            Some(("owner".to_string(), "repo".to_string()))
+        );
+
+        // Test HTTPS format
+        assert_eq!(
+            extract_github_info("https://github.com/owner/repo.git"),
+            Some(("owner".to_string(), "repo".to_string()))
+        );
+
+        // Test HTTPS format without .git suffix
+        assert_eq!(
+            extract_github_info("https://github.com/owner/repo"),
+            Some(("owner".to_string(), "repo".to_string()))
+        );
+
+        // Test failures - too many parts in file paths (should return None)
         assert_eq!(
             extract_github_info("/some/path/to/github.com/too/many/parts/"),
             None
@@ -458,7 +494,22 @@ mod tests {
 
         assert_eq!(extract_github_info("/path/github.com/"), None);
 
-        // Test no github.com in path
+        // Test failures - not GitHub URLs
         assert_eq!(extract_github_info("/path/gitlab.com/owner/repo"), None);
+
+        assert_eq!(
+            extract_github_info("git@gitlab.com:owner/repo.git"),
+            None
+        );
+
+        assert_eq!(
+            extract_github_info("https://bitbucket.org/owner/repo.git"),
+            None
+        );
+
+        // Test failures - invalid formats
+        assert_eq!(extract_github_info("git@github.com:owner"), None);
+
+        assert_eq!(extract_github_info("https://github.com/owner"), None);
     }
 }

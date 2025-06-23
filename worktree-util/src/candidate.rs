@@ -25,6 +25,7 @@ impl Candidate {
         let icon_color = match &self.shortpath.path_type {
             PathType::WorldTree { .. } => "\x1b[34m", // Blue
             PathType::GitHub { .. } => "\x1b[35m",    // Magenta
+            PathType::GitHubRemote { .. } => "\x1b[32m", // Green (same as regular Git)
             PathType::Git { .. } => "\x1b[32m",       // Green
             PathType::Home => "\x1b[33m",             // Yellow
             PathType::Regular => "\x1b[90m",          // Dark gray

@@ -1,5 +1,6 @@
 pub mod candidate;
 pub mod candidate_provider;
+pub mod config;
 pub mod navigator;
 pub mod path_shortener;
 pub mod provider;
@@ -16,6 +17,7 @@ pub mod test_utils;
 
 pub use candidate::Candidate;
 pub use candidate_provider::CandidateProvider;
+pub use config::{ConfigManager, SrcConfig};
 pub use navigator::WorktreeNavigator;
 pub use path_shortener::{shorten_path, ShortPath, ShortPathPart};
 pub use provider::Provider;

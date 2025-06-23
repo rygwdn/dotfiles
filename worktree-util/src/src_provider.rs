@@ -2,52 +2,93 @@ use crate::candidate::Candidate;
 use crate::path_shortener::shorten_path;
 use crate::provider::Provider;
 use crate::utils::{expand_path, get_repository_branch};
-use std::fs;
-use std::path::Path;
 
-const SRC_PATH: &str = "~/src";
+use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
 
-/// Provider for source code repositories from ~/src
-pub struct SrcProvider;
+const DEFAULT_SRC_PATH: &str = "~/src";
+const DEFAULT_DEPTH_LIMIT: usize = 3;
+
+/// Provider for source code repositories with configurable path and recursive scanning
+pub struct SrcProvider {
+    /// Base path to scan for repositories
+    base_path: PathBuf,
+    /// Maximum depth to recursively scan (0 = only scan base path, 1 = one level deep, etc.)
+    depth_limit: usize,
+}
+
+impl Default for SrcProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl SrcProvider {
+    /// Create a new SrcProvider with the default ~/src path and depth limit
     pub fn new() -> Self {
-        SrcProvider
+        SrcProvider {
+            base_path: expand_path(DEFAULT_SRC_PATH),
+            depth_limit: DEFAULT_DEPTH_LIMIT,
+        }
     }
 
-    fn process_site_directory(&self, site_dir: &Path, candidates: &mut Vec<Candidate>) {
-        let Ok(owner_entries) = fs::read_dir(site_dir) else {
-            return;
-        };
+    /// Create a new SrcProvider with a custom base path
+    pub fn with_path<P: AsRef<Path>>(path: P) -> Self {
+        SrcProvider {
+            base_path: expand_path(path.as_ref().to_string_lossy().as_ref()),
+            depth_limit: DEFAULT_DEPTH_LIMIT,
+        }
+    }
 
-        for owner_entry in owner_entries.filter_map(Result::ok) {
-            let owner_dir = owner_entry.path();
-            if !owner_dir.is_dir() {
-                continue;
-            }
+    /// Set the maximum depth for recursive scanning
+    pub fn with_depth_limit(mut self, depth_limit: usize) -> Self {
+        self.depth_limit = depth_limit;
+        self
+    }
 
-            let Ok(repo_entries) = fs::read_dir(&owner_dir) else {
-                continue;
-            };
+    /// Check if a directory is hidden (dot or underscore prefixed)
+    fn is_hidden(entry: &walkdir::DirEntry) -> bool {
+        if let Some(name) = entry.file_name().to_str() {
+            name.starts_with('.') || name.starts_with('_')
+        } else {
+            false
+        }
+    }
 
-            for repo_entry in repo_entries.filter_map(Result::ok) {
-                let repo_dir = repo_entry.path();
-                if !repo_dir.is_dir() || !repo_dir.join(".git").exists() {
-                    continue;
+    /// Check if a directory is inside a git repository
+    fn is_in_git_repo(entry: &walkdir::DirEntry) -> bool {
+        entry.path()
+            .parent()
+            .map(|parent| parent.join(".git").exists())
+            .unwrap_or(false)
+    }
+
+    /// Scan for git repositories using walkdir
+    fn scan_repositories(&self, candidates: &mut Vec<Candidate>) {
+        for entry in WalkDir::new(&self.base_path)
+            .max_depth(self.depth_limit)
+            .into_iter()
+            .filter_entry(|e| {
+                // Always allow the base path
+                if e.depth() == 0 {
+                    return true;
                 }
-
-                let repo_path = repo_dir
-                    .canonicalize()
-                    .unwrap_or(repo_dir.clone())
-                    .to_string_lossy()
-                    .into_owned();
-
-                // Get branch for this repository
+                
+                // Skip hidden directories and directories inside git repositories
+                !Self::is_hidden(e) && !Self::is_in_git_repo(e)
+            })
+            .filter_map(Result::ok)
+        {
+            let path = entry.path();
+            
+            // Check if this directory is a git repository
+            if path.join(".git").exists() {
+                let repo_path = path.to_string_lossy().into_owned();
                 let branch = get_repository_branch(&repo_path);
 
                 candidates.push(Candidate {
-                    path: repo_path.clone(),
-                    shortpath: shorten_path(Path::new(&repo_path)),
+                    path: repo_path,
+                    shortpath: shorten_path(path),
                     branch,
                 });
             }
@@ -57,35 +98,87 @@ impl SrcProvider {
 
 impl Provider for SrcProvider {
     fn add_candidates(&self, candidates: &mut Vec<Candidate>) {
-        let src_path = expand_path(SRC_PATH);
-        if !src_path.exists() {
+        if !self.base_path.exists() {
             return;
         }
 
-        let Ok(site_entries) = fs::read_dir(&src_path) else {
-            return;
-        };
-
-        for site_entry in site_entries.filter_map(Result::ok) {
-            let site_dir = site_entry.path();
-            if !site_dir.is_dir() {
-                continue;
-            }
-
-            self.process_site_directory(&site_dir, candidates);
-        }
+        self.scan_repositories(candidates);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    fn create_test_repo(dir: &Path) -> std::io::Result<()> {
+        fs::create_dir_all(dir)?;
+        fs::create_dir(dir.join(".git"))?;
+        Ok(())
+    }
 
     #[test]
     fn test_src_provider_creation() {
         let provider = SrcProvider::new();
+        assert_eq!(provider.depth_limit, DEFAULT_DEPTH_LIMIT);
+    }
+
+    #[test]
+    fn test_src_provider_with_custom_path() {
+        let provider = SrcProvider::with_path("/custom/path");
+        assert!(provider.base_path.to_string_lossy().contains("custom/path"));
+    }
+
+    #[test]
+    fn test_src_provider_with_depth_limit() {
+        let provider = SrcProvider::new().with_depth_limit(5);
+        assert_eq!(provider.depth_limit, 5);
+    }
+
+    #[test]
+    fn test_recursive_git_discovery() {
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path();
+
+        // Create a nested structure with git repos
+        let repo1 = base_path.join("repo1");
+        let repo2 = base_path.join("level1").join("repo2");
+        let repo3 = base_path.join("level1").join("level2").join("repo3");
+
+        create_test_repo(&repo1).unwrap();
+        create_test_repo(&repo2).unwrap();
+        create_test_repo(&repo3).unwrap();
+
+        let provider = SrcProvider::with_path(base_path).with_depth_limit(2);
         let mut candidates = Vec::new();
-        // This should not panic
         provider.add_candidates(&mut candidates);
+
+        // Should find repo1 and repo2, but not repo3 (too deep)
+        assert_eq!(candidates.len(), 2);
+        
+        let paths: Vec<&str> = candidates.iter().map(|c| c.path.as_str()).collect();
+        assert!(paths.iter().any(|p| p.contains("repo1")));
+        assert!(paths.iter().any(|p| p.contains("repo2")));
+        assert!(!paths.iter().any(|p| p.contains("repo3")));
+    }
+
+    #[test]
+    fn test_depth_limit_zero() {
+        let temp_dir = TempDir::new().unwrap();
+        let base_path = temp_dir.path();
+
+        // Create a git repo at the base level and one nested
+        create_test_repo(base_path).unwrap(); // This makes base_path itself a git repo
+        let nested_repo = base_path.join("nested").join("repo");
+        create_test_repo(&nested_repo).unwrap();
+
+        let provider = SrcProvider::with_path(base_path).with_depth_limit(0);
+        let mut candidates = Vec::new();
+        provider.add_candidates(&mut candidates);
+
+        // Should only find the base repo
+        assert_eq!(candidates.len(), 1);
+        assert!(candidates[0].path.contains(&base_path.to_string_lossy().to_string()));
     }
 } 
