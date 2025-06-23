@@ -2,9 +2,8 @@ use clap::{Arg, ArgAction, Command};
 use std::env;
 use worktree_util::{shell_init, WorktreeNavigator};
 
-fn main() {
-    let matches = Command::new("worktree-nav")
-        .version(env!("CARGO_PKG_VERSION"))
+pub fn command() -> Command {
+    Command::new("nav")
         .about("WorktreeNavigator - Fast fuzzy path navigation for development workflows")
         .arg(
             Arg::new("shell")
@@ -61,14 +60,15 @@ fn main() {
                 .trailing_var_arg(true)
                 .num_args(0..),
         )
-        .get_matches();
+}
 
+pub fn handle(matches: &clap::ArgMatches) {
     // Handle init flags
     let has_init_navigate = matches.contains_id("init-navigate");
     let has_init_code = matches.contains_id("init-code");
 
     if has_init_navigate || has_init_code {
-        let output = generate_init_scripts(&matches);
+        let output = generate_init_scripts(matches);
         println!("{}", output);
         return;
     }
@@ -109,7 +109,7 @@ fn get_shell_type(matches: &clap::ArgMatches) -> String {
 fn generate_init_scripts(matches: &clap::ArgMatches) -> String {
     let exe_path = match env::current_exe() {
         Ok(path) => path.display().to_string(),
-        Err(_) => "worktree-nav".to_string(),
+        Err(_) => "worktree-util".to_string(),
     };
 
     let shell = get_shell_type(matches);
@@ -131,7 +131,9 @@ fn generate_init_scripts(matches: &clap::ArgMatches) -> String {
             }
             first = false;
 
-            match shell_init::get_shell_init(&shell, &exe_path, function_name, config) {
+            // Update the command to use 'nav' subcommand
+            let updated_exe_path = format!("{} nav", exe_path);
+            match shell_init::get_shell_init(&shell, &updated_exe_path, function_name, config) {
                 Ok(script) => output.push_str(&script),
                 Err(e) => {
                     eprintln!("Error: {}", e);
@@ -164,4 +166,4 @@ fn navigate(navigator: &WorktreeNavigator, query: &str, show_scores: bool, multi
     for path in paths {
         println!("{}", path);
     }
-}
+} 

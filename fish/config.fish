@@ -41,8 +41,8 @@ end
 config_gt_abbrs
 
 function update_path_segments --on-variable PWD
-    if which shortpath &>/dev/null
-        set -l segments (shortpath -s prefix,shortened,normal "$PWD")
+    if __check_worktree_util_version
+        set -l segments (worktree-util shortpath -s prefix,shortened,normal "$PWD")
 
         set -g STARSHIP_PATH_PREFIX $segments[1]
         set -g STARSHIP_PATH_SHORTENED $segments[2]
@@ -134,9 +134,10 @@ end
 if which zoxide &>/dev/null
     zoxide init fish --hook prompt | source
 end
-
-if which worktree-nav &>/dev/null
-    worktree-nav --shell fish --init-navigate j --init-code jc | source
+if status is-interactive
+    if __check_worktree_util_version
+        worktree-util nav --shell fish --init-navigate j --init-code jc | source
+    end
 end
 
 test -e ~/.config.local.fish && source ~/.config.local.fish

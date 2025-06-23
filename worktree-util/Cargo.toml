@@ -1,17 +1,13 @@
 [package]
 name = "worktree-util"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Worktree navigation and path shortening utilities"
 authors = ["Ryan Wooden"]
 
 [[bin]]
-name = "shortpath"
-path = "src/bin/shortpath.rs"
-
-[[bin]]
-name = "worktree-nav"
-path = "src/bin/worktree-nav.rs"
+name = "worktree-util"
+path = "src/bin/main.rs"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
@@ -27,6 +23,7 @@ skim = { version = "0.18", features = [] }
 crossbeam-channel = "0.5"
 atty = "0.2"
 walkdir = "2.4"
+semver = "1.0"
 
 [dev-dependencies]
 tempfile = "3.14"

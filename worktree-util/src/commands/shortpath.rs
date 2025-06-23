@@ -5,10 +5,8 @@ use std::path::PathBuf;
 use worktree_util::shorten_path;
 use worktree_util::ShortPathPart::*;
 
-#[allow(clippy::expect_used)]
-fn main() {
-    let matches = Command::new("shortpath")
-        .version(env!("CARGO_PKG_VERSION"))
+pub fn command() -> Command {
+    Command::new("shortpath")
         .about("Shortens paths for shell prompts")
         .arg(
             Arg::new("max_segments")
@@ -40,8 +38,9 @@ fn main() {
                 .action(ArgAction::Set)
                 .required(false),
         )
-        .get_matches();
+}
 
+pub fn handle(matches: &clap::ArgMatches) {
     let max_segments = matches
         .get_one::<String>("max_segments")
         .expect("max_segments has a default value")
@@ -135,4 +134,4 @@ fn expand_path(path: &str) -> PathBuf {
     } else {
         path_buf
     }
-}
+} 
