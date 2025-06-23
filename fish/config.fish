@@ -50,7 +50,7 @@ function update_path_segments --on-variable PWD
     else
         set -g STARSHIP_PATH_PREFIX ""
         set -g STARSHIP_PATH_SHORTENED ""
-        set -g STARSHIP_PATH_NORMAL (basename "$PWD")
+        set -g STARSHIP_PATH_NORMAL (prompt_pwd -d 1 -D 1)
     end
 end
 
