@@ -4,9 +4,9 @@ test -f "$STARSHIP_CMD" || exit 0
 function fish_prompt
     ## Begin my modifications
     # This is a hack to avoid putting non-ascii characters in the env
-    set -fx STARSHIP_PATH_PREFIX "$STARSHIP_PATH_PREFIX"
-    set -fx STARSHIP_PATH_SHORTENED "$STARSHIP_PATH_SHORTENED"
-    set -fx STARSHIP_PATH_NORMAL "$STARSHIP_PATH_NORMAL"
+    set -fx WORKTREE_PATH_PREFIX "$WORKTREE_PATH_PREFIX"
+    set -fx WORKTREE_PATH_SHORTENED "$WORKTREE_PATH_SHORTENED"
+    set -fx WORKTREE_PATH_NORMAL "$WORKTREE_PATH_NORMAL"
     ## End my modifications
 
     switch "$fish_key_bindings"
@@ -38,9 +38,9 @@ end
 function fish_right_prompt
     ## Begin my modifications
     # This is a hack to avoid putting non-ascii characters in the env
-    set -fx STARSHIP_PATH_PREFIX "$STARSHIP_PATH_PREFIX"
-    set -fx STARSHIP_PATH_SHORTENED "$STARSHIP_PATH_SHORTENED"
-    set -fx STARSHIP_PATH_NORMAL "$STARSHIP_PATH_NORMAL"
+    set -fx WORKTREE_PATH_PREFIX "$WORKTREE_PATH_PREFIX"
+    set -fx WORKTREE_PATH_SHORTENED "$WORKTREE_PATH_SHORTENED"
+    set -fx WORKTREE_PATH_NORMAL "$WORKTREE_PATH_NORMAL"
     ## End my modifications
 
     switch "$fish_key_bindings"
