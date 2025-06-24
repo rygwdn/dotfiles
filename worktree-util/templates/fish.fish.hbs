@@ -1,21 +1,12 @@
-{{#if full_featured}}
 function update_path_segments --on-variable PWD
     set -l segments (worktree-util shortpath -s prefix,shortened,normal "$PWD" 2>/dev/null)
     set -g WORKTREE_PATH_PREFIX $segments[1]
     set -g WORKTREE_PATH_SHORTENED $segments[2] 
     set -g WORKTREE_PATH_NORMAL $segments[3]
 end
-{{else}}
-function update_path_segments --on-variable PWD
-    set -g WORKTREE_PATH_PREFIX ""
-    set -g WORKTREE_PATH_SHORTENED ""
-    set -g WORKTREE_PATH_NORMAL (prompt_pwd)
-end
-{{/if}}
 
 update_path_segments
 
-{{#if full_featured}}
 {{#if init_navigate}}
 function {{navigate_cmd}}
     set -l paths ({{exe_path}} nav $argv)
@@ -32,5 +23,4 @@ function {{code_cmd}}
         code $paths
     end
 end
-{{/if}}
 {{/if}} 

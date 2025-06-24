@@ -3,10 +3,15 @@ test -f "$STARSHIP_CMD" || exit 0
 
 function fish_prompt
     ## Begin my modifications
-    # This is a hack to avoid putting non-ascii characters in the env
-    set -fx WORKTREE_PATH_PREFIX "$WORKTREE_PATH_PREFIX"
-    set -fx WORKTREE_PATH_SHORTENED "$WORKTREE_PATH_SHORTENED"
-    set -fx WORKTREE_PATH_NORMAL "$WORKTREE_PATH_NORMAL"
+    # Check if update_path_segments function is defined, if not set fallback
+    if not functions -q update_path_segments
+        set -fx WORKTREE_PATH_NORMAL (prompt_pwd)
+    else
+        # This is a hack to avoid putting non-ascii characters in the env
+        set -fx WORKTREE_PATH_PREFIX "$WORKTREE_PATH_PREFIX"
+        set -fx WORKTREE_PATH_SHORTENED "$WORKTREE_PATH_SHORTENED"
+        set -fx WORKTREE_PATH_NORMAL "$WORKTREE_PATH_NORMAL"
+    end
     ## End my modifications
 
     switch "$fish_key_bindings"
@@ -37,10 +42,15 @@ end
 
 function fish_right_prompt
     ## Begin my modifications
-    # This is a hack to avoid putting non-ascii characters in the env
-    set -fx WORKTREE_PATH_PREFIX "$WORKTREE_PATH_PREFIX"
-    set -fx WORKTREE_PATH_SHORTENED "$WORKTREE_PATH_SHORTENED"
-    set -fx WORKTREE_PATH_NORMAL "$WORKTREE_PATH_NORMAL"
+    # Check if update_path_segments function is defined, if not set fallback
+    if not functions -q update_path_segments
+        set -fx WORKTREE_PATH_NORMAL (prompt_pwd)
+    else
+        # This is a hack to avoid putting non-ascii characters in the env
+        set -fx WORKTREE_PATH_PREFIX "$WORKTREE_PATH_PREFIX"
+        set -fx WORKTREE_PATH_SHORTENED "$WORKTREE_PATH_SHORTENED"
+        set -fx WORKTREE_PATH_NORMAL "$WORKTREE_PATH_NORMAL"
+    end
     ## End my modifications
 
     switch "$fish_key_bindings"

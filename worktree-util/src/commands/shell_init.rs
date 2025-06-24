@@ -103,7 +103,7 @@ fn setup_handlebars() -> Result<Handlebars<'static>, handlebars::TemplateError> 
     Ok(handlebars)
 }
 
-fn generate_shell_code(args: &ShellInitArgs, version_compatible: bool) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+fn generate_shell_code(args: &ShellInitArgs) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let handlebars = setup_handlebars()?;
     
     let template_name = match &args.shell {
@@ -112,7 +112,6 @@ fn generate_shell_code(args: &ShellInitArgs, version_compatible: bool) -> Result
     };
     
     let data = json!({
-        "full_featured": version_compatible,
         "init_navigate": args.init_navigate,
         "init_code": args.init_code,
         "navigate_cmd": args.navigate,
@@ -132,7 +131,15 @@ pub fn handle(args: &ShellInitArgs) -> io::Result<()> {
         true // No version requirement means always compatible
     };
 
-    let shell_code = generate_shell_code(args, version_compatible)
+    // Exit with failure if version check fails
+    if !version_compatible {
+        return Err(io::Error::new(
+            io::ErrorKind::Other, 
+            "Version compatibility check failed"
+        ));
+    }
+
+    let shell_code = generate_shell_code(args)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
 
     io::stdout().write_all(shell_code.as_bytes())?;

@@ -40,9 +40,13 @@ end
 
 config_gt_abbrs
 
-# Initialize worktree-util shell integration
-if which worktree-util &>/dev/null
-    worktree-util shell-init --shell fish --require-version "^0.5.0" --init-navigate --init-code | source
+if not which worktree-util &>/dev/null
+    echo "⚠️  worktree-util not found. Install with 'install_worktree_util'"
+else
+    worktree-util shell-init --shell fish --require-version "^0.5.0" --init-navigate --init-code 2>/dev/null | source
+    if test $pipestatus[1] -ne 0
+        echo "⚠️  worktree-util shell integration failed (version mismatch?). Update with 'install_worktree_util'"
+    end
 end
 
 abbr st git st
