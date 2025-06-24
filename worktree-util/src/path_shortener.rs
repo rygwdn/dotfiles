@@ -230,9 +230,9 @@ fn check_world_tree_path(path_str: &str) -> Option<ShortPath> {
 
 fn extract_github_info(input: &str) -> Option<(String, String)> {
     #[allow(clippy::expect_used)] // Static regex should always compile
-    let re = Regex::new(r"github\.com[/:@]([^/]+)/([^/\.]+)(?:\.git)?")
-        .expect("Invalid GitHub regex");
-    
+    let re =
+        Regex::new(r"github\.com[/:@]([^/]+)/([^/\.]+)(?:\.git)?").expect("Invalid GitHub regex");
+
     if let Some(caps) = re.captures(input) {
         let owner = caps.get(1)?.as_str();
         let repo = caps.get(2)?.as_str();
@@ -276,7 +276,10 @@ fn check_git_path(path: &Path) -> Option<ShortPath> {
         if let Some(url) = remote.url() {
             if let Some((owner, repo_name)) = extract_github_info(url) {
                 return Some(ShortPath {
-                    path_type: PathType::GitHubRemote { owner, repo: repo_name },
+                    path_type: PathType::GitHubRemote {
+                        owner,
+                        repo: repo_name,
+                    },
                     segments,
                 });
             }
@@ -499,10 +502,7 @@ mod tests {
         // Test failures - not GitHub URLs
         assert_eq!(extract_github_info("/path/gitlab.com/owner/repo"), None);
 
-        assert_eq!(
-            extract_github_info("git@gitlab.com:owner/repo.git"),
-            None
-        );
+        assert_eq!(extract_github_info("git@gitlab.com:owner/repo.git"), None);
 
         assert_eq!(
             extract_github_info("https://bitbucket.org/owner/repo.git"),

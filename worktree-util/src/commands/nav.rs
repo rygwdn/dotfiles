@@ -78,4 +78,4 @@ fn navigate(navigator: &WorktreeNavigator, query: &str, show_scores: bool, multi
     for path in paths {
         println!("{}", path);
     }
-} 
+}

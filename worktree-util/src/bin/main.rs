@@ -25,5 +25,3 @@ fn main() {
         _ => unreachable!("Subcommand required"),
     }
 }
-
- 

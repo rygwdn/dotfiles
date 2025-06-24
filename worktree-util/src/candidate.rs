@@ -23,12 +23,12 @@ impl Candidate {
 
         // Define colors
         let icon_color = match &self.shortpath.path_type {
-            PathType::WorldTree { .. } => "\x1b[34m", // Blue
-            PathType::GitHub { .. } => "\x1b[35m",    // Magenta
+            PathType::WorldTree { .. } => "\x1b[34m",    // Blue
+            PathType::GitHub { .. } => "\x1b[35m",       // Magenta
             PathType::GitHubRemote { .. } => "\x1b[32m", // Green (same as regular Git)
-            PathType::Git { .. } => "\x1b[32m",       // Green
-            PathType::Home => "\x1b[33m",             // Yellow
-            PathType::Regular => "\x1b[90m",          // Dark gray
+            PathType::Git { .. } => "\x1b[32m",          // Green
+            PathType::Home => "\x1b[33m",                // Yellow
+            PathType::Regular => "\x1b[90m",             // Dark gray
         };
 
         let area_color = "\x1b[33m"; // Yellow
@@ -229,7 +229,7 @@ mod tests {
 
         // Test with branch
         let candidate =
-            create_test_candidate(Some("root"), Some("shopify"), None, None, Some("feature"));
+            create_test_candidate(Some("root"), Some("backend"), None, None, Some("feature"));
         let segments = candidate.get_segments();
 
         // Should have a branch segment

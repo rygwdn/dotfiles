@@ -97,4 +97,4 @@ mod tests {
         // This should not panic
         provider.add_candidates(&mut candidates);
     }
-} 
+}

@@ -57,7 +57,8 @@ impl SrcProvider {
 
     /// Check if a directory is inside a git repository
     fn is_in_git_repo(entry: &walkdir::DirEntry) -> bool {
-        entry.path()
+        entry
+            .path()
             .parent()
             .map(|parent| parent.join(".git").exists())
             .unwrap_or(false)
@@ -73,14 +74,14 @@ impl SrcProvider {
                 if e.depth() == 0 {
                     return true;
                 }
-                
+
                 // Skip hidden directories and directories inside git repositories
                 !Self::is_hidden(e) && !Self::is_in_git_repo(e)
             })
             .filter_map(Result::ok)
         {
             let path = entry.path();
-            
+
             // Check if this directory is a git repository
             if path.join(".git").exists() {
                 let repo_path = path.to_string_lossy().into_owned();
@@ -156,7 +157,7 @@ mod tests {
 
         // Should find repo1 and repo2, but not repo3 (too deep)
         assert_eq!(candidates.len(), 2);
-        
+
         let paths: Vec<&str> = candidates.iter().map(|c| c.path.as_str()).collect();
         assert!(paths.iter().any(|p| p.contains("repo1")));
         assert!(paths.iter().any(|p| p.contains("repo2")));
@@ -179,6 +180,8 @@ mod tests {
 
         // Should only find the base repo
         assert_eq!(candidates.len(), 1);
-        assert!(candidates[0].path.contains(&base_path.to_string_lossy().to_string()));
+        assert!(candidates[0]
+            .path
+            .contains(&base_path.to_string_lossy().to_string()));
     }
-} 
+}

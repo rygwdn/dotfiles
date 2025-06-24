@@ -27,7 +27,7 @@ impl ConfigManager {
     /// Loads source configuration using the config crate with multiple sources
     pub fn load_src_config() -> SrcConfig {
         let config_path = Self::get_config_path();
-        
+
         // Build configuration from multiple sources in priority order:
         // 1. Default values
         // 2. Config file
@@ -55,7 +55,10 @@ impl ConfigManager {
             if let Err(e) = Self::create_default_config(&config_path) {
                 eprintln!("Warning: Failed to create default config file: {}", e);
             } else {
-                eprintln!("Created default configuration at: {}", config_path.display());
+                eprintln!(
+                    "Created default configuration at: {}",
+                    config_path.display()
+                );
             }
         }
 
@@ -72,13 +75,19 @@ impl ConfigManager {
                         }
                     }
                     Err(e) => {
-                        eprintln!("Warning: Failed to parse configuration: {}, using defaults", e);
+                        eprintln!(
+                            "Warning: Failed to parse configuration: {}, using defaults",
+                            e
+                        );
                         SrcConfig::default()
                     }
                 }
             }
             Err(e) => {
-                eprintln!("Warning: Failed to load configuration: {}, using defaults", e);
+                eprintln!(
+                    "Warning: Failed to load configuration: {}, using defaults",
+                    e
+                );
                 SrcConfig::default()
             }
         }
@@ -89,7 +98,7 @@ impl ConfigManager {
         let config_dir = dirs::config_dir()
             .unwrap_or_else(|| expand_path("~/.config"))
             .join("worktree-util");
-        
+
         config_dir.join("src-config.json")
     }
 
@@ -102,7 +111,7 @@ impl ConfigManager {
         let default_config = SrcConfig::default();
         let json_content = serde_json::to_string_pretty(&default_config)?;
         std::fs::write(config_path, json_content)?;
-        
+
         Ok(())
     }
 }
@@ -125,7 +134,7 @@ mod tests {
         // Test just the depth_limit environment variable for simplicity
         // Array env vars are complex in the config crate, so we'll focus on scalar values
         env::set_var("WORKTREE_DEPTH_LIMIT", "5");
-        
+
         // Build config manually to test environment variable parsing
         let settings = Config::builder()
             .set_default("src_paths", vec!["~/src", "~/dotfiles"])
@@ -135,18 +144,18 @@ mod tests {
             .add_source(
                 Environment::with_prefix("WORKTREE")
                     .prefix_separator("_")
-                    .separator("__")
+                    .separator("__"),
             )
             .build()
             .unwrap();
-            
+
         let config: SrcConfig = settings.try_deserialize().unwrap();
-        
+
         // Check that depth_limit was overridden by environment variable
         assert_eq!(config.depth_limit, Some(5));
         // src_paths should remain as default since env override for arrays is complex
         assert_eq!(config.src_paths, vec!["~/src", "~/dotfiles"]);
-        
+
         // Clean up
         env::remove_var("WORKTREE_DEPTH_LIMIT");
     }
@@ -157,10 +166,10 @@ mod tests {
             src_paths: vec!["/path/one".to_string(), "/path/two".to_string()],
             depth_limit: Some(5),
         };
-        
+
         let json = serde_json::to_string(&config).unwrap();
         let deserialized: SrcConfig = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.src_paths.len(), 2);
         assert!(deserialized.src_paths.contains(&"/path/one".to_string()));
         assert!(deserialized.src_paths.contains(&"/path/two".to_string()));
@@ -171,25 +180,25 @@ mod tests {
     fn test_config_validation() {
         let temp_dir = TempDir::new().unwrap();
         let config_file = temp_dir.path().join("src-config.json");
-        
+
         // Test valid config
         let valid_config = SrcConfig {
             src_paths: vec!["/valid/path".to_string()],
             depth_limit: Some(3),
         };
         std::fs::write(&config_file, serde_json::to_string(&valid_config).unwrap()).unwrap();
-        
-        let loaded = serde_json::from_str::<SrcConfig>(
-            &std::fs::read_to_string(&config_file).unwrap()
-        ).unwrap();
+
+        let loaded =
+            serde_json::from_str::<SrcConfig>(&std::fs::read_to_string(&config_file).unwrap())
+                .unwrap();
         assert_eq!(loaded.src_paths, vec!["/valid/path"]);
-        
+
         // Test config with empty path (should be rejected in validation)
         let invalid_config = SrcConfig {
             src_paths: vec!["".to_string(), "  ".to_string()],
             depth_limit: Some(3),
         };
-        
+
         // The validation logic would reject this config
         let has_invalid_paths = invalid_config.src_paths.iter().any(|p| p.trim().is_empty());
         assert!(has_invalid_paths);
@@ -199,13 +208,13 @@ mod tests {
     fn test_create_default_config() {
         let temp_dir = TempDir::new().unwrap();
         let config_path = temp_dir.path().join("test-config.json");
-        
+
         ConfigManager::create_default_config(&config_path).unwrap();
-        
+
         assert!(config_path.exists());
         let content = std::fs::read_to_string(&config_path).unwrap();
         let config: SrcConfig = serde_json::from_str(&content).unwrap();
-        
+
         assert_eq!(config.src_paths, vec!["~/src", "~/dotfiles"]);
         assert_eq!(config.depth_limit, Some(3));
     }
@@ -214,16 +223,16 @@ mod tests {
     fn test_load_src_config_with_nonexistent_file() {
         // Clean up any environment variables from other tests
         env::remove_var("WORKTREE_DEPTH_LIMIT");
-        
+
         // Set a temporary config directory that doesn't exist
         let temp_dir = TempDir::new().unwrap();
         let original_home = env::var("HOME").ok();
         env::set_var("HOME", temp_dir.path());
-        
+
         let config = ConfigManager::load_src_config();
         assert_eq!(config.src_paths, vec!["~/src", "~/dotfiles"]);
         assert_eq!(config.depth_limit, Some(3));
-        
+
         // Restore original HOME if it existed
         if let Some(home) = original_home {
             env::set_var("HOME", home);
@@ -231,4 +240,4 @@ mod tests {
             env::remove_var("HOME");
         }
     }
-} 
+}

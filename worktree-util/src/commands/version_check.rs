@@ -29,13 +29,16 @@ pub fn handle(matches: &clap::ArgMatches) {
     let quiet = matches.get_flag("quiet");
 
     let current_version_str = env!("CARGO_PKG_VERSION");
-    
+
     // Parse current version
     let current_version = match Version::parse(current_version_str) {
         Ok(v) => v,
         Err(e) => {
             if !quiet {
-                eprintln!("Error: Invalid current version '{}': {}", current_version_str, e);
+                eprintln!(
+                    "Error: Invalid current version '{}': {}",
+                    current_version_str, e
+                );
             }
             std::process::exit(1);
         }
@@ -46,7 +49,10 @@ pub fn handle(matches: &clap::ArgMatches) {
         Ok(req) => req,
         Err(e) => {
             if !quiet {
-                eprintln!("Error: Invalid version requirement '{}': {}", required_version_str, e);
+                eprintln!(
+                    "Error: Invalid version requirement '{}': {}",
+                    required_version_str, e
+                );
             }
             std::process::exit(1);
         }
@@ -72,4 +78,4 @@ pub fn handle(matches: &clap::ArgMatches) {
     if !is_compatible {
         std::process::exit(1);
     }
-} 
+}
