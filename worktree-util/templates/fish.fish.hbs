@@ -1,0 +1,44 @@
+# Worktree-util fish integration {{#if full_featured}}(full featured){{else}}(fallback mode)
+# Version check failed - using basic functionality only{{/if}}
+
+{{#if full_featured}}
+# Full featured path segments with worktree-util shortpath
+function update_path_segments --on-variable PWD
+    set -l segments (worktree-util shortpath -s prefix,shortened,normal "$PWD" 2>/dev/null)
+    set -g WORKTREE_PATH_PREFIX $segments[1]
+    set -g WORKTREE_PATH_SHORTENED $segments[2] 
+    set -g WORKTREE_PATH_NORMAL $segments[3]
+end
+{{else}}
+# Basic path segments (no worktree-util shortpath)
+function update_path_segments --on-variable PWD
+    set -g WORKTREE_PATH_PREFIX ""
+    set -g WORKTREE_PATH_SHORTENED ""
+    set -g WORKTREE_PATH_NORMAL (prompt_pwd)
+end
+{{/if}}
+
+# Initialize path segments
+update_path_segments
+
+{{#if full_featured}}
+{{#if init_navigate}}
+# Navigation function
+function {{navigate_cmd}}
+    set -l paths ({{exe_path}} nav $argv)
+    if test (count $paths) -gt 0
+        cd $paths
+    end
+end
+{{/if}}
+
+{{#if init_code}}
+# Code function
+function {{code_cmd}}
+    set -l paths ({{exe_path}} nav --multi $argv)
+    if test (count $paths) -gt 0
+        code $paths
+    end
+end
+{{/if}}
+{{/if}} 

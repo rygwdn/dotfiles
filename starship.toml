@@ -2,33 +2,31 @@
 
 add_newline = false
 
-format = "${env_var.STARSHIP_PATH_PREFIX}${env_var.STARSHIP_PATH_SHORTENED}${env_var.STARSHIP_PATH_NORMAL}$character"
+format = "${env_var.WORKTREE_PATH_PREFIX}${env_var.WORKTREE_PATH_SHORTENED}${env_var.WORKTREE_PATH_NORMAL} $character"
 right_format = """$all"""
 
 command_timeout = 5000
 
 [directory]
 disabled = true
-repo_root_format = '[](purple)[$repo_root]($repo_root_style)[$path]($style)[$read_only]($read_only_style) '
-fish_style_pwd_dir_length = 1
-repo_root_style = "bold cyan"
-truncate_to_repo = true
-truncation_length = 10
 
-[env_var.STARSHIP_PATH_PREFIX]
+[env_var.WORKTREE_PATH_PREFIX]
+default = ""
 format = "[$env_value]($style)"
 style = "purple"
-description = "Path prefix"
+description = "Path prefix from worktree-util"
 
-[env_var.STARSHIP_PATH_SHORTENED]
+[env_var.WORKTREE_PATH_SHORTENED]
+default = ""
 format = "[$env_value]($style)"
 style = "cyan"
-description = "Shortened path segments"
+description = "Shortened path segments from worktree-util"
 
-[env_var.STARSHIP_PATH_NORMAL]
-format = "[$env_value]($style) "
+[env_var.WORKTREE_PATH_NORMAL]
+default = ""
+format = "[$env_value]($style)"
 style = "bold cyan"
-description = "Full path segments"
+description = "Full path segments from worktree-util"
 
 [username]
 disabled = true

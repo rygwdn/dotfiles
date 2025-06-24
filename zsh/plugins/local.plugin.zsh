@@ -9,6 +9,11 @@ compdef _git-fixup git-fixup
 path+=("$HOME/dotfiles/bin")
 path+=("/Applications/WezTerm.app/Contents/MacOS")
 
+# Initialize worktree-util shell integration
+if command -v worktree-util >/dev/null 2>&1; then
+    eval "$(worktree-util shell-init --shell zsh --require-version '^0.4.0')"
+fi
+
 
 #export PNPM_HOME="$HOME/Library/pnpm"
 #path+=("$HOME/Library/pnpm")

@@ -40,21 +40,10 @@ end
 
 config_gt_abbrs
 
-function update_path_segments --on-variable PWD
-    if __check_worktree_util_version
-        set -l segments (worktree-util shortpath -s prefix,shortened,normal "$PWD")
-
-        set -g STARSHIP_PATH_PREFIX $segments[1]
-        set -g STARSHIP_PATH_SHORTENED $segments[2]
-        set -g STARSHIP_PATH_NORMAL $segments[3]
-    else
-        set -g STARSHIP_PATH_PREFIX ""
-        set -g STARSHIP_PATH_SHORTENED ""
-        set -g STARSHIP_PATH_NORMAL (prompt_pwd -d 1 -D 1)
-    end
+# Initialize worktree-util shell integration
+if which worktree-util &>/dev/null
+    worktree-util shell-init --shell fish --require-version "^0.4.0" | source
 end
-
-update_path_segments
 
 abbr st git st
 abbr gd git diff
@@ -134,10 +123,6 @@ end
 if which zoxide &>/dev/null
     zoxide init fish --hook prompt | source
 end
-if status is-interactive
-    if __check_worktree_util_version
-        worktree-util nav --shell fish --init-navigate j --init-code jc | source
-    end
-end
+
 
 test -e ~/.config.local.fish && source ~/.config.local.fish

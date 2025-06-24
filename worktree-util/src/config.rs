@@ -32,6 +32,7 @@ impl ConfigManager {
         // 1. Default values
         // 2. Config file
         // 3. Environment variables (WORKTREE_*)
+        #[allow(clippy::expect_used)] // Basic default settings should never fail
         let settings = Config::builder()
             // Start with defaults
             .set_default("src_paths", vec!["~/src", "~/dotfiles"])

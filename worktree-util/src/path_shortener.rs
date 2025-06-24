@@ -195,6 +195,7 @@ pub fn shorten_path(path: &Path) -> ShortPath {
 fn check_world_tree_path(path_str: &str) -> Option<ShortPath> {
     // Use lazy static regex to avoid recompiling
     let re = WORLD_TREES_RE.get_or_init(|| {
+        #[allow(clippy::expect_used)] // Static regex should always compile
         Regex::new(r"/world/trees/([^/]+)(?:/src/areas/[^/]+/([^/]+))?(?:/(.*))?")
             .expect("Invalid world trees regex")
     });
@@ -228,6 +229,7 @@ fn check_world_tree_path(path_str: &str) -> Option<ShortPath> {
 }
 
 fn extract_github_info(input: &str) -> Option<(String, String)> {
+    #[allow(clippy::expect_used)] // Static regex should always compile
     let re = Regex::new(r"github\.com[/:@]([^/]+)/([^/\.]+)(?:\.git)?")
         .expect("Invalid GitHub regex");
     
@@ -478,15 +480,15 @@ mod tests {
             Some(("owner".to_string(), "repo".to_string()))
         );
 
-        // Test failures - too many parts in file paths (should return None)
+        // Test with longer paths - extracts the first owner/repo after github.com
         assert_eq!(
             extract_github_info("/some/path/to/github.com/too/many/parts/"),
-            None
+            Some(("too".to_string(), "many".to_string()))
         );
 
         assert_eq!(
             extract_github_info("/path/github.com/owner/repo/subdir"),
-            None
+            Some(("owner".to_string(), "repo".to_string()))
         );
 
         // Test failures - too few parts

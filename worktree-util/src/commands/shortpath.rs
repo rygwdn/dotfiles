@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)]
+
 use clap::{Arg, ArgAction, Command};
 use std::env;
 use std::io::{self, BufRead, BufReader};

@@ -68,7 +68,7 @@ impl WorktreeNavigator {
             }
         }
 
-        let options = SkimOptionsBuilder::default()
+        let options = match SkimOptionsBuilder::default()
             .ansi(true)
             .height("40%".to_string())
             .reverse(true)
@@ -81,7 +81,10 @@ impl WorktreeNavigator {
             .cmd(Some("{}".to_string()))
             .no_sort(true)
             .build()
-            .expect("Failed to build skim options");
+        {
+            Ok(opts) => opts,
+            Err(_) => return Vec::new(), // Return empty if options can't be built
+        };
 
         let selected_items = Skim::run_with(&options, None)
             .filter(|out| !out.is_abort)

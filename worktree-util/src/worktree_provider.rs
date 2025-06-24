@@ -10,6 +10,12 @@ const WORLD_TREES_PATH: &str = "~/world/trees";
 /// Provider for worktree-based candidates from ~/world/trees
 pub struct WorktreeProvider;
 
+impl Default for WorktreeProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WorktreeProvider {
     pub fn new() -> Self {
         WorktreeProvider

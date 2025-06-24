@@ -109,7 +109,7 @@ impl OptimalScorer {
         let query_chars: Vec<char> = query_lower.chars().collect();
 
         // Find ALL possible ways to match the query in the text
-        let all_matches = self.find_all_matches(&text_lower, &query_chars, 0, Vec::new());
+        let all_matches = Self::find_all_matches(&text_lower, &query_chars, 0, Vec::new());
         if all_matches.is_empty() {
             return (0.0, Vec::new());
         }
@@ -140,7 +140,6 @@ impl OptimalScorer {
 
     /// Recursively find all possible ways to match query_chars in text
     fn find_all_matches(
-        &self,
         text: &str,
         query_chars: &[char],
         start_pos: usize,
@@ -162,7 +161,7 @@ impl OptimalScorer {
                 // Try matching from this position
                 let mut new_match = current_match.clone();
                 new_match.push(idx);
-                let sub_matches = self.find_all_matches(text, remaining_chars, idx + 1, new_match);
+                let sub_matches = Self::find_all_matches(text, remaining_chars, idx + 1, new_match);
                 all_matches.extend(sub_matches);
             }
         }
