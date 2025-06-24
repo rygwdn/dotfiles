@@ -42,7 +42,7 @@ config_gt_abbrs
 
 # Initialize worktree-util shell integration
 if which worktree-util &>/dev/null
-    worktree-util shell-init --shell fish --require-version "^0.4.0" | source
+    worktree-util shell-init --shell fish --require-version "^0.5.0" | source
 end
 
 abbr st git st

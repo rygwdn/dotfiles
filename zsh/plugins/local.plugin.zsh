@@ -11,7 +11,7 @@ path+=("/Applications/WezTerm.app/Contents/MacOS")
 
 # Initialize worktree-util shell integration
 if command -v worktree-util >/dev/null 2>&1; then
-    eval "$(worktree-util shell-init --shell zsh --require-version '^0.4.0')"
+    eval "$(worktree-util shell-init --shell zsh --require-version '^0.5.0')"
 fi
 
 
