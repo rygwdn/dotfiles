@@ -11,39 +11,38 @@ set -g fish_greeting
 abbr ll ls -l
 abbr la ls -A
 
-function config_gt_abbrs --on-variable PWD
+function _is_gt
     set -l git_root (git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo '/dev/null')
+    test "$git_root" != /dev/null && test -f "$git_root/.graphite_repo_config"
+end
 
-    if which gt &>/dev/null && test "$git_root" != /dev/null && test -f "$git_root/.graphite_repo_config"
-        abbr gfu gt sync --no-restack
-        abbr co gt checkout
-        abbr ci gt modify --commit
-        abbr pff git pull --ff-only
+function _abbr_if_gt -a abbr gt git
+    if which gt &>/dev/null
+        eval "$(
+    echo "function _abbr_$abbr"
+    echo "  _is_gt && echo '$gt' || echo '$git'"
+    echo "end"
+    echo "abbr $abbr -f _abbr_$abbr"
+  )"
     else
-        if test "$git_root" = /dev/null || git config --list 2>/dev/null | grep -q '^remote\.upstream\.'
-            abbr gfu git fetch --prune --tags upstream
-        else
-            abbr gfu git fetch --prune --tags origin
-        end
-
-        abbr co git checkout
-        abbr ci git commit
-        abbr pff git pull --ff-only
-
-        # disable these abbrs when running with graphite to avoid accidentially breaking stuff with muscle memory
-        abbr pof git push origin --force-with-lease
-        abbr gph git push origin --set-upstream HEAD
-        abbr rbc git rebase --continue
-        abbr rbi git rbi
+        abbr $abbr $git
     end
 end
 
-config_gt_abbrs
+_abbr_if_gt co 'gt checkout' 'git checkout'
+_abbr_if_gt ci 'gt modify --commit' 'git commit'
+_abbr_if_gt pff 'gt modify --commit' 'git pull --ff-only'
+_abbr_if_gt gfu 'gt sync --no-restack' 'git fetch --prune --tags origin'
+_abbr_if_gt pof '' 'git push origin --force-with-lease'
+_abbr_if_gt gph '' 'git push origin --set-upstream HEAD'
+_abbr_if_gt rbc '' 'git rebase --continue'
+_abbr_if_gt rbi '' 'git rbi'
 
-if not which worktree-util &>/dev/null
+set -l nav_util (which world-nav 2>/dev/null || which worktree-util 2>/dev/null)
+if test -z "$nav_util"
     echo "⚠️  worktree-util not found. Install with 'install_worktree_util'"
 else
-    worktree-util shell-init --shell fish --require-version "^0.5.0" --init-navigate --init-code 2>/dev/null | source
+    "$nav_util" shell-init --shell fish --require-version "^0.5.0" 2>/dev/null | source
     if test $pipestatus[1] -ne 0
         echo "⚠️  worktree-util shell integration failed (version mismatch?). Update with 'install_worktree_util'"
     end
@@ -112,21 +111,15 @@ if test "$TERM_PROGRAM" = vscode || test -n "$FISH_NOT_INTERACTIVE"
     set -x FISH_SIMPLE_TERM 1
 end
 
-set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
-
 if which starship &>/dev/null
     if test -n "$FISH_SIMPLE_TERM"
         # For FISH_SIMPLE_TERM, use simple prompt without rprompt, async, or transient
         set -x STARSHIP_CONFIG "$HOME/dotfiles/starship-simple.toml"
     else
         # Full starship with all features
+        set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
         enable_transience
     end
 end
-
-if which zoxide &>/dev/null
-    zoxide init fish --hook prompt | source
-end
-
 
 test -e ~/.config.local.fish && source ~/.config.local.fish

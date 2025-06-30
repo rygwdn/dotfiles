@@ -10,7 +10,9 @@ path+=("$HOME/dotfiles/bin")
 path+=("/Applications/WezTerm.app/Contents/MacOS")
 
 # Initialize worktree-util shell integration
-if command -v worktree-util >/dev/null 2>&1; then
+if command -v world-nav >/dev/null 2>&1; then
+    eval "$(world-nav shell-init --shell zsh --require-version '^0.5.0' 2>/dev/null)"
+elif command -v worktree-util >/dev/null 2>&1; then
     eval "$(worktree-util shell-init --shell zsh --require-version '^0.5.0' --init-navigate --init-code 2>/dev/null)"
 fi
 
