@@ -31,7 +31,7 @@ end
 
 _abbr_if_gt co 'gt checkout' 'git checkout'
 _abbr_if_gt ci 'gt modify --commit' 'git commit'
-_abbr_if_gt pff 'gt modify --commit' 'git pull --ff-only'
+_abbr_if_gt pff 'gt sync --no-restack && git pull --ff-only' 'git pull --ff-only'
 _abbr_if_gt gfu 'gt sync --no-restack' 'git fetch --prune --tags origin'
 _abbr_if_gt pof '' 'git push origin --force-with-lease'
 _abbr_if_gt gph '' 'git push origin --set-upstream HEAD'
