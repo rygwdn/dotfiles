@@ -109,15 +109,10 @@ impl Provider for SrcProvider {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
     use super::*;
-    use std::fs;
-    use tempfile::TempDir;
-
-    fn create_test_repo(dir: &Path) -> std::io::Result<()> {
-        fs::create_dir_all(dir)?;
-        fs::create_dir(dir.join(".git"))?;
-        Ok(())
-    }
+    use crate::test_utils::test_env::TestEnvironment;
 
     #[test]
     fn test_src_provider_creation() {
@@ -139,40 +134,43 @@ mod tests {
 
     #[test]
     fn test_recursive_git_discovery() {
-        let temp_dir = TempDir::new().unwrap();
-        let base_path = temp_dir.path();
+        let env = TestEnvironment::new();
 
         // Create a nested structure with git repos
-        let repo1 = base_path.join("repo1");
-        let repo2 = base_path.join("level1").join("repo2");
-        let repo3 = base_path.join("level1").join("level2").join("repo3");
+        env.create_git_repo("repo1");
+        env.create_nested_git_repo("level1/repo2");
+        env.create_nested_git_repo("level1/level2/repo3");
 
-        create_test_repo(&repo1).unwrap();
-        create_test_repo(&repo2).unwrap();
-        create_test_repo(&repo3).unwrap();
-
-        let provider = SrcProvider::with_path(base_path).with_depth_limit(2);
+        // Test with depth 2 - should find repo1 and repo2, but not repo3
+        let provider = SrcProvider::with_path(&env.src_path).with_depth_limit(2);
         let mut candidates = Vec::new();
         provider.add_candidates(&mut candidates);
 
-        // Should find repo1 and repo2, but not repo3 (too deep)
         assert_eq!(candidates.len(), 2);
 
         let paths: Vec<&str> = candidates.iter().map(|c| c.path.as_str()).collect();
         assert!(paths.iter().any(|p| p.contains("repo1")));
         assert!(paths.iter().any(|p| p.contains("repo2")));
         assert!(!paths.iter().any(|p| p.contains("repo3")));
+
+        // Test with depth 3 - should find all three
+        let provider3 = SrcProvider::with_path(&env.src_path).with_depth_limit(3);
+        let mut candidates3 = Vec::new();
+        provider3.add_candidates(&mut candidates3);
+
+        assert_eq!(candidates3.len(), 3);
+        let paths3: Vec<&str> = candidates3.iter().map(|c| c.path.as_str()).collect();
+        assert!(paths3.iter().any(|p| p.contains("repo3")));
     }
 
     #[test]
     fn test_depth_limit_zero() {
-        let temp_dir = TempDir::new().unwrap();
-        let base_path = temp_dir.path();
+        let env = TestEnvironment::new();
+        let base_path = env.temp_dir.path();
 
         // Create a git repo at the base level and one nested
-        create_test_repo(base_path).unwrap(); // This makes base_path itself a git repo
-        let nested_repo = base_path.join("nested").join("repo");
-        create_test_repo(&nested_repo).unwrap();
+        std::fs::create_dir(base_path.join(".git")).unwrap(); // This makes base_path itself a git repo
+        env.create_nested_git_repo("nested/repo");
 
         let provider = SrcProvider::with_path(base_path).with_depth_limit(0);
         let mut candidates = Vec::new();

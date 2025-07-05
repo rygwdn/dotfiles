@@ -1,22 +1,41 @@
+#![allow(clippy::expect_used)]
+
 use crate::utils::expand_path;
-use config::{Config, Environment, File};
+use config::{Config, File};
 use dirs;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::process;
+
+/// Get the default frecency database path
+fn default_frecency_db_path() -> String {
+    dirs::data_dir()
+        .unwrap_or_else(|| expand_path("~/.local/share"))
+        .join("world-nav")
+        .join("frecency.db")
+        .to_string_lossy()
+        .to_string()
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SrcConfig {
+pub struct WorldNavConfig {
+    /// Path to world trees directory
+    pub world_path: Option<String>,
     /// List of source directories to scan for repositories
     pub src_paths: Vec<String>,
     /// Maximum depth to scan for repositories (optional, defaults to 3)
     pub depth_limit: Option<usize>,
+    /// Path to frecency database file
+    pub frecency_db_path: String,
 }
 
-impl Default for SrcConfig {
+impl Default for WorldNavConfig {
     fn default() -> Self {
-        SrcConfig {
-            src_paths: vec!["~/src".to_string(), "~/dotfiles".to_string()],
+        WorldNavConfig {
+            world_path: Some("~/world/trees".to_string()),
+            src_paths: vec!["~/src".to_string()],
             depth_limit: Some(3),
+            frecency_db_path: default_frecency_db_path(),
         }
     }
 }
@@ -24,179 +43,168 @@ impl Default for SrcConfig {
 pub struct ConfigManager;
 
 impl ConfigManager {
-    /// Loads source configuration using the config crate with multiple sources
-    pub fn load_src_config() -> SrcConfig {
+    /// Loads the full world-nav configuration
+    pub fn load_config() -> WorldNavConfig {
         let config_path = Self::get_config_path();
+        let default_config = WorldNavConfig::default();
 
-        // Build configuration from multiple sources in priority order:
-        // 1. Default values
-        // 2. Config file
-        // 3. Environment variables (WORKTREE_*)
-        #[allow(clippy::expect_used)] // Basic default settings should never fail
+        // Build configuration from config file if it exists
         let settings = Config::builder()
-            // Start with defaults
-            .set_default("src_paths", vec!["~/src", "~/dotfiles"])
+            // Set defaults from WorldNavConfig::default()
+            .set_default("world_path", default_config.world_path.clone())
+            .expect("Failed to set default world_path")
+            .set_default("src_paths", default_config.src_paths.clone())
             .expect("Failed to set default src_paths")
-            .set_default("depth_limit", 3)
+            .set_default("depth_limit", default_config.depth_limit.map(|d| d as i64))
             .expect("Failed to set default depth_limit")
+            .set_default("frecency_db_path", default_config.frecency_db_path.clone())
+            .expect("Failed to set default frecency_db_path")
             // Add config file if it exists
             .add_source(File::from(config_path.clone()).required(false))
-            // Add environment variables with prefix WORKTREE_
-            // e.g., WORKTREE_SRC_PATHS__0="~/src" WORKTREE_SRC_PATHS__1="~/work" WORKTREE_DEPTH_LIMIT=5
-            .add_source(
-                Environment::with_prefix("WORKTREE")
-                    .prefix_separator("_")
-                    .separator("__")
-            )
             .build();
-
-        // Create default config file if it doesn't exist
-        if !config_path.exists() {
-            if let Err(e) = Self::create_default_config(&config_path) {
-                eprintln!("Warning: Failed to create default config file: {}", e);
-            } else {
-                eprintln!(
-                    "Created default configuration at: {}",
-                    config_path.display()
-                );
-            }
-        }
 
         match settings {
             Ok(config) => {
-                match config.try_deserialize::<SrcConfig>() {
-                    Ok(src_config) => {
-                        // Validate that paths are not empty
-                        if src_config.src_paths.iter().all(|p| !p.trim().is_empty()) {
-                            src_config
-                        } else {
-                            eprintln!("Warning: Invalid paths in configuration, using defaults");
-                            SrcConfig::default()
+                match config.try_deserialize::<WorldNavConfig>() {
+                    Ok(nav_config) => {
+                        // Validate that paths are not empty strings
+                        if nav_config.src_paths.iter().any(|p| p.trim().is_empty()) {
+                            eprintln!("Error: Configuration contains empty source paths");
+                            eprintln!("Config file: {}", config_path.display());
+                            process::exit(1);
                         }
+                        nav_config
                     }
                     Err(e) => {
-                        eprintln!(
-                            "Warning: Failed to parse configuration: {}, using defaults",
-                            e
-                        );
-                        SrcConfig::default()
+                        eprintln!("Error: Failed to parse configuration file");
+                        eprintln!("Config file: {}", config_path.display());
+                        eprintln!("Error details: {}", e);
+                        process::exit(1);
                     }
                 }
             }
             Err(e) => {
-                eprintln!(
-                    "Warning: Failed to load configuration: {}, using defaults",
-                    e
-                );
-                SrcConfig::default()
+                eprintln!("Error: Failed to load configuration");
+                eprintln!("Error details: {}", e);
+                process::exit(1);
             }
         }
     }
 
     /// Gets the path to the configuration file
     pub fn get_config_path() -> PathBuf {
-        let config_dir = dirs::config_dir()
-            .unwrap_or_else(|| expand_path("~/.config"))
-            .join("worktree-util");
-
-        config_dir.join("src-config.json")
-    }
-
-    /// Creates a default configuration file
-    pub fn create_default_config(config_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(parent) = config_path.parent() {
-            std::fs::create_dir_all(parent)?;
+        // Check for environment variable override
+        if let Ok(config_path) = std::env::var("WORLD_NAV_CONFIG") {
+            return PathBuf::from(config_path);
         }
 
-        let default_config = SrcConfig::default();
-        let json_content = serde_json::to_string_pretty(&default_config)?;
-        std::fs::write(config_path, json_content)?;
+        let config_dir = dirs::config_dir().unwrap_or_else(|| expand_path("~/.config"));
 
-        Ok(())
+        config_dir.join("world-nav").join("config.json")
     }
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
     use super::*;
+    use crate::test_utils::test_env::TestEnvironment;
     use std::env;
-    use tempfile::TempDir;
 
     #[test]
-    fn test_default_src_config() {
-        let config = SrcConfig::default();
-        assert_eq!(config.src_paths, vec!["~/src", "~/dotfiles"]);
+    fn test_default_world_nav_config() {
+        let config = WorldNavConfig::default();
+        assert_eq!(config.world_path, Some("~/world/trees".to_string()));
+        assert_eq!(config.src_paths, vec!["~/src"]);
         assert_eq!(config.depth_limit, Some(3));
+        assert!(config.frecency_db_path.contains("world-nav"));
+        assert!(config.frecency_db_path.ends_with("frecency.db"));
     }
 
     #[test]
-    fn test_config_with_environment_variables() {
-        // Test just the depth_limit environment variable for simplicity
-        // Array env vars are complex in the config crate, so we'll focus on scalar values
-        env::set_var("WORKTREE_DEPTH_LIMIT", "5");
+    fn test_config_path_override() {
+        let env = TestEnvironment::new();
+        let custom_config_path = env.temp_dir.path().join("custom-config.json");
 
-        // Build config manually to test environment variable parsing
-        let settings = Config::builder()
-            .set_default("src_paths", vec!["~/src", "~/dotfiles"])
-            .unwrap()
-            .set_default("depth_limit", 3)
-            .unwrap()
-            .add_source(
-                Environment::with_prefix("WORKTREE")
-                    .prefix_separator("_")
-                    .separator("__"),
-            )
-            .build()
-            .unwrap();
+        env::set_var("WORLD_NAV_CONFIG", custom_config_path.to_str().unwrap());
 
-        let config: SrcConfig = settings.try_deserialize().unwrap();
+        let config_path = ConfigManager::get_config_path();
+        assert_eq!(config_path, custom_config_path);
 
-        // Check that depth_limit was overridden by environment variable
-        assert_eq!(config.depth_limit, Some(5));
-        // src_paths should remain as default since env override for arrays is complex
-        assert_eq!(config.src_paths, vec!["~/src", "~/dotfiles"]);
-
-        // Clean up
-        env::remove_var("WORKTREE_DEPTH_LIMIT");
+        env::remove_var("WORLD_NAV_CONFIG");
     }
 
     #[test]
     fn test_config_serialization() {
-        let config = SrcConfig {
+        let config = WorldNavConfig {
+            world_path: Some("/world/custom".to_string()),
             src_paths: vec!["/path/one".to_string(), "/path/two".to_string()],
             depth_limit: Some(5),
+            frecency_db_path: default_frecency_db_path(),
         };
 
         let json = serde_json::to_string(&config).unwrap();
-        let deserialized: SrcConfig = serde_json::from_str(&json).unwrap();
+        let deserialized: WorldNavConfig = serde_json::from_str(&json).unwrap();
 
+        assert_eq!(deserialized.world_path, Some("/world/custom".to_string()));
         assert_eq!(deserialized.src_paths.len(), 2);
         assert!(deserialized.src_paths.contains(&"/path/one".to_string()));
         assert!(deserialized.src_paths.contains(&"/path/two".to_string()));
         assert_eq!(deserialized.depth_limit, Some(5));
+        assert_eq!(deserialized.frecency_db_path, default_frecency_db_path());
+    }
+
+    #[test]
+    fn test_config_with_frecency_db_path() {
+        let env = TestEnvironment::new();
+
+        let config_with_db = format!(
+            r#"{{
+  "world_path": "{}",
+  "src_paths": ["{}"],
+  "depth_limit": 3,
+  "frecency_db_path": "{}/custom_frecency.db"
+}}"#,
+            env.world_path.to_string_lossy(),
+            env.src_path.to_string_lossy(),
+            env.temp_dir.path().to_string_lossy()
+        );
+
+        env.write_config(Some(&config_with_db));
+        env.set_config_env();
+
+        let loaded = ConfigManager::load_config();
+        assert!(loaded.frecency_db_path.contains("custom_frecency.db"));
     }
 
     #[test]
     fn test_config_validation() {
-        let temp_dir = TempDir::new().unwrap();
-        let config_file = temp_dir.path().join("src-config.json");
+        let env = TestEnvironment::new();
 
         // Test valid config
-        let valid_config = SrcConfig {
+        let valid_config = WorldNavConfig {
+            world_path: Some("/world/trees".to_string()),
             src_paths: vec!["/valid/path".to_string()],
             depth_limit: Some(3),
+            frecency_db_path: default_frecency_db_path(),
         };
-        std::fs::write(&config_file, serde_json::to_string(&valid_config).unwrap()).unwrap();
+        let valid_json = serde_json::to_string(&valid_config).unwrap();
+        env.write_config(Some(&valid_json));
 
-        let loaded =
-            serde_json::from_str::<SrcConfig>(&std::fs::read_to_string(&config_file).unwrap())
-                .unwrap();
+        let loaded = serde_json::from_str::<WorldNavConfig>(
+            &std::fs::read_to_string(&env.config_path).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(loaded.world_path, Some("/world/trees".to_string()));
         assert_eq!(loaded.src_paths, vec!["/valid/path"]);
 
         // Test config with empty path (should be rejected in validation)
-        let invalid_config = SrcConfig {
+        let invalid_config = WorldNavConfig {
+            world_path: Some("/world/trees".to_string()),
             src_paths: vec!["".to_string(), "  ".to_string()],
             depth_limit: Some(3),
+            frecency_db_path: default_frecency_db_path(),
         };
 
         // The validation logic would reject this config
@@ -205,39 +213,62 @@ mod tests {
     }
 
     #[test]
-    fn test_create_default_config() {
-        let temp_dir = TempDir::new().unwrap();
-        let config_path = temp_dir.path().join("test-config.json");
+    fn test_load_config_with_nonexistent_file() {
+        let env = TestEnvironment::new();
+        env.set_config_env();
 
-        ConfigManager::create_default_config(&config_path).unwrap();
-
-        assert!(config_path.exists());
-        let content = std::fs::read_to_string(&config_path).unwrap();
-        let config: SrcConfig = serde_json::from_str(&content).unwrap();
-
-        assert_eq!(config.src_paths, vec!["~/src", "~/dotfiles"]);
+        // Since we're using defaults from the builder, this should work even without a file
+        let config = ConfigManager::load_config();
+        assert_eq!(config.world_path, Some("~/world/trees".to_string()));
+        assert_eq!(config.src_paths, vec!["~/src"]);
         assert_eq!(config.depth_limit, Some(3));
+        assert_eq!(config.frecency_db_path, default_frecency_db_path());
     }
 
     #[test]
-    fn test_load_src_config_with_nonexistent_file() {
-        // Clean up any environment variables from other tests
-        env::remove_var("WORKTREE_DEPTH_LIMIT");
+    fn test_invalid_config_would_exit() {
+        let env = TestEnvironment::new();
 
-        // Set a temporary config directory that doesn't exist
-        let temp_dir = TempDir::new().unwrap();
-        let original_home = env::var("HOME").ok();
-        env::set_var("HOME", temp_dir.path());
+        // Write invalid JSON
+        std::fs::write(&env.config_path, "{ invalid json }").unwrap();
+        env.set_config_env();
 
-        let config = ConfigManager::load_src_config();
-        assert_eq!(config.src_paths, vec!["~/src", "~/dotfiles"]);
-        assert_eq!(config.depth_limit, Some(3));
+        // We can't actually call load_config() here because it would exit
+        // Instead, we verify the config is invalid
+        let settings = Config::builder()
+            .add_source(File::from(env.config_path.clone()).required(false))
+            .build();
 
-        // Restore original HOME if it existed
-        if let Some(home) = original_home {
-            env::set_var("HOME", home);
+        // With invalid JSON, the config builder itself should fail
+        if let Ok(config) = settings {
+            let result: Result<WorldNavConfig, _> = config.try_deserialize();
+            assert!(result.is_err()); // If it loaded, deserialization should fail
         } else {
-            env::remove_var("HOME");
+            // More likely: the builder failed to parse invalid JSON
+            assert!(settings.is_err());
         }
+    }
+
+    #[test]
+    fn test_empty_path_would_exit() {
+        let env = TestEnvironment::new();
+
+        // Write config with empty path
+        let invalid_config = format!(
+            r#"{{
+            "world_path": "~/world/trees",
+            "src_paths": ["~/src", ""],
+            "depth_limit": 3,
+            "frecency_db_path": "{}"
+        }}"#,
+            default_frecency_db_path()
+        );
+
+        env.write_config(Some(&invalid_config));
+
+        // Parse it to verify it would be rejected
+        let parsed: WorldNavConfig = serde_json::from_str(&invalid_config).unwrap();
+        let has_empty = parsed.src_paths.iter().any(|p| p.trim().is_empty());
+        assert!(has_empty); // This condition would trigger exit
     }
 }

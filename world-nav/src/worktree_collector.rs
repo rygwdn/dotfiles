@@ -1,7 +1,7 @@
 use crate::candidate::Candidate;
 use crate::candidate_provider::CandidateProvider;
+use crate::frecency::FrecencyDb;
 use crate::scorer::OptimalScorer;
-use crate::zoxide_scores::ZoxideScores;
 use crossbeam_channel::Sender;
 use skim::prelude::*;
 use skim::reader::CommandCollector;
@@ -11,7 +11,7 @@ use std::sync::{atomic::AtomicUsize, Arc};
 pub struct CandidateItem {
     pub candidate: Candidate,
     pub score: f64,
-    pub zoxide_score: f64,
+    pub frecency_score: f64,
     pub worktree_adjustment: f64,
     pub show_scores: bool,
     pub index: usize,
@@ -19,7 +19,7 @@ pub struct CandidateItem {
 
 impl CandidateItem {
     pub fn total_score(&self) -> f64 {
-        self.score + self.zoxide_score + self.worktree_adjustment
+        self.score + self.frecency_score + self.worktree_adjustment
     }
 }
 
@@ -60,7 +60,7 @@ impl SkimItem for CandidateItem {
 pub struct WorktreeCollector {
     candidates: Vec<Candidate>,
     scorer: OptimalScorer,
-    zoxide_scores: ZoxideScores,
+    frecency_db: FrecencyDb,
     show_scores: bool,
 }
 
@@ -74,7 +74,7 @@ impl WorktreeCollector {
                     .to_string_lossy()
                     .to_string(),
             ),
-            zoxide_scores: ZoxideScores::new(),
+            frecency_db: FrecencyDb::new(),
             show_scores,
         }
     }
@@ -86,10 +86,12 @@ impl WorktreeCollector {
             .filter_map(|candidate| {
                 let score = self.scorer.score_candidate(candidate, query);
                 if score > 0.0 || query.is_empty() {
+                    let frecency_score = self.frecency_db.get_score(&candidate.path);
+
                     Some(CandidateItem {
                         candidate: candidate.clone(),
                         score,
-                        zoxide_score: self.zoxide_scores.get_score(&candidate.path),
+                        frecency_score,
                         worktree_adjustment: self.scorer.worktree_adjustment(candidate),
                         show_scores: self.show_scores,
                         index: 0,
@@ -132,5 +134,69 @@ impl CommandCollector for WorktreeCollector {
         }
 
         (rx, tx_interrupt)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_candidate_item_total_score() {
+        use crate::path_shortener::shorten_path;
+        use std::path::Path;
+
+        let candidate = Candidate {
+            path: "/test/path".to_string(),
+            shortpath: shorten_path(Path::new("/test/path")),
+            branch: None,
+        };
+
+        let item = CandidateItem {
+            candidate,
+            score: 50.0,
+            frecency_score: 30.0,
+            worktree_adjustment: 20.0,
+            show_scores: false,
+            index: 0,
+        };
+
+        assert_eq!(item.total_score(), 100.0);
+    }
+
+    #[test]
+    fn test_candidate_item_display() {
+        use crate::path_shortener::shorten_path;
+        use std::path::Path;
+
+        let candidate = Candidate {
+            path: "/test/path".to_string(),
+            shortpath: shorten_path(Path::new("/test/path")),
+            branch: Some("feature".to_string()),
+        };
+
+        let item = CandidateItem {
+            candidate: candidate.clone(),
+            score: 50.0,
+            frecency_score: 30.0,
+            worktree_adjustment: 20.0,
+            show_scores: false,
+            index: 0,
+        };
+
+        // Test text method
+        assert_eq!(item.text().as_ref(), candidate.get_match_text());
+
+        // Test that scores are included in total_score calculation
+        let item_with_scores = CandidateItem {
+            candidate: candidate.clone(),
+            score: 50.0,
+            frecency_score: 30.0,
+            worktree_adjustment: 20.0,
+            show_scores: true,
+            index: 0,
+        };
+
+        assert_eq!(item_with_scores.total_score(), 100.0);
     }
 }

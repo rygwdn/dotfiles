@@ -46,7 +46,10 @@ mod tests {
 
     #[test]
     fn test_expand_path_with_home() {
-        let home_dir = dirs::home_dir().expect("Home directory should exist");
+        let Some(home_dir) = dirs::home_dir() else {
+            eprintln!("WARNING: Home directory not found, skipping test");
+            return;
+        };
 
         // Test expanding ~
         let expanded = expand_path("~/test");

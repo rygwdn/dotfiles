@@ -23,7 +23,7 @@ pub struct ShellInitArgs {
     #[arg(long, default_value = "j")]
     pub navigate: String,
 
-    /// Code command name (default: jc)  
+    /// Code command name (default: jc)
     #[arg(long, default_value = "jc")]
     pub code: String,
 
@@ -31,13 +31,21 @@ pub struct ShellInitArgs {
     #[arg(long)]
     pub require_version: Option<String>,
 
-    /// Enable navigation function initialization
+    /// Disable navigation function initialization
     #[arg(long)]
-    pub init_navigate: bool,
+    pub no_navigate: bool,
 
-    /// Enable code function initialization
+    /// Disable code function initialization
     #[arg(long)]
-    pub init_code: bool,
+    pub no_code: bool,
+
+    /// Disable frecency tracking hook
+    #[arg(long)]
+    pub no_frecency: bool,
+
+    /// Disable path segment update hook
+    #[arg(long)]
+    pub no_segments: bool,
 }
 
 pub fn command() -> Command {
@@ -65,16 +73,20 @@ pub fn handle_from_matches(matches: &ArgMatches) {
         .map(|s| s.as_str())
         .unwrap_or("jc");
     let require_version = matches.get_one::<String>("require_version").cloned();
-    let init_navigate = matches.get_flag("init_navigate");
-    let init_code = matches.get_flag("init_code");
+    let no_navigate = matches.get_flag("no_navigate");
+    let no_code = matches.get_flag("no_code");
+    let no_frecency = matches.get_flag("no_frecency");
+    let no_segments = matches.get_flag("no_segments");
 
     let args = ShellInitArgs {
         shell,
         navigate: navigate.to_string(),
         code: code.to_string(),
         require_version,
-        init_navigate,
-        init_code,
+        no_navigate,
+        no_code,
+        no_frecency,
+        no_segments,
     };
 
     handle(&args).expect("Shell init should not fail")
@@ -102,7 +114,7 @@ fn check_version_compatibility(require_version: &str) -> bool {
 fn get_exe_path() -> String {
     match env::current_exe() {
         Ok(path) => path.display().to_string(),
-        Err(_) => "worktree-util".to_string(),
+        Err(_) => "world-nav".to_string(),
     }
 }
 
@@ -128,8 +140,10 @@ fn generate_shell_code(
     };
 
     let data = json!({
-        "init_navigate": args.init_navigate,
-        "init_code": args.init_code,
+        "init_navigate": !args.no_navigate,
+        "init_code": !args.no_code,
+        "init_frecency": !args.no_frecency,
+        "init_segments": !args.no_segments,
         "navigate_cmd": args.navigate,
         "code_cmd": args.code,
         "exe_path": get_exe_path()

@@ -147,6 +147,46 @@ impl ShortPath {
 
         builder.finish()
     }
+
+    pub fn display(&self, branch: Option<String>) -> String {
+        let mut result = String::new();
+
+        // Define colors
+        let icon_color = match &self.path_type {
+            PathType::WorldTree { .. } => "\x1b[34m",    // Blue
+            PathType::GitHub { .. } => "\x1b[35m",       // Magenta
+            PathType::GitHubRemote { .. } => "\x1b[32m", // Green (same as regular Git)
+            PathType::Git { .. } => "\x1b[32m",          // Green
+            PathType::Home => "\x1b[33m",                // Yellow
+            PathType::Regular => "\x1b[90m",             // Dark gray
+        };
+
+        let area_color = "\x1b[33m"; // Yellow
+        let reset = "\x1b[0m";
+
+        let mut add_colored_segment = |color: &str, text: String| {
+            result.push_str(color);
+            result.push_str(&text);
+            result.push_str(reset);
+        };
+
+        let components = self.components(1, branch.clone());
+        for (_, component_type, text) in components {
+            match component_type {
+                ComponentType::Icon => add_colored_segment(icon_color, text),
+                ComponentType::Worktree => add_colored_segment(icon_color, text),
+                ComponentType::Owner => add_colored_segment(icon_color, text),
+                ComponentType::Project => add_colored_segment(area_color, text),
+                ComponentType::Repo => add_colored_segment(area_color, text),
+                ComponentType::Separator => add_colored_segment(reset, text),
+                ComponentType::Shortened => add_colored_segment(area_color, text),
+                ComponentType::Path => add_colored_segment(area_color, text),
+                ComponentType::Branch => add_colored_segment("\x1b[2m", format!("[{}]", text)),
+            }
+        }
+
+        result
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -340,6 +380,8 @@ fn create_regular_path(path_str: &str) -> ShortPath {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
     use super::*;
 
     #[test]
@@ -375,7 +417,7 @@ mod tests {
                 assert_eq!(result.build(1, &[Prefix]), "~");
                 // The shortened and normal parts will depend on the actual path
                 assert!(
-                    result.build(1, &[Infix]).len() > 0 || result.build(1, &[Suffix]).len() > 0
+                    !result.build(1, &[Infix]).is_empty() || !result.build(1, &[Suffix]).is_empty()
                 );
             }
         }
@@ -513,5 +555,218 @@ mod tests {
         assert_eq!(extract_github_info("git@github.com:owner"), None);
 
         assert_eq!(extract_github_info("https://github.com/owner"), None);
+    }
+
+    #[test]
+    fn test_display_world_tree() {
+        let path = "/world/trees/myproject/src/areas/category/analytics";
+        let result = check_world_tree_path(path).unwrap();
+
+        // Test display without branch
+        let display = result.display(None);
+        assert!(
+            display.contains("\x1b[34m"),
+            "Should contain blue color for world tree"
+        );
+        assert!(
+            display.contains(SYMBOL_WORLD),
+            "Should contain world tree symbol"
+        );
+        assert!(display.contains("myproject"), "Should contain worktree");
+        assert!(display.contains("analytics"), "Should contain project");
+
+        // Test display with branch
+        let display_with_branch = result.display(Some("feature-branch".to_string()));
+        assert!(
+            display_with_branch.contains("[feature-branch]"),
+            "Should contain branch in brackets"
+        );
+        assert!(
+            display_with_branch.contains("\x1b[2m["),
+            "Branch should be dimmed"
+        );
+    }
+
+    #[test]
+    fn test_display_github() {
+        // Since we can't test with real git repos in unit tests,
+        // we'll test the display method directly with a manually created ShortPath
+        let shortpath = ShortPath {
+            path_type: PathType::GitHub {
+                owner: "owner".to_string(),
+                repo: "repo".to_string(),
+            },
+            segments: vec!["src".to_string(), "main.rs".to_string()],
+        };
+
+        let display = shortpath.display(None);
+        assert!(
+            display.contains("\x1b[35m"),
+            "Should contain magenta color for GitHub"
+        );
+        assert!(
+            display.contains(SYMBOL_GITHUB),
+            "Should contain GitHub symbol"
+        );
+        assert!(display.contains("owner"), "Should contain owner");
+        assert!(display.contains("repo"), "Should contain repo");
+    }
+
+    #[test]
+    fn test_display_git() {
+        // Test regular Git repository display
+        let shortpath = ShortPath {
+            path_type: PathType::Git {
+                repo_name: "my-project".to_string(),
+            },
+            segments: vec!["src".to_string(), "lib.rs".to_string()],
+        };
+
+        let display = shortpath.display(None);
+        assert!(
+            display.contains("\x1b[32m"),
+            "Should contain green color for Git"
+        );
+        assert!(display.contains(SYMBOL_GIT), "Should contain Git symbol");
+        assert!(display.contains("my-project"), "Should contain repo name");
+    }
+
+    #[test]
+    fn test_display_github_remote() {
+        // Test GitHub remote repository display
+        let shortpath = ShortPath {
+            path_type: PathType::GitHubRemote {
+                owner: "microsoft".to_string(),
+                repo: "vscode".to_string(),
+            },
+            segments: vec!["extensions".to_string()],
+        };
+
+        let display = shortpath.display(None);
+        assert!(
+            display.contains("\x1b[32m"),
+            "Should contain green color for GitHub remote"
+        );
+        assert!(
+            display.contains(SYMBOL_GITHUB_INVERTED),
+            "Should contain inverted GitHub symbol"
+        );
+        assert!(display.contains("microsoft"), "Should contain owner");
+        assert!(display.contains("vscode"), "Should contain repo");
+    }
+
+    #[test]
+    fn test_display_home() {
+        if let Some(home_dir) = dirs::home_dir() {
+            let test_path = home_dir.join("Documents/projects/notes.txt");
+            if let Some(result) = check_home_path(&test_path.to_string_lossy()) {
+                let display = result.display(None);
+                assert!(
+                    display.contains("\x1b[33m"),
+                    "Should contain yellow color for home"
+                );
+                assert!(display.contains(SYMBOL_HOME), "Should contain home symbol");
+            }
+        }
+    }
+
+    #[test]
+    fn test_display_regular() {
+        let path = "/usr/local/bin/cargo";
+        let result = create_regular_path(path);
+
+        let display = result.display(None);
+        assert!(
+            display.contains("\x1b[90m"),
+            "Should contain dark gray color for regular"
+        );
+        assert!(display.contains(SYMBOL_ROOT), "Should contain root symbol");
+    }
+
+    #[test]
+    fn test_display_colors_and_components() {
+        // Test that all component types get colored correctly
+        let path = "/world/trees/shop/src/areas/category/analytics/components/chart.tsx";
+        let result = check_world_tree_path(path).unwrap();
+        let display = result.display(Some("main".to_string()));
+
+        // Should have color codes
+        assert!(display.contains("\x1b["), "Should contain ANSI color codes");
+        // Should reset colors
+        assert!(display.contains("\x1b[0m"), "Should contain reset codes");
+        // Should have the branch dimmed
+        assert!(display.contains("\x1b[2m[main]"), "Branch should be dimmed");
+    }
+
+    #[test]
+    fn test_shortpath_colored_output() {
+        // Test colored output for different path types
+        let test_cases = vec![
+            // World tree path
+            (
+                "/world/trees/shop/src/areas/analytics/dashboard",
+                true,
+                vec!["shop", "dashboard"],
+            ),
+            // Regular path that looks like GitHub (won't be detected as GitHub without git repo)
+            ("/tmp/github.com/owner/repo", true, vec!["/", "repo"]),
+            // Home path
+            ("~", true, vec!["~"]),
+            // Regular path
+            ("/usr/local/bin", true, vec!["/", "bin"]),
+        ];
+
+        for (path, should_have_colors, should_contain) in test_cases {
+            let shortpath = shorten_path(Path::new(path));
+            let colored = shortpath.display(None);
+
+            if should_have_colors {
+                assert!(
+                    colored.contains("\x1b["),
+                    "Output should contain ANSI color codes for path: {}",
+                    path
+                );
+            }
+
+            for text in should_contain {
+                assert!(
+                    colored.contains(text),
+                    "Output should contain '{}' for path: {}",
+                    text,
+                    path
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_shortpath_all_sections() {
+        let path = "/world/trees/shop/src/areas/analytics/dashboard";
+        let shortpath = shorten_path(Path::new(path));
+
+        // Test building different representations
+        let full = shortpath.build(
+            1,
+            &[
+                ShortPathPart::Prefix,
+                ShortPathPart::Infix,
+                ShortPathPart::Suffix,
+            ],
+        );
+        let prefix = shortpath.build(1, &[ShortPathPart::Prefix]);
+        let _infix = shortpath.build(1, &[ShortPathPart::Infix]);
+        let suffix = shortpath.build(1, &[ShortPathPart::Suffix]);
+        let colored = shortpath.display(None);
+
+        assert!(full.contains("shop"));
+        assert!(prefix.contains("shop"));
+        // For world tree paths, the project name ("dashboard") is part of the prefix
+        assert!(prefix.contains("dashboard"));
+        // There's no suffix for this path as it ends at the project level
+        assert_eq!(suffix, "");
+        assert!(
+            colored.contains("\x1b["),
+            "Colored section should contain ANSI color codes"
+        );
     }
 }

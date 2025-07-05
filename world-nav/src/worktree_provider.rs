@@ -1,14 +1,15 @@
 use crate::candidate::Candidate;
+use crate::config::ConfigManager;
 use crate::path_shortener::shorten_path;
 use crate::provider::Provider;
 use crate::utils::{expand_path, get_repository_branch};
 use std::fs;
 use std::path::Path;
 
-const WORLD_TREES_PATH: &str = "~/world/trees";
-
 /// Provider for worktree-based candidates from ~/world/trees
-pub struct WorktreeProvider;
+pub struct WorktreeProvider {
+    world_trees_path: Option<String>,
+}
 
 impl Default for WorktreeProvider {
     fn default() -> Self {
@@ -18,7 +19,16 @@ impl Default for WorktreeProvider {
 
 impl WorktreeProvider {
     pub fn new() -> Self {
-        WorktreeProvider
+        let config = ConfigManager::load_config();
+        WorktreeProvider {
+            world_trees_path: config.world_path,
+        }
+    }
+
+    pub fn with_path(path: String) -> Self {
+        WorktreeProvider {
+            world_trees_path: Some(path),
+        }
     }
 
     fn process_worktree_areas(&self, areas_path: &Path, candidates: &mut Vec<Candidate>) {
@@ -61,7 +71,12 @@ impl WorktreeProvider {
 
 impl Provider for WorktreeProvider {
     fn add_candidates(&self, candidates: &mut Vec<Candidate>) {
-        let world_trees_path = expand_path(WORLD_TREES_PATH);
+        // If no world path is configured, don't add any candidates
+        let Some(world_path) = &self.world_trees_path else {
+            return;
+        };
+
+        let world_trees_path = expand_path(world_path);
         if !world_trees_path.exists() {
             return;
         }
@@ -89,6 +104,7 @@ impl Provider for WorktreeProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::test_env::TestEnvironment;
 
     #[test]
     fn test_worktree_provider_creation() {
@@ -96,5 +112,38 @@ mod tests {
         let mut candidates = Vec::new();
         // This should not panic
         provider.add_candidates(&mut candidates);
+    }
+
+    #[test]
+    fn test_worktree_provider_with_custom_path() {
+        let env = TestEnvironment::new();
+        let provider =
+            WorktreeProvider::with_path(env.temp_dir.path().to_string_lossy().to_string());
+        let mut candidates = Vec::new();
+        // Should not find any candidates in empty temp dir
+        provider.add_candidates(&mut candidates);
+        assert_eq!(candidates.len(), 0);
+    }
+
+    #[test]
+    fn test_worktree_provider_with_projects() {
+        let env = TestEnvironment::new();
+
+        // Create some worktree projects
+        env.create_worktree_project("main", "analytics", "dashboard");
+        env.create_worktree_project("main", "analytics", "reporting");
+        env.create_worktree_project("test", "core", "checkout");
+
+        let provider = WorktreeProvider::with_path(env.world_path.to_string_lossy().to_string());
+        let mut candidates = Vec::new();
+        provider.add_candidates(&mut candidates);
+
+        // Should find all three projects
+        assert_eq!(candidates.len(), 3);
+
+        let paths: Vec<&str> = candidates.iter().map(|c| c.path.as_str()).collect();
+        assert!(paths.iter().any(|p| p.contains("dashboard")));
+        assert!(paths.iter().any(|p| p.contains("reporting")));
+        assert!(paths.iter().any(|p| p.contains("checkout")));
     }
 }

@@ -4,8 +4,8 @@ use clap::{Arg, ArgAction, Command};
 use std::env;
 use std::io::{self, BufRead, BufReader};
 use std::path::PathBuf;
-use worktree_util::shorten_path;
-use worktree_util::ShortPathPart::*;
+use world_nav::shorten_path;
+use world_nav::ShortPathPart::*;
 
 pub fn command() -> Command {
     Command::new("shortpath")
@@ -23,7 +23,7 @@ pub fn command() -> Command {
                 .short('s')
                 .long("section")
                 .value_name("SECTION")
-                .help("Section(s) to output (prefix, shortened, normal, full). Can be comma-separated for multiple sections.")
+                .help("Section(s) to output (prefix, shortened, normal, full, colored). Can be comma-separated for multiple sections.")
                 .default_value("full"),
         )
         .arg(
@@ -57,11 +57,11 @@ pub fn handle(matches: &clap::ArgMatches) {
     let sections: Vec<&str> = section.split(',').map(|s| s.trim()).collect();
 
     // Validate sections
-    let valid_sections = ["prefix", "shortened", "normal", "full", "all"];
+    let valid_sections = ["prefix", "shortened", "normal", "full", "colored", "all"];
     for s in &sections {
         if !valid_sections.contains(s) {
             eprintln!(
-                "Error: Invalid section '{}'. Valid sections are: prefix, shortened, normal, full, all",
+                "Error: Invalid section '{}'. Valid sections are: prefix, shortened, normal, full, colored, all",
                 s
             );
             std::process::exit(1);
@@ -88,6 +88,7 @@ pub fn handle(matches: &clap::ArgMatches) {
                 "prefix" => println!("{}", short_path.build(max_segments, &[Prefix])),
                 "shortened" => println!("{}", short_path.build(max_segments, &[Infix])),
                 "normal" => println!("{}", short_path.build(max_segments, &[Suffix])),
+                "colored" => println!("{}", short_path.display(None)),
                 _ => println!(
                     "{}",
                     short_path.build(max_segments, &[Prefix, Infix, Suffix])
@@ -110,6 +111,7 @@ pub fn handle(matches: &clap::ArgMatches) {
                     println!("Prefix:     {}", short_path.build(max_segments, &[Prefix]));
                     println!("Shortened:  {}", short_path.build(max_segments, &[Infix]));
                     println!("Normal:     {}", short_path.build(max_segments, &[Suffix]));
+                    println!("Colored:    {}", short_path.display(None));
                 }
                 "full" => println!(
                     "{}",
@@ -118,6 +120,7 @@ pub fn handle(matches: &clap::ArgMatches) {
                 "prefix" => println!("{}", short_path.build(max_segments, &[Prefix])),
                 "shortened" => println!("{}", short_path.build(max_segments, &[Infix])),
                 "normal" => println!("{}", short_path.build(max_segments, &[Suffix])),
+                "colored" => println!("{}", short_path.display(None)),
                 _ => eprintln!("Unknown part: {}", part),
             }
         }

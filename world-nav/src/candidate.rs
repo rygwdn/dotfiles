@@ -1,4 +1,4 @@
-use crate::path_shortener::{ComponentType, PathType, ShortPath, ShortPathPart};
+use crate::path_shortener::{ComponentType, ShortPath, ShortPathPart};
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,43 +19,7 @@ pub struct Candidate {
 
 impl Candidate {
     pub fn display(&self) -> String {
-        let mut result = String::new();
-
-        // Define colors
-        let icon_color = match &self.shortpath.path_type {
-            PathType::WorldTree { .. } => "\x1b[34m",    // Blue
-            PathType::GitHub { .. } => "\x1b[35m",       // Magenta
-            PathType::GitHubRemote { .. } => "\x1b[32m", // Green (same as regular Git)
-            PathType::Git { .. } => "\x1b[32m",          // Green
-            PathType::Home => "\x1b[33m",                // Yellow
-            PathType::Regular => "\x1b[90m",             // Dark gray
-        };
-
-        let area_color = "\x1b[33m"; // Yellow
-        let reset = "\x1b[0m";
-
-        let mut add_colored_segment = |color: &str, text: String| {
-            result.push_str(color);
-            result.push_str(&text);
-            result.push_str(reset);
-        };
-
-        let components = self.shortpath.components(1, self.branch.clone());
-        for (_, component_type, text) in components {
-            match component_type {
-                ComponentType::Icon => add_colored_segment(icon_color, text),
-                ComponentType::Worktree => add_colored_segment(icon_color, text),
-                ComponentType::Owner => add_colored_segment(icon_color, text),
-                ComponentType::Project => add_colored_segment(area_color, text),
-                ComponentType::Repo => add_colored_segment(area_color, text),
-                ComponentType::Separator => add_colored_segment(reset, text),
-                ComponentType::Shortened => add_colored_segment(area_color, text),
-                ComponentType::Path => add_colored_segment(area_color, text),
-                ComponentType::Branch => add_colored_segment("\x1b[2m", format!("[{}]", text)),
-            }
-        }
-
-        result
+        self.shortpath.display(self.branch.clone())
     }
 
     pub fn get_match_text(&self) -> String {
@@ -121,7 +85,7 @@ mod tests {
 
         Candidate {
             path: path.clone(),
-            shortpath: shorten_path(&Path::new(&path)),
+            shortpath: shorten_path(Path::new(&path)),
             branch: branch.map(String::from),
         }
     }
@@ -229,7 +193,7 @@ mod tests {
 
         // Test with branch
         let candidate =
-            create_test_candidate(Some("root"), Some("backend"), None, None, Some("feature"));
+            create_test_candidate(Some("root"), Some("shopify"), None, None, Some("feature"));
         let segments = candidate.get_segments();
 
         // Should have a branch segment

@@ -34,11 +34,10 @@ impl CandidateProvider {
 
     /// Creates multiple SrcProvider instances based on configuration file or defaults
     fn create_src_providers() -> Vec<SrcProvider> {
-        let config = ConfigManager::load_src_config();
+        let config = ConfigManager::load_config();
 
         if config.src_paths.is_empty() {
-            // If no paths configured, use default
-            return vec![SrcProvider::new()];
+            return vec![];
         }
 
         let depth_limit = config.depth_limit.unwrap_or(3);
@@ -102,15 +101,16 @@ mod tests {
 
     #[test]
     fn test_create_src_providers_with_multiple_paths() {
-        use crate::config::SrcConfig;
+        use crate::config::WorldNavConfig;
 
-        let config = SrcConfig {
+        let config = WorldNavConfig {
             src_paths: vec![
                 "/path/one".to_string(),
                 "/path/two".to_string(),
                 "~/projects".to_string(),
             ],
             depth_limit: Some(5),
+            ..WorldNavConfig::default()
         };
 
         // Test that we can create multiple providers (indirectly by testing config)
@@ -128,17 +128,17 @@ mod tests {
 
     #[test]
     fn test_create_src_providers_empty_paths() {
-        use crate::config::SrcConfig;
+        use crate::config::WorldNavConfig;
 
-        let config = SrcConfig {
+        let config = WorldNavConfig {
             src_paths: vec![],
-            depth_limit: Some(3),
+            ..WorldNavConfig::default()
         };
 
         // When src_paths is empty, should fall back to default behavior
         assert_eq!(config.src_paths.len(), 0);
 
-        // The create_src_providers method should return vec![SrcProvider::new()] in this case
+        // The create_src_providers method should return vec![] in this case
         // We're testing the logic that would be executed
         let should_use_default = config.src_paths.is_empty();
         assert!(should_use_default);

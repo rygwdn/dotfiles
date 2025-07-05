@@ -1,11 +1,39 @@
-# Worktree-util zsh integration
+# World-nav zsh integration
 
-# Full featured path segments with worktree-util shortpath
+{{#if init_frecency}}
+# Hook to record directory visits (when PWD changes)
+function __world_nav_visit() {
+    \command {{exe_path}} update-frecency --visit -- "$PWD" 2>/dev/null
+}
+
+# Hook to update access time (when prompt is rendered)
+function __world_nav_access() {
+    \command {{exe_path}} update-frecency -- "$PWD" 2>/dev/null
+}
+
+# Initialize hooks
+\builtin typeset -ga precmd_functions
+\builtin typeset -ga chpwd_functions
+
+# Remove any existing world-nav hooks
+# shellcheck disable=SC2034,SC2296
+precmd_functions=("${(@)precmd_functions:#__world_nav_access}")
+# shellcheck disable=SC2034,SC2296
+chpwd_functions=("${(@)chpwd_functions:#__world_nav_visit}")
+
+# Add our hooks
+precmd_functions+=(__world_nav_access)
+chpwd_functions+=(__world_nav_visit)
+{{/if}}
+
+{{#if init_segments}}
+# Full featured path segments with world-nav shortpath
 function update_path_segments() {
-    local segments=($(worktree-util shortpath -s prefix,shortened,normal "$PWD" 2>/dev/null))
+    local segments=("${(@f)$(world-nav shortpath -s prefix,shortened,normal,colored "$PWD" 2>/dev/null)}")
     export WORKTREE_PATH_PREFIX="$segments[1]"
     export WORKTREE_PATH_SHORTENED="$segments[2]"
     export WORKTREE_PATH_NORMAL="$segments[3]"
+    export WORKTREE_PATH_COLORED="$segments[4]"
 }
 
 # Hook into directory change
@@ -16,6 +44,7 @@ fi
 
 # Initialize path segments
 update_path_segments
+{{/if}}
 
 {{#if init_navigate}}
 # Navigation function
@@ -37,4 +66,4 @@ update_path_segments
         code ${paths[@]}
     fi
 }
-{{/if}} 
+{{/if}}
