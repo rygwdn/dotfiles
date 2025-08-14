@@ -38,13 +38,12 @@ _abbr_if_gt gph '' 'git push origin --set-upstream HEAD'
 _abbr_if_gt rbc '' 'git rebase --continue'
 _abbr_if_gt rbi '' 'git rbi'
 
-set -l nav_util (which world-nav 2>/dev/null || which worktree-util 2>/dev/null)
-if test -z "$nav_util"
-    echo "⚠️  worktree-util not found. Install with 'install_worktree_util'"
+if ! which world-nav &>/dev/null
+    echo "⚠️  world-nav not found. Install with 'install_world_nav'"
 else
-    "$nav_util" shell-init --shell fish --require-version "^0.5.0" 2>/dev/null | source
+    world-nav shell-init --shell fish --require-version "^0.5.0" 2>/dev/null | source
     if test $pipestatus[1] -ne 0
-        echo "⚠️  worktree-util shell integration failed (version mismatch?). Update with 'install_worktree_util'"
+        echo "⚠️  world-nav shell integration failed (version mismatch?). Update with 'install_world_nav'"
     end
 end
 
