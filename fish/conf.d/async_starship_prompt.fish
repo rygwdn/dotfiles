@@ -1,31 +1,19 @@
-# Skip async prompt for simple terminals and non-interactive shells
-test -n "$FISH_SIMPLE_TERM" && exit 0
-status is-interactive || exit 0
-
-set -g STARSHIP_CMD $(which starship || /usr/local/bin/starship)
-test -f "$STARSHIP_CMD" || exit 0
-
 set -g __async_prompt_var _async_prompt_$fish_pid'_rprompt'
 
-# Setup after the user defined prompt functions are loaded.
-function __async_prompt_setup_on_startup --on-event fish_prompt
-    functions -e (status current-function)
+function fish_right_prompt
+    if test "$RIGHT_TRANSIENT" = 1 -o -n "$FISH_SIMPLE_TERM"
+        set -g RIGHT_TRANSIENT 0
+        return
+    end
 
-    set -U $__async_prompt_var
-
-    function fish_right_prompt
-        if test "$RIGHT_TRANSIENT" = 1
-            set -g RIGHT_TRANSIENT 0
-            return
-        end
-
-        if set -q $__async_prompt_var
-            echo -n $$__async_prompt_var
-        end
+    if set -q $__async_prompt_var
+        echo -n $$__async_prompt_var
     end
 end
 
 function __async_prompt_fire --on-event fish_prompt
+    test -n "$FISH_SIMPLE_TERM" && return
+
     set -l __async_prompt_last_pipestatus $pipestatus
 
     if test "$RIGHT_TRANSIENT" = 1
@@ -51,7 +39,6 @@ function __async_prompt_spawn
     end
     set STARSHIP_CMD_PIPESTATUS $__async_prompt_last_pipestatus
     set STARSHIP_CMD_STATUS $status
-    # Account for changes in variable name between v2.7 and v3.0
     set STARSHIP_DURATION "$CMD_DURATION$cmd_duration"
     set STARSHIP_JOBS (count (jobs -p))
 

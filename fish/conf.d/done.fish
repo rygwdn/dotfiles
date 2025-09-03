@@ -255,6 +255,8 @@ if set -q __done_enabled
             else if set -q KITTY_WINDOW_ID
                 printf "\x1b]99;i=done:d=0;$title\x1b\\"
                 printf "\x1b]99;i=done:d=1:p=body;$message\x1b\\"
+            else if set -q WEZTERM_PANE
+                printf "\e]777;notify;%s;%s\e\\" "$title" "$message"
             else if type -q terminal-notifier # https://github.com/julienXX/terminal-notifier
                 if test "$__done_notify_sound" -eq 1
                     # pipe message into terminal-notifier to avoid escaping issues (https://github.com/julienXX/terminal-notifier/issues/134). fixes #140
@@ -262,7 +264,6 @@ if set -q __done_enabled
                 else
                     echo "$message" | terminal-notifier -title "$title" -sender "$__done_initial_window_id"
                 end
-
             else if type -q osascript # AppleScript
                 # escape double quotes that might exist in the message and break osascript. fixes #133
                 set -l message (string replace --all '"' '\"' "$message")

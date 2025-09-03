@@ -74,6 +74,9 @@ fish_add_path \
     /usr/local/bin \
     /opt/local/bin \
     /opt/homebrew/bin \
+    /opt/homebrew/opt/ruby/bin \
+    /opt/homebrew/opt/fish/bin \
+    /opt/homebrew/opt/starship/bin \
     ~/.fzf/bin \
     ~/.poetry/bin
 
@@ -110,15 +113,10 @@ if test "$TERM_PROGRAM" = vscode || test -n "$FISH_NOT_INTERACTIVE"
     set -x FISH_SIMPLE_TERM 1
 end
 
-if which starship &>/dev/null
-    if test -n "$FISH_SIMPLE_TERM"
-        # For FISH_SIMPLE_TERM, use simple prompt without rprompt, async, or transient
-        set -x STARSHIP_CONFIG "$HOME/dotfiles/starship-simple.toml"
-    else
-        # Full starship with all features
-        set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
-        enable_transience
-    end
+if test -n "$FISH_SIMPLE_TERM"
+    set -x STARSHIP_CONFIG "$HOME/dotfiles/starship-simple.toml"
+else
+    set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
 end
 
 test -e ~/.config.local.fish && source ~/.config.local.fish

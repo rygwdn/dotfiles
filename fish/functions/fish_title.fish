@@ -19,8 +19,8 @@ function fish_title
 
     # Use pre-computed shortpath segments from update_path_segments function
     set -l path_display
-    if set -q STARSHIP_PATH_PREFIX; and set -q STARSHIP_PATH_NORMAL; and set -q SHARSHIP_PATH_SHORTENED
-        set path_display "$STARSHIP_PATH_PREFIX$SHARSHIP_PATH_SHORTENED$STARSHIP_PATH_NORMAL"
+    if set -q WORKTREE_PATH_PREFIX; and set -q WORKTREE_PATH_NORMAL; and set -q WORKTREE_PATH_SHORTENED
+        set path_display "$WORKTREE_PATH_PREFIX$WORKTREE_PATH_SHORTENED$WORKTREE_PATH_NORMAL"
     else
         # Fallback to prompt_pwd if env vars aren't set
         set path_display (prompt_pwd -d 1 -D 1)
@@ -40,4 +40,3 @@ function fish_title
 
     echo (string join " " $title_parts)
 end
-
