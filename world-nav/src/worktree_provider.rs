@@ -19,7 +19,12 @@ impl Default for WorktreeProvider {
 
 impl WorktreeProvider {
     pub fn new() -> Self {
-        let config = ConfigManager::load_config();
+        // In tests, don't create config files automatically
+        let config = if cfg!(test) {
+            ConfigManager::load_config_with_options(false)
+        } else {
+            ConfigManager::load_config()
+        };
         WorktreeProvider {
             world_trees_path: config.world_path,
         }

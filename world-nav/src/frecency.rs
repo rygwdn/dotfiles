@@ -21,7 +21,12 @@ impl FrecencyDb {
     }
 
     pub fn from_config() -> Self {
-        let config = ConfigManager::load_config();
+        // In tests, don't create config files automatically
+        let config = if cfg!(test) {
+            ConfigManager::load_config_with_options(false)
+        } else {
+            ConfigManager::load_config()
+        };
         let db_path = expand_path(&config.frecency_db_path);
 
         // Ensure parent directory exists
@@ -312,7 +317,7 @@ mod tests {
 
         // Visit the same path with different representations
         db.visit(test_path, 1).unwrap();
-        db.visit(&format!("{}/.", test_path), 1).unwrap();
+        db.visit(&format!("{test_path}/."), 1).unwrap();
 
         // Both visits should be recorded for the same canonical path
         let score = db.get_score(test_path);
@@ -340,8 +345,8 @@ mod tests {
 
         let test_path = env.create_git_repo("test-repo");
 
-        // Use FrecencyDb directly (it will use the config)
-        let frecency_db = FrecencyDb::new();
+        // Use FrecencyDb with the test environment's path
+        let frecency_db = FrecencyDb::with_path(env.frecency_db_path.clone());
         frecency_db.visit(&test_path.to_string_lossy(), 1).unwrap();
 
         // Verify the visit was recorded
@@ -354,13 +359,14 @@ mod tests {
         use crate::test_utils::test_env::TestEnvironment;
 
         let env = TestEnvironment::new();
+        // Write config before setting env var to ensure file exists
         env.write_config(None);
         env.set_config_env();
 
         let test_path = env.create_git_repo("test-repo");
 
-        // Use FrecencyDb directly - access is treated as visit with count 0
-        let frecency_db = FrecencyDb::new();
+        // Use FrecencyDb with the test environment's path
+        let frecency_db = FrecencyDb::with_path(env.frecency_db_path.clone());
         frecency_db.visit(&test_path.to_string_lossy(), 0).unwrap();
 
         // Verify the access was recorded
@@ -382,8 +388,8 @@ mod tests {
         // Use a simple path that doesn't need canonicalization
         let test_path = "/test/simple/path";
 
-        // Use FrecencyDb directly
-        let frecency_db = FrecencyDb::new();
+        // Use FrecencyDb with the test environment's path
+        let frecency_db = FrecencyDb::with_path(env.frecency_db_path.clone());
 
         // First visit
         frecency_db.visit(test_path, 1).unwrap();
@@ -401,9 +407,7 @@ mod tests {
 
         assert!(
             second_score > first_score,
-            "Multiple visits should increase score: first={}, second={}",
-            first_score,
-            second_score
+            "Multiple visits should increase score: first={first_score}, second={second_score}"
         );
     }
 
@@ -416,7 +420,7 @@ mod tests {
         env.set_config_env();
 
         // Test with non-existent path (should still work as it will be stored as-is)
-        let frecency_db = FrecencyDb::new();
+        let frecency_db = FrecencyDb::with_path(env.frecency_db_path.clone());
         let nonexistent_path = "/nonexistent/path";
 
         frecency_db.visit(nonexistent_path, 1).unwrap();

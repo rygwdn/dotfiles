@@ -29,7 +29,7 @@ chpwd_functions+=(__world_nav_visit)
 {{#if init_segments}}
 # Full featured path segments with world-nav shortpath
 function update_path_segments() {
-    local segments=("${(@f)$(world-nav shortpath -s prefix,shortened,normal,colored "$PWD" 2>/dev/null)}")
+    local segments=("${(@f)$({{exe_path}} shortpath -s prefix,shortened,normal,colored "$PWD" 2>/dev/null)}")
     export WORKTREE_PATH_PREFIX="$segments[1]"
     export WORKTREE_PATH_SHORTENED="$segments[2]"
     export WORKTREE_PATH_NORMAL="$segments[3]"

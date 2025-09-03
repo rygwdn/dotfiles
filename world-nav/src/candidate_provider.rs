@@ -34,7 +34,12 @@ impl CandidateProvider {
 
     /// Creates multiple SrcProvider instances based on configuration file or defaults
     fn create_src_providers() -> Vec<SrcProvider> {
-        let config = ConfigManager::load_config();
+        // In tests, don't create config files automatically
+        let config = if cfg!(test) {
+            ConfigManager::load_config_with_options(false)
+        } else {
+            ConfigManager::load_config()
+        };
 
         if config.src_paths.is_empty() {
             return vec![];

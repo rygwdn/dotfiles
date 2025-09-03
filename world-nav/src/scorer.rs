@@ -559,26 +559,17 @@ mod tests {
 
         assert!(
             lower_score < higher_score,
-            "Query '{}': Expected '{}' ('{}') to score lower than '{}' ('{}')\nScores: {} < {}",
-            query,
-            lower_pattern,
-            lower_bracketed,
-            higher_pattern,
-            higher_bracketed,
-            lower_score,
-            higher_score
+            "Query '{query}': Expected '{lower_pattern}' ('{lower_bracketed}') to score lower than '{higher_pattern}' ('{higher_bracketed}')\nScores: {lower_score} < {higher_score}"
         );
 
         assert_eq!(
             lower_bracketed, lower_pattern,
-            "Query '{}': Lower pattern mismatch\nExpected: '{}'\nActual:   '{}'",
-            query, lower_pattern, lower_bracketed
+            "Query '{query}': Lower pattern mismatch\nExpected: '{lower_pattern}'\nActual:   '{lower_bracketed}'"
         );
 
         assert_eq!(
             higher_bracketed, higher_pattern,
-            "Query '{}': Higher pattern mismatch\nExpected: '{}'\nActual:   '{}'",
-            query, higher_pattern, higher_bracketed
+            "Query '{query}': Higher pattern mismatch\nExpected: '{higher_pattern}'\nActual:   '{higher_bracketed}'"
         );
     }
 

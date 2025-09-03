@@ -72,7 +72,7 @@ pub fn handle(matches: &clap::ArgMatches) {
 fn filter_output(navigator: &WorktreeNavigator, query: &str, show_scores: bool) {
     let paths = navigator.list(query, show_scores);
     for path in paths {
-        println!("{}", path);
+        println!("{path}");
     }
 }
 
@@ -93,6 +93,6 @@ fn navigate(
 
     // For non-interactive mode or when paths are selected
     for path in paths {
-        println!("{}", path);
+        println!("{path}");
     }
 }

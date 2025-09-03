@@ -35,10 +35,7 @@ pub fn handle(matches: &clap::ArgMatches) {
         Ok(v) => v,
         Err(e) => {
             if !quiet {
-                eprintln!(
-                    "Error: Invalid current version '{}': {}",
-                    current_version_str, e
-                );
+                eprintln!("Error: Invalid current version '{current_version_str}': {e}");
             }
             std::process::exit(1);
         }
@@ -49,10 +46,7 @@ pub fn handle(matches: &clap::ArgMatches) {
         Ok(req) => req,
         Err(e) => {
             if !quiet {
-                eprintln!(
-                    "Error: Invalid version requirement '{}': {}",
-                    required_version_str, e
-                );
+                eprintln!("Error: Invalid version requirement '{required_version_str}': {e}");
             }
             std::process::exit(1);
         }
@@ -63,15 +57,9 @@ pub fn handle(matches: &clap::ArgMatches) {
 
     if !quiet {
         if is_compatible {
-            println!(
-                "✓ Version {} satisfies requirement {}",
-                current_version, version_req
-            );
+            println!("✓ Version {current_version} satisfies requirement {version_req}");
         } else {
-            println!(
-                "✗ Version {} does not satisfy requirement {}",
-                current_version, version_req
-            );
+            println!("✗ Version {current_version} does not satisfy requirement {version_req}");
         }
     }
 

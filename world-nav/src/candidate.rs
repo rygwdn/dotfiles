@@ -76,9 +76,9 @@ mod tests {
         branch: Option<&str>,
     ) -> Candidate {
         let path = if let (Some(wt), Some(proj)) = (worktree, project) {
-            format!("/world/trees/{}/src/areas/category/{}", wt, proj)
+            format!("/world/trees/{wt}/src/areas/category/{proj}")
         } else if let (Some(own), Some(rp)) = (owner, repo) {
-            format!("/home/user/src/github.com/{}/{}", own, rp)
+            format!("/home/user/src/github.com/{own}/{rp}")
         } else {
             "/path/to/project".to_string()
         };

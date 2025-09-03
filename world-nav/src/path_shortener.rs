@@ -181,7 +181,7 @@ impl ShortPath {
                 ComponentType::Separator => add_colored_segment(reset, text),
                 ComponentType::Shortened => add_colored_segment(area_color, text),
                 ComponentType::Path => add_colored_segment(area_color, text),
-                ComponentType::Branch => add_colored_segment("\x1b[2m", format!("[{}]", text)),
+                ComponentType::Branch => add_colored_segment("\x1b[2m", format!("[{text}]")),
             }
         }
 
@@ -432,13 +432,13 @@ mod tests {
         let result = result.unwrap();
         assert_eq!(
             result.build(1, &[Prefix]),
-            format!("{}project-name//some-web", SYMBOL_WORLD)
+            format!("{SYMBOL_WORLD}project-name//some-web")
         );
         assert_eq!(result.build(1, &[Infix]), "");
         assert_eq!(result.build(1, &[Suffix]), "/components");
         assert_eq!(
             result.build(1, &[Prefix, Infix, Suffix]),
-            format!("{}project-name//some-web/components", SYMBOL_WORLD)
+            format!("{SYMBOL_WORLD}project-name//some-web/components")
         );
     }
 
@@ -723,17 +723,14 @@ mod tests {
             if should_have_colors {
                 assert!(
                     colored.contains("\x1b["),
-                    "Output should contain ANSI color codes for path: {}",
-                    path
+                    "Output should contain ANSI color codes for path: {path}"
                 );
             }
 
             for text in should_contain {
                 assert!(
                     colored.contains(text),
-                    "Output should contain '{}' for path: {}",
-                    text,
-                    path
+                    "Output should contain '{text}' for path: {path}"
                 );
             }
         }

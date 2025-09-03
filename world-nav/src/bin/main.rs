@@ -4,10 +4,21 @@ use std::env;
 #[path = "../commands/mod.rs"]
 mod commands;
 
+use world_nav::config::ConfigManager;
+
 fn main() {
+    let config_path = ConfigManager::get_config_path();
+    let long_about = format!(
+        "Worktree navigation and path shortening utilities\n\n\
+        Config file: {}\n\
+        Environment variable: WORLD_NAV_CONFIG",
+        config_path.display()
+    );
+
     let app = Command::new("world-nav")
         .version(env!("CARGO_PKG_VERSION"))
         .about("Worktree navigation and path shortening utilities")
+        .long_about(long_about)
         .subcommand_required(true)
         .arg_required_else_help(true)
         .subcommand(commands::update_frecency::command())

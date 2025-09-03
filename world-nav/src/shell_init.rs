@@ -5,42 +5,39 @@ fn get_shell_function(
     args: &str,
     result_command: &str,
 ) -> String {
-    let command = format!("{} {}", exe_path, args);
+    let command = format!("{exe_path} {args}");
 
     match shell {
         "fish" => {
             format!(
-                r#"function {}
-    set -l paths ({} $argv)
+                r#"function {function_name}
+    set -l paths ({command} $argv)
     if test (count $paths) -gt 0
-        {} $paths
+        {result_command} $paths
     end
-end"#,
-                function_name, command, result_command
+end"#
             )
         }
         "bash" => {
             format!(
-                r#"{} () {{
+                r#"{function_name} () {{
     local paths
-    paths=$({} "$@")
+    paths=$({command} "$@")
     if [[ -n "$paths" ]]; then
-        {} $paths
+        {result_command} $paths
     fi
-}}"#,
-                function_name, command, result_command
+}}"#
             )
         }
         "zsh" => {
             format!(
-                r#"{} () {{
+                r#"{function_name} () {{
     local paths
-    paths=($({} "$@"))
+    paths=($({command} "$@"))
     if [[ ${{#paths[@]}} -gt 0 ]]; then
-        {} ${{paths[@]}}
+        {result_command} ${{paths[@]}}
     fi
-}}"#,
-                function_name, command, result_command
+}}"#
             )
         }
         _ => String::new(),
@@ -73,8 +70,7 @@ pub fn validate_function_name(name: &str) -> Result<(), String> {
         Ok(())
     } else {
         Err(format!(
-            "Function name '{}' contains invalid characters. Use only letters, numbers, underscores, and hyphens.",
-            name
+            "Function name '{name}' contains invalid characters. Use only letters, numbers, underscores, and hyphens."
         ))
     }
 }
@@ -97,7 +93,7 @@ pub fn get_shell_init(
             config.args,
             config.result_command,
         )),
-        _ => Err(format!("Unsupported shell: {}", shell)),
+        _ => Err(format!("Unsupported shell: {shell}")),
     }
 }
 

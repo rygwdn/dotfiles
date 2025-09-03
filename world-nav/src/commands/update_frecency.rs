@@ -38,7 +38,7 @@ pub fn handle(matches: &clap::ArgMatches) {
     let visit_count = if is_visit { 1 } else { 0 };
 
     if let Err(e) = db.visit(path, visit_count) {
-        eprintln!("Error updating frecency database: {}", e);
+        eprintln!("Error updating frecency database: {e}");
         std::process::exit(1);
     }
 }

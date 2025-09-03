@@ -186,8 +186,7 @@ mod tests {
         if !paths.is_empty() {
             assert!(
                 output_str.contains("total:") || output_str.contains("score:"),
-                "Expected output to contain 'total:' or 'score:', but got: '{}'",
-                output_str
+                "Expected output to contain 'total:' or 'score:', but got: '{output_str}'"
             );
         }
 

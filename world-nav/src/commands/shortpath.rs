@@ -61,8 +61,7 @@ pub fn handle(matches: &clap::ArgMatches) {
     for s in &sections {
         if !valid_sections.contains(s) {
             eprintln!(
-                "Error: Invalid section '{}'. Valid sections are: prefix, shortened, normal, full, colored, all",
-                s
+                "Error: Invalid section '{s}'. Valid sections are: prefix, shortened, normal, full, colored, all"
             );
             std::process::exit(1);
         }
@@ -121,7 +120,7 @@ pub fn handle(matches: &clap::ArgMatches) {
                 "shortened" => println!("{}", short_path.build(max_segments, &[Infix])),
                 "normal" => println!("{}", short_path.build(max_segments, &[Suffix])),
                 "colored" => println!("{}", short_path.display(None)),
-                _ => eprintln!("Unknown part: {}", part),
+                _ => eprintln!("Unknown part: {part}"),
             }
         }
     }

@@ -11,7 +11,7 @@ pub mod scorer_test_utils {
         let text = pattern.replace("[", "").replace("]", "").replace("🌍 ", "");
 
         if !text.contains("//") {
-            let home_path = format!("/home/user/{}", text);
+            let home_path = format!("/home/user/{text}");
             return Candidate {
                 path: home_path.clone(),
                 shortpath: shorten_path(Path::new(&home_path)),
@@ -23,7 +23,7 @@ pub mod scorer_test_utils {
             .split_once("//")
             .expect("Test pattern should contain '//' for worktree paths");
         let (project, branch): (&str, &str) = rest.split_once(" ").unwrap_or((rest, ""));
-        let path = format!("/world/trees/{}/src/areas/category/{}", worktree, project);
+        let path = format!("/world/trees/{worktree}/src/areas/category/{project}");
 
         Candidate {
             path: path.clone(),
