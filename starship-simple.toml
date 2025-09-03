@@ -3,21 +3,21 @@
 add_newline = false
 
 # Simple format - left prompt only with path and all enabled modules
-format = "${env_var.STARSHIP_PATH_PREFIX}${env_var.STARSHIP_PATH_SHORTENED}${env_var.STARSHIP_PATH_NORMAL}$git_branch$character"
+format = "${env_var.WORKTREE_PATH_PREFIX}${env_var.WORKTREE_PATH_SHORTENED}${env_var.WORKTREE_PATH_NORMAL}$git_branch$character"
 
 command_timeout = 5000
 
-[env_var.STARSHIP_PATH_PREFIX]
+[env_var.WORKTREE_PATH_PREFIX]
 format = "[$env_value]($style)"
 style = "purple"
 description = "Path prefix"
 
-[env_var.STARSHIP_PATH_SHORTENED]
+[env_var.WORKTREE_PATH_SHORTENED]
 format = "[$env_value]($style)"
 style = "cyan"
 description = "Shortened path segments"
 
-[env_var.STARSHIP_PATH_NORMAL]
+[env_var.WORKTREE_PATH_NORMAL]
 format = "[$env_value]($style) "
 style = "bold cyan"
 description = "Full path segments"

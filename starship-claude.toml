@@ -1,0 +1,90 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+add_newline = false
+
+# Simple format using environment variables from statusline script with fill
+format = "${env_var.WORKTREE_PATH_PREFIX}${env_var.WORKTREE_PATH_SHORTENED}${env_var.WORKTREE_PATH_NORMAL}$git_branch${env_var.CLAUDE_MODEL}${env_var.CLAUDE_VERSION}"
+
+# No right_format needed when using fill
+
+command_timeout = 5000
+
+# Environment variables for worktree paths from world-nav
+[env_var.WORKTREE_PATH_PREFIX]
+format = "[$env_value]($style)"
+style = "purple"
+description = "Path prefix from world-nav"
+
+[env_var.WORKTREE_PATH_SHORTENED]
+format = "[$env_value]($style)"
+style = "cyan"
+description = "Shortened path segments from world-nav"
+
+[env_var.WORKTREE_PATH_NORMAL]
+format = "[$env_value]($style) "
+style = "bold cyan"
+description = "Full path segments from world-nav"
+
+# Claude Code environment variables
+[env_var.CLAUDE_MODEL]
+format = "[⚡ $env_value]($style) "
+style = "bold yellow"
+description = "Claude model name"
+
+[env_var.CLAUDE_VERSION]
+format = "[v$env_value]($style) "
+style = "dimmed white"
+description = "Claude Code version"
+
+# Fill module to push content to the right
+#[fill]
+#symbol = " "
+
+# Git branch - same as starship-simple.toml
+[git_branch]
+format = '[$symbol$branch(:$remote_branch)]($style) '
+
+# Character prompt
+[character]
+success_symbol = "[❯](bold green)"
+error_symbol = "[❯](bold red)"
+
+# Command duration
+[cmd_duration]
+format = "[$duration]($style) "
+style = "yellow"
+min_time = 2000
+show_milliseconds = false
+
+# Jobs indicator
+[jobs]
+format = "[$symbol$number]($style) "
+symbol = "⚙ "
+style = "blue"
+threshold = 1
+
+# Time display
+[time]
+disabled = false
+format = '[$time]($style) '
+style = "dimmed white"
+time_format = "%H:%M"
+
+# Disable modules we don't need
+[username]
+disabled = true
+
+[hostname]
+disabled = true
+
+[directory]
+disabled = true  # Using world-nav instead
+
+[gcloud]
+disabled = true
+
+[container]
+disabled = true
+
+[git_status]
+disabled = true  # Keep it simple like starship-simple.toml
