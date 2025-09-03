@@ -96,7 +96,7 @@ local function tab_title(tab_info)
 	-- Otherwise, use the title from the active pane
 	-- in that tab
 	local pane = tab_info.active_pane
-	if pane.domain_name and pane.domain_name ~= "unix" then
+	if pane.domain_name and pane.domain_name ~= "local" then
 		return pane.title .. " - (" .. pane.domain_name .. ")"
 	end
 
@@ -120,7 +120,7 @@ wezterm.on("update-status", function(window, pane)
 	end
 
 	local domain = pane:get_domain_name()
-	if domain and domain ~= "unix" then
+	if domain and domain ~= "local" then
 		table.insert(cells, domain)
 	else
 		table.insert(cells, "")
@@ -173,10 +173,6 @@ wezterm.on("update-status", function(window, pane)
 
 	window:set_right_status(wezterm.format(elements))
 end)
-
--- Mux
-config.unix_domains = { { name = "unix" } }
-config.default_gui_startup_args = { "connect", "unix" }
 
 -- Local config
 local local_config_path = wezterm.home_dir .. "/.wezterm.local.lua"
