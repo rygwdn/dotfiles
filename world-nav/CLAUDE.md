@@ -4,28 +4,49 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Shortpath is a Rust CLI tool that shortens file system paths for shell prompts. It's designed specifically for integration with Starship prompt and contains custom logic for the author's development environment.
+World-nav is a Rust CLI tool for worktree navigation and path shortening utilities. It provides:
+- Fast directory jumping with frecency-based ranking
+- Path shortening for shell prompts
+- Shell integration for Fish and Zsh
+- Version compatibility checking
 
-## Build and Development Commands
+## Installation
+
+Use the install script for a complete installation with quality checks:
 
 ```bash
-# Build the project
-cargo build
+# Run the install script (includes formatting, linting, and tests)
+./install.sh
+```
+
+The install script will:
+1. Install the Rust toolchain from `rust-toolchain.toml`
+2. Run formatter checks (`cargo fmt -- --check`)
+3. Run linter checks (`cargo clippy -- -D warnings`)
+4. Run all tests (`cargo test`)
+5. Build the release binary
+6. Install to `~/.cargo/bin/world-nav`
+
+## Development Commands
+
+```bash
+# Format code
+cargo fmt
+
+# Run linter
+cargo clippy -- -W clippy::all
 
 # Run tests
 cargo test
 
-# Format code (configured via rustfmt.toml)
-cargo fmt
+# Build debug version
+cargo build
 
-# Run linter (configured in Cargo.toml)
-cargo clippy
-
-# Install locally
-cargo install --path .
+# Build release version
+cargo build --release
 
 # Run with specific arguments
-cargo run -- [OPTIONS] [PATH]
+cargo run -- [SUBCOMMAND] [OPTIONS]
 
 # Update dependencies
 cargo update
@@ -33,34 +54,79 @@ cargo update
 
 ## Architecture
 
-The project follows a single-file architecture with all code in `src/main.rs`. Key components:
+The project is organized into multiple modules:
 
-1. **ShortPath struct**: Core data structure with `prefix`, `shortened`, and `normal` fields
-2. **Path processing priority** (highest to lowest):
-   - World trees paths (custom `/world/trees/` pattern)
+### Commands
+- `shell-init`: Generates shell integration code with version checking
+- `shortpath`: Shortens paths for shell prompts
+- `navigate`: Jump to directories based on frecency
+- `update-frecency`: Updates directory visit statistics
+- Other navigation and utility commands
+
+### Key Features
+
+1. **Version Compatibility**: The `shell-init` command supports `--require-version` that accepts either:
+   - A version string (e.g., `"^0.5.1"`)
+   - A path to a Cargo.toml file to extract version from
+
+2. **Path Shortening**: Custom logic for different path types:
    - Git repository paths (using libgit2)
    - Home directory paths
-   - Regular paths
+   - World trees paths (custom pattern)
 
-3. **Symbol constants**:
-   - `SYMBOL_WORLD`: `\u{f484}` (nf-oct-globe)
-   - `SYMBOL_GIT`: `\u{e0a0}` (nf-pl-branch)
-   - `SYMBOL_HOME`: `~`
-   - `SYMBOL_ROOT`: `/`
+3. **Shell Integration**: Supports Fish and Zsh with:
+   - Directory navigation functions
+   - Frecency tracking hooks
+   - Path segment updates for prompts
 
-## Special Considerations
+## Shell Integration
 
-1. **World Trees Path Pattern**: Highly specific to author's environment
-   - Pattern: `/world/trees/[project]/src/areas/[area]/[component]/...`
-   - Output: `[SYMBOL_WORLD] [project]//[component]/...`
+To integrate with your shell, add to your config:
 
-2. **Rust Edition**: Uses 2024 edition
-3. **Dependencies**: Uses latest versions of clap, dirs, git2, and regex
-4. **Linting**: Strict Clippy configuration with warnings for unwrap_used, expect_used, etc.
+```fish
+# Fish shell (~/.config/fish/config.fish)
+if status is-interactive
+    which world-nav &>/dev/null && world-nav shell-init --shell fish --require-version ~/dotfiles/world-nav/Cargo.toml | source
+end
+```
+
+```zsh
+# Zsh shell (~/.zshrc)
+if [[ $- == *i* ]] && command -v world-nav &>/dev/null; then
+    eval "$(world-nav shell-init --shell zsh --require-version ~/dotfiles/world-nav/Cargo.toml)"
+fi
+```
+
+## Configuration
+
+The tool uses several configuration files:
+- `rust-toolchain.toml`: Specifies Rust version (1.89.0)
+- `Cargo.toml`: Project dependencies and linting rules
+
+## Linting Configuration
+
+The project enforces strict linting rules:
+- Complexity warnings
+- Correctness denials
+- Performance warnings
+- Style warnings
+- Specific warnings for `unwrap_used`, `expect_used`, `panic`, etc.
 
 ## Testing
 
-All tests are in the main source file. Run specific tests with:
+Run all tests:
+```bash
+cargo test
+```
+
+Run specific test:
 ```bash
 cargo test test_name
 ```
+
+## Troubleshooting
+
+If you encounter version mismatch errors:
+1. Run `./install.sh` to rebuild and install the latest version
+2. The error message will show the installed version vs required version
+3. The build script path is captured at compile time for accurate error messages

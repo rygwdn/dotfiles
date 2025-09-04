@@ -3,9 +3,12 @@
 use clap::{ArgMatches, Args, Command, ValueEnum};
 use handlebars::Handlebars;
 use semver::{Version, VersionReq};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::env;
+use std::fs;
 use std::io::{self, Write};
+use std::path::Path;
 
 #[derive(ValueEnum, Clone, Debug)]
 pub enum Shell {
@@ -27,7 +30,7 @@ pub struct ShellInitArgs {
     #[arg(long, default_value = "jc")]
     pub code: String,
 
-    /// Required version for compatibility checks (optional)
+    /// Required version - either a version string (e.g., "^0.5.1") or path to Cargo.toml
     #[arg(long)]
     pub require_version: Option<String>,
 
@@ -92,6 +95,26 @@ pub fn handle_from_matches(matches: &ArgMatches) {
     handle(&args).expect("Shell init should not fail")
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+struct CargoToml {
+    package: Package,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct Package {
+    version: String,
+}
+
+fn extract_version_from_cargo_toml(path: &Path) -> io::Result<String> {
+    let contents = fs::read_to_string(path)?;
+    let cargo_toml: CargoToml = toml::from_str(&contents)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
+
+    Ok(format!("^{}", cargo_toml.package.version))
+}
+
+const BUILD_SCRIPT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/install.sh");
+
 fn check_version_compatibility(require_version: &str) -> bool {
     let current_version_str = env!("CARGO_PKG_VERSION");
 
@@ -154,9 +177,42 @@ fn generate_shell_code(
 }
 
 pub fn handle(args: &ShellInitArgs) -> io::Result<()> {
+    // Determine the required version - check if it's a file path or version string
+    let require_version = if let Some(ref version_arg) = args.require_version {
+        // Check if it looks like a file path
+        let path = Path::new(version_arg);
+        if path.exists() && path.extension().is_some_and(|ext| ext == "toml") {
+            // It's a path to a TOML file
+            Some(extract_version_from_cargo_toml(path).map_err(|e| {
+                eprintln!("⚠️  Failed to read version from {version_arg}: {e}");
+                e
+            })?)
+        } else if version_arg.contains('/') || version_arg.contains('\\') {
+            // It looks like a path but doesn't exist
+            eprintln!("⚠️  Version file not found: {version_arg}");
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("Version file not found: {version_arg}"),
+            ));
+        } else {
+            // It's a version string
+            Some(version_arg.clone())
+        }
+    } else {
+        None
+    };
+
     // Check version compatibility if required
-    let version_compatible = if let Some(ref require_version) = args.require_version {
-        check_version_compatibility(require_version)
+    let version_compatible = if let Some(ref req_version) = require_version {
+        let compatible = check_version_compatibility(req_version);
+        if !compatible {
+            let current_version = env!("CARGO_PKG_VERSION");
+            eprintln!(
+                "⚠️  world-nav version mismatch: installed v{current_version}, required {req_version}"
+            );
+            eprintln!("⚠️  Run '{BUILD_SCRIPT_PATH}' to update");
+        }
+        compatible
     } else {
         true // No version requirement means always compatible
     };

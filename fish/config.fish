@@ -38,15 +38,8 @@ _abbr_if_gt gph '' 'git push origin --set-upstream HEAD'
 _abbr_if_gt rbc '' 'git rebase --continue'
 _abbr_if_gt rbi '' 'git rbi'
 
-if status is-interactive
-    if ! which world-nav &>/dev/null
-        echo "⚠️  world-nav not found. Install with 'install_world_nav'"
-    else
-        world-nav shell-init --shell fish --require-version "^0.5.1" 2>/dev/null | source
-        if test $pipestatus[1] -ne 0
-            echo "⚠️  world-nav shell integration failed (version mismatch?). Update with 'install_world_nav'"
-        end
-    end
+if status is-interactive && which world-nav &>/dev/null
+    world-nav shell-init --shell fish --require-version ~/dotfiles/world-nav/Cargo.toml | source
 end
 
 abbr st git st

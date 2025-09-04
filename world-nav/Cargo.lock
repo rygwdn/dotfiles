@@ -2315,6 +2315,7 @@ dependencies = [
  "skim",
  "tempfile",
  "test-case",
+ "toml",
  "walkdir",
 ]
 
