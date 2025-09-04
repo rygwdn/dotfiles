@@ -24,7 +24,7 @@ impl CandidateItem {
 }
 
 impl SkimItem for CandidateItem {
-    fn text(&self) -> Cow<str> {
+    fn text(&self) -> Cow<'_, str> {
         Cow::Owned(self.candidate.get_match_text())
     }
 
@@ -46,7 +46,7 @@ impl SkimItem for CandidateItem {
         ItemPreview::Text(self.candidate.path.clone())
     }
 
-    fn output(&self) -> Cow<str> {
+    fn output(&self) -> Cow<'_, str> {
         Cow::Borrowed(&self.candidate.path)
     }
     fn get_index(&self) -> usize {
