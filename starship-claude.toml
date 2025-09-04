@@ -3,7 +3,7 @@
 add_newline = false
 
 # Simple format using environment variables from statusline script with fill
-format = "${env_var.WORKTREE_PATH_PREFIX}${env_var.WORKTREE_PATH_SHORTENED}${env_var.WORKTREE_PATH_NORMAL}$git_branch${env_var.CLAUDE_MODEL}${env_var.CLAUDE_VERSION}"
+format = "${env_var.WORKTREE_PATH_PREFIX}${env_var.WORKTREE_PATH_SHORTENED}${env_var.WORKTREE_PATH_NORMAL}$git_branch${env_var.CLAUDE_MODEL}${env_var.CLAUDE_VERSION}${env_var.CLAUDE_COST}${env_var.CLAUDE_LINES}"
 
 # No right_format needed when using fill
 
@@ -35,6 +35,22 @@ description = "Claude model name"
 format = "[v$env_value]($style) "
 style = "dimmed white"
 description = "Claude Code version"
+
+# Claude Code cost tracking (only shows when non-zero)
+[env_var.CLAUDE_COST]
+format = '[$env_value]($style) '
+style = "cyan"
+description = "Total cost in dollars"
+variable = "CLAUDE_COST"
+default = ""
+
+# Claude Code lines changed (only shows when there are changes)
+[env_var.CLAUDE_LINES]
+format = '[$env_value]($style) '
+style = "green"
+description = "Lines added/removed"
+variable = "CLAUDE_LINES_CHANGES"
+default = ""
 
 # Fill module to push content to the right
 #[fill]
