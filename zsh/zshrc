@@ -4,6 +4,8 @@
 [[ -x /opt/homebrew/bin/gcc-11 ]] && export CC=/opt/homebrew/bin/gcc-11
 [[ -f /opt/dev/sh/chruby/chruby.sh ]] && { type chruby >/dev/null 2>&1 || chruby () { source /opt/dev/sh/chruby/chruby.sh; chruby "$@"; } }
 
+export PATH=/opt/homebrew/bin:$PATH
+
 # pass unmatched globs verbatim to the command, allowing things like `HEAD^` to work
 setopt NO_NOMATCH
 
