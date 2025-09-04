@@ -4,6 +4,7 @@ version = "0.5.1"
 edition = "2021"
 description = "Worktree navigation and path shortening utilities"
 authors = ["Ryan Wooden"]
+rust-version = "1.89"
 
 [[bin]]
 name = "world-nav"

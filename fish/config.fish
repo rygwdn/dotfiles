@@ -61,6 +61,7 @@ fish_add_path \
     ~/.bin \
     ~/dotfiles/bin \
     ~/.local/bin \
+    /opt/homebrew/opt/rustup/bin \
     ~/.cabal/bin \
     ~/.cargo/bin \
     ~/.rvm/bin \
