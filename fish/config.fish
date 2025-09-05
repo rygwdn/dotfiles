@@ -56,7 +56,7 @@ abbr mdf cd ~/dotfiles
 
 set -U __done_exclude '(git (?!push|pull)|vim)'
 
-fish_add_path \
+fish_add_path -m \
     ~/bin \
     ~/.bin \
     ~/dotfiles/bin \

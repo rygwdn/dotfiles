@@ -21,6 +21,7 @@ fn main() {
         .long_about(long_about)
         .subcommand_required(true)
         .arg_required_else_help(true)
+        .subcommand(commands::config::command())
         .subcommand(commands::update_frecency::command())
         .subcommand(commands::shortpath::command())
         .subcommand(commands::nav::command())
@@ -30,6 +31,7 @@ fn main() {
     let matches = app.get_matches();
 
     match matches.subcommand() {
+        Some(("config", sub_matches)) => commands::config::handle(sub_matches),
         Some(("update-frecency", sub_matches)) => commands::update_frecency::handle(sub_matches),
         Some(("shortpath", sub_matches)) => commands::shortpath::handle(sub_matches),
         Some(("nav", sub_matches)) => commands::nav::handle(sub_matches),

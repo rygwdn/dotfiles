@@ -1,3 +1,4 @@
+pub mod config;
 pub mod nav;
 pub mod shell_init;
 pub mod shortpath;
