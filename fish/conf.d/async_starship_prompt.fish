@@ -1,8 +1,8 @@
 set -g __async_prompt_var _async_prompt_$fish_pid'_rprompt'
 
 function fish_right_prompt
-    if test "$RIGHT_TRANSIENT" = 1 -o -n "$FISH_SIMPLE_TERM"
-        set -g RIGHT_TRANSIENT 0
+    # Hide right prompt when transient
+    if contains -- --final-rendering $argv
         return
     end
 
@@ -15,11 +15,6 @@ function __async_prompt_fire --on-event fish_prompt
     test -n "$FISH_SIMPLE_TERM" && return
 
     set -l __async_prompt_last_pipestatus $pipestatus
-
-    if test "$RIGHT_TRANSIENT" = 1
-        set -g RIGHT_TRANSIENT 0
-        return
-    end
 
     if set -q $__async_prompt_var
         # Strip ANSI colors and show in brblack

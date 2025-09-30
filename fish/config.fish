@@ -95,6 +95,9 @@ set fish_cursor_default block
 set fish_cursor_insert line
 set fish_cursor_replace_one underscore
 
+set -x SHELL (which fish)
+set -x STARSHIP_SHELL fish
+
 if test -n "$COMPOSER_NO_INTERACTION" || ! status is-interactive
     set -x FISH_NOT_INTERACTIVE 1
 
@@ -113,6 +116,7 @@ if test -n "$FISH_SIMPLE_TERM"
     set -x STARSHIP_CONFIG "$HOME/dotfiles/starship-simple.toml"
 else
     set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
+    set -g fish_transient_prompt 1
 end
 
 test -e ~/.config.local.fish && source ~/.config.local.fish
