@@ -13,7 +13,9 @@ config.scrollback_lines = 100000
 
 -- Keys
 config.leader = { key = "a", mods = "CTRL" }
-config.keys = {}
+config.keys = {
+  {key="Enter", mods="SHIFT", action=wezterm.action{SendString="\x1b\r"}},
+}
 
 local wez_tmux = wezterm.plugin.require("https://github.com/sei40kr/wez-tmux")
 wez_tmux.apply_to_config(config, {})
