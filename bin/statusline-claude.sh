@@ -4,7 +4,7 @@
 # Docs: https://docs.anthropic.com/en/docs/claude-code/statusline
 #
 # This script generates a custom status line for Claude Code using Starship
-# 
+#
 # Available JSON fields from Claude Code:
 #   - session_id: The current session ID
 #   - transcript_path: Path to the transcript file
@@ -21,37 +21,37 @@
 
 # Check for install flag
 if [[ "$1" == "--install" ]] || [[ "$1" == "-i" ]]; then
-    SETTINGS_FILE="$HOME/.claude/settings.json"
-    SCRIPT_PATH="$(realpath "$0")"
-    
-    # Check if settings file exists
-    if [[ ! -f "$SETTINGS_FILE" ]]; then
-        echo "Error: Claude settings file not found at $SETTINGS_FILE"
-        echo "Please ensure Claude Code is installed and configured first."
-        exit 1
-    fi
-    
-    # Update the settings file with the statusLine configuration
-    if jq --arg cmd "$SCRIPT_PATH" '.statusLine = {"type": "command", "command": $cmd, "padding": 0}' "$SETTINGS_FILE" > "${SETTINGS_FILE}.tmp"; then
-        mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
-        echo "Successfully installed statusline to Claude config:"
-        echo "  Script: $SCRIPT_PATH"
-        echo "  Config: $SETTINGS_FILE"
-        echo ""
-        echo "Test the statusline with: $0 --test"
-    else
-        echo "Error: Failed to update Claude settings file"
-        rm -f "${SETTINGS_FILE}.tmp"
-        exit 1
-    fi
-    exit 0
+  SETTINGS_FILE="$HOME/.claude/settings.json"
+  SCRIPT_PATH="$(realpath "$0")"
+
+  # Check if settings file exists
+  if [[ ! -f "$SETTINGS_FILE" ]]; then
+    echo "Error: Claude settings file not found at $SETTINGS_FILE"
+    echo "Please ensure Claude Code is installed and configured first."
+    exit 1
+  fi
+
+  # Update the settings file with the statusLine configuration
+  if jq --arg cmd "$SCRIPT_PATH" '.statusLine = {"type": "command", "command": $cmd, "padding": 0}' "$SETTINGS_FILE" >"${SETTINGS_FILE}.tmp"; then
+    mv "${SETTINGS_FILE}.tmp" "$SETTINGS_FILE"
+    echo "Successfully installed statusline to Claude config:"
+    echo "  Script: $SCRIPT_PATH"
+    echo "  Config: $SETTINGS_FILE"
+    echo ""
+    echo "Test the statusline with: $0 --test"
+  else
+    echo "Error: Failed to update Claude settings file"
+    rm -f "${SETTINGS_FILE}.tmp"
+    exit 1
+  fi
+  exit 0
 fi
 
 (
   # Check for test flag
   if [[ "$1" == "--test" ]] || [[ "$1" == "-t" ]]; then
-      # Use test values with all available fields
-      input='{
+    # Use test values with all available fields
+    input='{
           "session_id": "test-session-123",
           "transcript_path": "/tmp/test-transcript.md",
           "model": {"id": "claude-opus-4-1", "display_name": "Opus 4.1"},
@@ -68,8 +68,8 @@ fi
           }
       }'
   else
-      # Read Claude Code context from stdin
-      input=$(cat)
+    # Read Claude Code context from stdin
+    input=$(cat)
   fi
 
   # Extract and export all Claude variables in one jq expression
@@ -102,21 +102,23 @@ fi
       end | @sh
     )
   ')
-  
+
   # Extract current_dir separately as we need it for cd
   current_dir=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // "/"')
 
   # Run world-nav to get path components
-  if command -v world-nav &> /dev/null; then
-      # Get the different path sections from world-nav
-      export WORKTREE_PATH_PREFIX=$(world-nav shortpath --section prefix "$current_dir" 2>/dev/null || echo "")
-      export WORKTREE_PATH_SHORTENED=$(world-nav shortpath --section shortened "$current_dir" 2>/dev/null || echo "")
-      export WORKTREE_PATH_NORMAL=$(world-nav shortpath --section normal "$current_dir" 2>/dev/null || echo "")
+  if command -v world-nav &>/dev/null; then
+    # Get the different path sections from world-nav
+    export WORKTREE_PATH_PREFIX=$(world-nav shortpath --section prefix "$current_dir" 2>/dev/null || echo "")
+    export WORKTREE_PATH_SHORTENED=$(world-nav shortpath --section shortened "$current_dir" 2>/dev/null || echo "")
+    export WORKTREE_PATH_NORMAL=$(world-nav shortpath --section normal "$current_dir" 2>/dev/null || echo "")
   fi
 
   # Change to the current directory for accurate git/project context
   cd "$current_dir" 2>/dev/null || cd /
 
   # Use starship with your custom config to generate the prompt
-  STARSHIP_CONFIG=/Users/ryanwooden/dotfiles/starship-claude.toml starship prompt #--terminal-width=${cols:-120}
-) | head -1 2> /dev/null
+  export STARSHIP_SHELL=
+  export STARSHIP_CONFIG=$HOME/dotfiles/starship-claude.toml
+  starship prompt
+) | head -1 2>/dev/null
