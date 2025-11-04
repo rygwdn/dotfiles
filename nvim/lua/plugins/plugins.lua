@@ -1,5 +1,5 @@
 return {
-  { "echasnovski/mini.pairs", enabled = false },
+  { "nvim-mini/mini.pairs", enabled = false },
   {
     "windwp/nvim-autopairs",
     enabled = false,
@@ -16,6 +16,18 @@ return {
       opts.format_on_save = nil
     end,
   },
+
+  -- {
+  --   "pwntester/octo.nvim",
+  --   requires = {
+  --     "nvim-lua/plenary.nvim",
+  --     "folke/snacks.nvim",
+  --     "nvim-tree/nvim-web-devicons",
+  --   },
+  --   opts = function(_, opts)
+  --     opts.picker = "snacks"
+  --   end,
+  -- },
 
   {
     "tpope/vim-eunuch",

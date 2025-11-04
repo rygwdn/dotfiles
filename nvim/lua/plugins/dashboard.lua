@@ -26,7 +26,7 @@ return {
           title = "Git Status",
           section = "terminal",
           enabled = Snacks.git.get_root() ~= nil,
-          cmd = '[[ -f "$(git rev-parse --show-toplevel)/.git/.graphite_repo_config" ]] && gt log short -sa || git status --short --branch --renames',
+          cmd = 'git status --short --branch --renames',
           height = 5,
           padding = 1,
           ttl = 5 * 60,
