@@ -112,6 +112,12 @@ if test "$TERM_PROGRAM" = vscode || test -n "$FISH_NOT_INTERACTIVE"
     set -x FISH_SIMPLE_TERM 1
 end
 
+# Suppress OSC 10/11 responses that leak in tmux+vscode
+if test "$TERM_PROGRAM" = vscode && set -q TMUX
+    printf '\e]10;?\e\\'
+    printf '\e]11;?\e\\'
+end
+
 if test -n "$FISH_SIMPLE_TERM"
     set -x STARSHIP_CONFIG "$HOME/dotfiles/starship-simple.toml"
 else
