@@ -13,19 +13,28 @@ all_platforms = [
     "ripgreprc",
     "hammerspoon",
     "wezterm.lua",
-    ("fish", ".config/fish"),
     ("tridactyl", ".config/tridactyl"),
     ("kitty.conf", ".config/kitty/kitty.conf"),
 ]
 
-windows_links = all_platforms + [
+fish_contents = [
+    ("fish/completions", ".config/fish/completions"),
+    ("fish/conf.d", ".config/fish/conf.d"),
+    ("fish/config.fish", ".config/fish/config.fish"),
+    ("fish/fish_plugins", ".config/fish/fish_plugins"),
+    ("fish/fish_variables", ".config/fish/fish_variables"),
+    ("fish/functions", ".config/fish/functions"),
+    ("fish/themes", ".config/fish/themes"),
+]
+
+windows_links = all_platforms + fish_contents + [
     ("nvim", ".config/nvim"),
     ("_vsvimrc",  "_vsvimrc"),
     ("windows/profile.ps1",  "Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"),
     ("win-vind",  ".win-vind"),
 ]
 
-unix_links = all_platforms + [
+unix_links = all_platforms + fish_contents + [
     ("nvim", ".config/nvim"),
     "flexget",
     "tmux.conf",
@@ -101,6 +110,7 @@ def main():
 
     if not args.dry:
         Path(Path.home(), ".config").mkdir(exist_ok=True)
+        Path(Path.home(), ".config/fish").mkdir(exist_ok=True)
         Path(Path.home(), ".config/kitty").mkdir(exist_ok=True)
 
         for op in operations:

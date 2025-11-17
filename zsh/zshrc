@@ -1,5 +1,3 @@
-[[ -f "$HOME/.zshrc-pre" ]] && source "$HOME/.zshrc-pre"
-
 [[ -x /opt/homebrew/bin/brew ]] && eval $(/opt/homebrew/bin/brew shellenv)
 [[ -x /opt/homebrew/bin/gcc-11 ]] && export CC=/opt/homebrew/bin/gcc-11
 [[ -f /opt/dev/sh/chruby/chruby.sh ]] && { type chruby >/dev/null 2>&1 || chruby () { source /opt/dev/sh/chruby/chruby.sh; chruby "$@"; } }
@@ -104,6 +102,5 @@ zi light starship/starship
 
 # }}}
 
-[[ -f "$HOME/.zshrc-post" ]] && zi ice light-mode link && zi snippet "$HOME/.zshrc-post"
 
 # vim:foldmethod=marker:foldlevel=0:

@@ -124,5 +124,3 @@ else
     set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
     set -g fish_transient_prompt 1
 end
-
-test -e ~/.config.local.fish && source ~/.config.local.fish
