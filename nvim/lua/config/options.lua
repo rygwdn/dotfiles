@@ -9,6 +9,7 @@ vim.g.maplocalleader = ","
 
 vim.opt.clipboard = "unnamed"
 vim.opt.spell = false
+vim.g.autoformat = false
 -- vim.opt.termsync = false
 
 if os.getenv("SSH_CLIENT") ~= nil or os.getenv("SSH_TTY") ~= nil then
