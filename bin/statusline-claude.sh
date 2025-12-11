@@ -2,6 +2,7 @@
 #
 # Claude Code Statusline Script
 # Docs: https://docs.anthropic.com/en/docs/claude-code/statusline
+#       https://code.claude.com/docs/en/statusline.md
 #
 # This script generates a custom status line for Claude Code using Starship
 #
