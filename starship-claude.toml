@@ -46,7 +46,7 @@ default = ""
 
 # Lines added (green, padded to 4 digits)
 [env_var.CLAUDE_LINES_ADDED]
-format = '[+$env_value]($style)'
+format = '[+$env_value/]($style)'
 style = "green"
 description = "Lines added"
 variable = "CLAUDE_LINES_ADDED_PADDED"
@@ -54,7 +54,7 @@ default = ""
 
 # Lines removed (yellow, padded to 4 digits)
 [env_var.CLAUDE_LINES_REMOVED]
-format = '/[-$env_value]($style) '
+format = '[-$env_value]($style) '
 style = "yellow"
 description = "Lines removed"
 variable = "CLAUDE_LINES_REMOVED_PADDED"

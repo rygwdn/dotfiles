@@ -172,8 +172,8 @@ fi
         "export CLAUDE_CONTEXT_DISPLAY="
       end
     ),
-    # Lines changed with padding for 4-digit numbers (pad right to fixed width)
-    "export CLAUDE_LINES_ADDED_PADDED=" + ((.cost.total_lines_added // 0) | tostring | (. + (" " * (4 - length))) | @sh),
+    # Lines changed: added unpadded, removed padded right for consistent total width
+    "export CLAUDE_LINES_ADDED_PADDED=" + ((.cost.total_lines_added // 0) | tostring | @sh),
     "export CLAUDE_LINES_REMOVED_PADDED=" + ((.cost.total_lines_removed // 0) | tostring | (. + (" " * (4 - length))) | @sh)
   ')
 
