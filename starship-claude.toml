@@ -3,7 +3,7 @@
 add_newline = false
 
 # Simple format using environment variables from statusline script with fill
-format = "${env_var.WORKTREE_PATH_PREFIX}${env_var.WORKTREE_PATH_SHORTENED}${env_var.WORKTREE_PATH_NORMAL}$git_branch${env_var.CLAUDE_MODEL}${env_var.CLAUDE_VERSION}${env_var.CLAUDE_COST}${env_var.CLAUDE_LINES}"
+format = "${env_var.WORKTREE_PATH_PREFIX}${env_var.WORKTREE_PATH_SHORTENED}${env_var.WORKTREE_PATH_NORMAL}$git_branch${env_var.CLAUDE_MODEL}${env_var.CLAUDE_VERSION}${env_var.CLAUDE_COST}${env_var.CLAUDE_LINES}${env_var.CLAUDE_CONTEXT_GREEN}${env_var.CLAUDE_CONTEXT_YELLOW}${env_var.CLAUDE_CONTEXT_RED}${env_var.CLAUDE_NEW_FIELDS}"
 
 # No right_format needed when using fill
 
@@ -50,6 +50,38 @@ format = '[$env_value]($style) '
 style = "green"
 description = "Lines added/removed"
 variable = "CLAUDE_LINES_CHANGES"
+default = ""
+
+# Context remaining - green (>50%)
+[env_var.CLAUDE_CONTEXT_GREEN]
+format = '[$env_value]($style) '
+style = "green"
+description = "Context remaining (healthy)"
+variable = "CLAUDE_CONTEXT_GREEN"
+default = ""
+
+# Context remaining - yellow (25-50%)
+[env_var.CLAUDE_CONTEXT_YELLOW]
+format = '[$env_value]($style) '
+style = "yellow"
+description = "Context remaining (moderate)"
+variable = "CLAUDE_CONTEXT_YELLOW"
+default = ""
+
+# Context remaining - red (<25%)
+[env_var.CLAUDE_CONTEXT_RED]
+format = '[$env_value]($style) '
+style = "bold red"
+description = "Context remaining (low)"
+variable = "CLAUDE_CONTEXT_RED"
+default = ""
+
+# Unknown fields indicator (shows when new fields are detected)
+[env_var.CLAUDE_NEW_FIELDS]
+format = '[$env_value]($style) '
+style = "bold red"
+description = "Unknown fields detected in Claude JSON"
+variable = "CLAUDE_NEW_FIELDS"
 default = ""
 
 # Fill module to push content to the right
