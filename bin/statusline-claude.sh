@@ -157,28 +157,31 @@ fi
         ""
       end | @sh
     ),
-    # Context window percentage remaining
+    # Context window percentage used
     (
       (.context_window.total_input_tokens // 0) as $input |
       (.context_window.total_output_tokens // 0) as $output |
       (.context_window.context_window_size // 0) as $size |
       if $size > 0 then
-        ((($size - $input - $output) * 100 / $size) | floor) as $pct |
+        ((($input + $output) * 100 / $size) | floor) as $pct |
         "export CLAUDE_CONTEXT_PCT=" + ($pct | tostring | @sh),
         "export CLAUDE_CONTEXT_DISPLAY=" + (($pct | tostring) + "%" | @sh)
       else
         "export CLAUDE_CONTEXT_PCT=",
         "export CLAUDE_CONTEXT_DISPLAY="
       end
-    )
+    ),
+    # Lines changed with padding for 4-digit numbers
+    "export CLAUDE_LINES_ADDED_PADDED=" + ((.cost.total_lines_added // 0) | tostring | ((" " * (4 - length)) + .) | @sh),
+    "export CLAUDE_LINES_REMOVED_PADDED=" + ((.cost.total_lines_removed // 0) | tostring | ((" " * (4 - length)) + .) | @sh)
   ')
 
   # Set context display in color-specific vars (starship can't do dynamic styling)
-  # Only one of these will be set based on the percentage threshold
+  # Colors based on usage: green (<50%), yellow (50-75%), red (>75%)
   if [[ -n "$CLAUDE_CONTEXT_PCT" ]]; then
-    if [[ $CLAUDE_CONTEXT_PCT -gt 50 ]]; then
+    if [[ $CLAUDE_CONTEXT_PCT -lt 50 ]]; then
       export CLAUDE_CONTEXT_GREEN="$CLAUDE_CONTEXT_DISPLAY"
-    elif [[ $CLAUDE_CONTEXT_PCT -gt 25 ]]; then
+    elif [[ $CLAUDE_CONTEXT_PCT -lt 75 ]]; then
       export CLAUDE_CONTEXT_YELLOW="$CLAUDE_CONTEXT_DISPLAY"
     else
       export CLAUDE_CONTEXT_RED="$CLAUDE_CONTEXT_DISPLAY"

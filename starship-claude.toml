@@ -3,7 +3,7 @@
 add_newline = false
 
 # Simple format using environment variables from statusline script with fill
-format = "${env_var.WORKTREE_PATH_PREFIX}${env_var.WORKTREE_PATH_SHORTENED}${env_var.WORKTREE_PATH_NORMAL}$git_branch${env_var.CLAUDE_MODEL}${env_var.CLAUDE_VERSION}${env_var.CLAUDE_COST}${env_var.CLAUDE_LINES}${env_var.CLAUDE_CONTEXT_GREEN}${env_var.CLAUDE_CONTEXT_YELLOW}${env_var.CLAUDE_CONTEXT_RED}${env_var.CLAUDE_NEW_FIELDS}"
+format = "${env_var.WORKTREE_PATH_PREFIX}${env_var.WORKTREE_PATH_SHORTENED}${env_var.WORKTREE_PATH_NORMAL}$git_branch${env_var.CLAUDE_MODEL}${env_var.CLAUDE_CONTEXT_GREEN}${env_var.CLAUDE_CONTEXT_YELLOW}${env_var.CLAUDE_CONTEXT_RED}${env_var.CLAUDE_VERSION}${env_var.CLAUDE_LINES_ADDED}${env_var.CLAUDE_LINES_REMOVED}${env_var.CLAUDE_COST}${env_var.CLAUDE_NEW_FIELDS}"
 
 # No right_format needed when using fill
 
@@ -44,35 +44,43 @@ description = "Total cost in dollars"
 variable = "CLAUDE_COST"
 default = ""
 
-# Claude Code lines changed (only shows when there are changes)
-[env_var.CLAUDE_LINES]
-format = '[$env_value]($style) '
+# Lines added (green, padded to 4 digits)
+[env_var.CLAUDE_LINES_ADDED]
+format = '[+$env_value]($style)'
 style = "green"
-description = "Lines added/removed"
-variable = "CLAUDE_LINES_CHANGES"
+description = "Lines added"
+variable = "CLAUDE_LINES_ADDED_PADDED"
 default = ""
 
-# Context remaining - green (>50%)
+# Lines removed (yellow, padded to 4 digits)
+[env_var.CLAUDE_LINES_REMOVED]
+format = '/[-$env_value]($style) '
+style = "yellow"
+description = "Lines removed"
+variable = "CLAUDE_LINES_REMOVED_PADDED"
+default = ""
+
+# Context used - green (<50%)
 [env_var.CLAUDE_CONTEXT_GREEN]
 format = '[$env_value]($style) '
 style = "green"
-description = "Context remaining (healthy)"
+description = "Context used (low)"
 variable = "CLAUDE_CONTEXT_GREEN"
 default = ""
 
-# Context remaining - yellow (25-50%)
+# Context used - yellow (50-75%)
 [env_var.CLAUDE_CONTEXT_YELLOW]
 format = '[$env_value]($style) '
 style = "yellow"
-description = "Context remaining (moderate)"
+description = "Context used (moderate)"
 variable = "CLAUDE_CONTEXT_YELLOW"
 default = ""
 
-# Context remaining - red (<25%)
+# Context used - red (>75%)
 [env_var.CLAUDE_CONTEXT_RED]
 format = '[$env_value]($style) '
 style = "bold red"
-description = "Context remaining (low)"
+description = "Context used (high)"
 variable = "CLAUDE_CONTEXT_RED"
 default = ""
 
