@@ -172,9 +172,9 @@ fi
         "export CLAUDE_CONTEXT_DISPLAY="
       end
     ),
-    # Lines changed with padding for 4-digit numbers
-    "export CLAUDE_LINES_ADDED_PADDED=" + ((.cost.total_lines_added // 0) | tostring | ((" " * (4 - length)) + .) | @sh),
-    "export CLAUDE_LINES_REMOVED_PADDED=" + ((.cost.total_lines_removed // 0) | tostring | ((" " * (4 - length)) + .) | @sh)
+    # Lines changed with padding for 4-digit numbers (pad right to fixed width)
+    "export CLAUDE_LINES_ADDED_PADDED=" + ((.cost.total_lines_added // 0) | tostring | (. + (" " * (4 - length))) | @sh),
+    "export CLAUDE_LINES_REMOVED_PADDED=" + ((.cost.total_lines_removed // 0) | tostring | (. + (" " * (4 - length))) | @sh)
   ')
 
   # Set context display in color-specific vars (starship can't do dynamic styling)
