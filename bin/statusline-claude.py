@@ -23,14 +23,18 @@ BOLD_CYAN = "\033[1;36m"
 RESET = "\033[0m"
 
 KNOWN_FIELDS = {
-    "session_id", "transcript_path", "cwd",
+    "hook_event_name", "session_id", "transcript_path", "cwd",
     "model.id", "model.display_name",
     "workspace.current_dir", "workspace.project_dir",
     "version", "output_style.name",
     "cost.total_cost_usd", "cost.total_duration_ms", "cost.total_api_duration_ms",
     "cost.total_lines_added", "cost.total_lines_removed",
     "context_window.total_input_tokens", "context_window.total_output_tokens",
-    "context_window.context_window_size", "exceeds_200k_tokens"
+    "context_window.context_window_size",
+    "context_window.current_usage.input_tokens", "context_window.current_usage.output_tokens",
+    "context_window.current_usage.cache_creation_input_tokens",
+    "context_window.current_usage.cache_read_input_tokens",
+    "exceeds_200k_tokens",
 }
 
 
@@ -104,7 +108,15 @@ def main():
             "workspace": {"current_dir": os.getcwd()},
             "version": "0.1.0",
             "cost": {"total_cost_usd": 0.042, "total_lines_added": 50, "total_lines_removed": 10},
-            "context_window": {"total_input_tokens": 45000, "total_output_tokens": 5000, "context_window_size": 200000}
+            "context_window": {
+                "context_window_size": 200000,
+                "current_usage": {
+                    "input_tokens": 30000,
+                    "output_tokens": 5000,
+                    "cache_creation_input_tokens": 10000,
+                    "cache_read_input_tokens": 5000,
+                }
+            }
         }
     else:
         data = json.load(sys.stdin)
@@ -119,12 +131,19 @@ def main():
     lines_added = cost.get("total_lines_added", 0)
     lines_removed = cost.get("total_lines_removed", 0)
     ctx = data.get("context_window", {})
-    ctx_in = ctx.get("total_input_tokens", 0)
-    ctx_out = ctx.get("total_output_tokens", 0)
     ctx_size = ctx.get("context_window_size", 0)
 
-    # Context percentage used
-    ctx_pct = int((ctx_in + ctx_out) * 100 / ctx_size) if ctx_size > 0 else 0
+    # Use current_usage for accurate context % (null means no messages yet)
+    current = ctx.get("current_usage")
+    if current:
+        ctx_used = (
+            current.get("input_tokens", 0)
+            + current.get("cache_creation_input_tokens", 0)
+            + current.get("cache_read_input_tokens", 0)
+        )
+        ctx_pct = int(ctx_used * 100 / ctx_size) if ctx_size > 0 else 0
+    else:
+        ctx_pct = 0
     if ctx_pct < 50:
         ctx_color = GREEN
     elif ctx_pct < 75:
