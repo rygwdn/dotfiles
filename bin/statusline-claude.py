@@ -31,11 +31,14 @@ KNOWN_FIELDS = {
     "cost.total_lines_added", "cost.total_lines_removed",
     "context_window.total_input_tokens", "context_window.total_output_tokens",
     "context_window.context_window_size",
-    "context_window.current_usage.input_tokens", "context_window.current_usage.output_tokens",
+    "context_window.current_usage", "context_window.current_usage.input_tokens",
+    "context_window.current_usage.output_tokens",
     "context_window.current_usage.cache_creation_input_tokens",
     "context_window.current_usage.cache_read_input_tokens",
     "exceeds_200k_tokens",
 }
+
+NEW_FIELDS_FILE = "/tmp/claude/statusline-new-fields.txt"
 
 
 def get_paths(obj, prefix=""):
@@ -101,6 +104,27 @@ def get_git_and_path(cwd):
     return git_branch, path_display
 
 
+def persist_new_fields(unknown: set):
+    """Write unknown fields to tmp file if not already present."""
+    if not unknown:
+        return
+
+    os.makedirs(os.path.dirname(NEW_FIELDS_FILE), exist_ok=True)
+
+    existing = set()
+    if os.path.exists(NEW_FIELDS_FILE):
+        with open(NEW_FIELDS_FILE, "r") as f:
+            existing = set(line.strip() for line in f if line.strip())
+
+    truly_new = unknown - existing
+    if not truly_new:
+        return
+
+    with open(NEW_FIELDS_FILE, "a") as f:
+        for field in sorted(truly_new):
+            f.write(f"{field}\n")
+
+
 def main():
     if len(sys.argv) > 1 and sys.argv[1] in ("--test", "-t"):
         data = {
@@ -155,6 +179,7 @@ def main():
     actual = set(get_paths(data))
     unknown = actual - KNOWN_FIELDS
     unknown_str = f"{RED}+{len(unknown)} new{RESET}" if unknown else ""
+    persist_new_fields(unknown)
 
     # Build output
     git_branch, path_display = get_git_and_path(cwd)
