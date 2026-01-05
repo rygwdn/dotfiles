@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# gh-pending-comments - Show pending review comments for the current user
+#
+# Usage:
+#   gh pending-comments [PR_URL_OR_NUMBER]
+#
+# If no PR is specified, uses the PR associated with the current branch.
+
+set -e
+
+PR_ARG="${1:-}"
+
+# Get repo info
+if [[ -n "$PR_ARG" ]]; then
+  if [[ "$PR_ARG" =~ github\.com/([^/]+)/([^/]+)/pull/([0-9]+) ]]; then
+    OWNER="${BASH_REMATCH[1]}"
+    REPO="${BASH_REMATCH[2]}"
+    PR_NUMBER="${BASH_REMATCH[3]}"
+  elif [[ "$PR_ARG" =~ ^[0-9]+$ ]]; then
+    PR_NUMBER="$PR_ARG"
+    REPO_INFO=$(gh repo view --json owner,name -q '"\(.owner.login)/\(.name)"')
+    OWNER="${REPO_INFO%%/*}"
+    REPO="${REPO_INFO##*/}"
+  else
+    echo "Error: Invalid PR reference. Use PR number or full URL." >&2
+    exit 1
+  fi
+else
+  # Try to get PR from current branch
+  PR_INFO=$(gh pr view --json number,headRepository -q '"\(.number) \(.headRepository.owner.login) \(.headRepository.name)"' 2>/dev/null) || {
+    echo "Error: No PR found for current branch. Specify a PR number or URL." >&2
+    exit 1
+  }
+  read -r PR_NUMBER OWNER REPO <<< "$PR_INFO"
+fi
+
+# Get current user
+CURRENT_USER=$(gh api user -q '.login')
+
+# Query pending review comments with diff hunks
+COMMENTS_JSON=$(gh api graphql -f query='
+query($owner: String!, $repo: String!, $pr: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $pr) {
+      url
+      reviews(first: 50, states: [PENDING]) {
+        nodes {
+          author { login }
+          comments(first: 100) {
+            nodes {
+              body
+              path
+              line
+              startLine
+              diffHunk
+            }
+          }
+        }
+      }
+    }
+  }
+}' -f owner="$OWNER" -f repo="$REPO" -F pr="$PR_NUMBER")
+
+# Format output with markdown
+echo "$COMMENTS_JSON" | jq -r --arg user "$CURRENT_USER" '
+  .data.repository.pullRequest.reviews.nodes[]
+  | select(.author.login == $user)
+  | .comments.nodes[]
+  | {
+      path: .path,
+      lines: (if .startLine then "\(.startLine)-\(.line)" else "\(.line)" end),
+      diffHunk: .diffHunk,
+      body: (.body | gsub("<!--__GRAPHITE_HTML_TAG_START__-->.*?<!--__GRAPHITE_HTML_TAG_END__-->"; "") | gsub("^\\s+|\\s+$"; ""))
+    }
+  | "## \(.path):\(.lines)\n```diff\n\(.diffHunk)\n```\n> \(.body | gsub("\n"; "\n> "))\n"
+'
