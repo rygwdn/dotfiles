@@ -3,7 +3,7 @@
 add_newline = false
 
 format = "${env_var.WORKTREE_PATH_PREFIX}${env_var.WORKTREE_PATH_SHORTENED}${env_var.WORKTREE_PATH_NORMAL} $character"
-right_format = """$all"""
+right_format = """${custom.git_branch_custom}$all"""
 
 command_timeout = 5000
 
@@ -45,3 +45,12 @@ disabled = true
 
 [git_branch]
 format = '[$symbol$branch(:$remote_branch)]($style) '
+disabled = true
+
+# Temporary workaround until reftable support added
+[custom.git_branch_custom]
+command = "git symbolic-ref --short HEAD"
+when = "git rev-parse --is-inside-work-tree >/dev/null 2>&1"
+format = "[$symbol$output]($style) "
+symbol = " "
+style = "bold purple"
