@@ -23,8 +23,8 @@ cargo --version
 rustc --version
 
 # Clean build artifacts
-echo "Cleaning build artifacts..."
-cargo clean
+#echo "Cleaning build artifacts..."
+#cargo clean
 
 # Run formatter check
 echo -e "${YELLOW}Running formatter check...${NC}"
@@ -54,9 +54,9 @@ fi
 echo -e "${GREEN}✓ Tests passed${NC}"
 
 # Build the project
-echo -e "${YELLOW}Building project...${NC}"
-cargo build --release
-echo -e "${GREEN}✓ Build successful${NC}"
+# echo -e "${YELLOW}Building project...${NC}"
+# cargo build --release
+# echo -e "${GREEN}✓ Build successful${NC}"
 
 # Install the binary to cargo bin directory
 echo -e "${YELLOW}Installing world-nav...${NC}"
