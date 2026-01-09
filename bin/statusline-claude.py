@@ -4,6 +4,7 @@ Claude Code Statusline Script
 Docs: https://docs.anthropic.com/en/docs/claude-code/statusline
       https://code.claude.com/docs/en/statusline.md
 """
+
 import argparse
 import json
 import os
@@ -28,19 +29,31 @@ BOLD_CYAN = "\033[1;36m"
 RESET = "\033[0m"
 
 KNOWN_FIELDS = {
-    "hook_event_name", "session_id", "transcript_path", "cwd",
-    "model.id", "model.display_name",
-    "workspace.current_dir", "workspace.project_dir",
-    "version", "output_style.name",
-    "cost.total_cost_usd", "cost.total_duration_ms", "cost.total_api_duration_ms",
-    "cost.total_lines_added", "cost.total_lines_removed",
-    "context_window.total_input_tokens", "context_window.total_output_tokens",
+    "hook_event_name",
+    "session_id",
+    "transcript_path",
+    "cwd",
+    "model.id",
+    "model.display_name",
+    "workspace.current_dir",
+    "workspace.project_dir",
+    "version",
+    "output_style.name",
+    "cost.total_cost_usd",
+    "cost.total_duration_ms",
+    "cost.total_api_duration_ms",
+    "cost.total_lines_added",
+    "cost.total_lines_removed",
+    "context_window.total_input_tokens",
+    "context_window.total_output_tokens",
     "context_window.context_window_size",
-    "context_window.current_usage", "context_window.current_usage.input_tokens",
+    "context_window.current_usage",
+    "context_window.current_usage.input_tokens",
     "context_window.current_usage.output_tokens",
     "context_window.current_usage.cache_creation_input_tokens",
     "context_window.current_usage.cache_read_input_tokens",
     "exceeds_200k_tokens",
+    "vim.mode",
 }
 
 NEW_FIELDS_FILE = "/tmp/claude/statusline-new-fields.txt"
@@ -70,7 +83,10 @@ def get_git_and_path(cwd):
     try:
         procs["git"] = subprocess.Popen(
             ["git", "symbolic-ref", "--short", "HEAD"],
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, cwd=cwd, text=True
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            cwd=cwd,
+            text=True,
         )
     except Exception:
         procs["git"] = None
@@ -80,7 +96,9 @@ def get_git_and_path(cwd):
         try:
             procs["path"] = subprocess.Popen(
                 ["world-nav", "shortpath", "--section", "full", cwd],
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
             )
         except Exception:
             procs["path"] = None
@@ -143,7 +161,9 @@ def get_circle_emoji(percentage, time_remaining_hours, total_window_hours):
         Emoji representing usage health based on burn rate
     """
     # Calculate time elapsed as percentage of total window
-    time_elapsed_pct = ((total_window_hours - time_remaining_hours) / total_window_hours) * 100
+    time_elapsed_pct = (
+        (total_window_hours - time_remaining_hours) / total_window_hours
+    ) * 100
 
     # Calculate burn rate ratio: how fast we're using vs time passing
     # If we're at 50% usage with 50% time elapsed, burn_rate = 1.0 (perfect pace)
@@ -156,7 +176,9 @@ def get_circle_emoji(percentage, time_remaining_hours, total_window_hours):
 
     # Projected usage at end of window based on current burn rate
     if time_remaining_hours > 0:
-        projected_usage = percentage + (burn_rate * (time_remaining_hours / total_window_hours) * 100)
+        projected_usage = percentage + (
+            burn_rate * (time_remaining_hours / total_window_hours) * 100
+        )
     else:
         projected_usage = percentage
 
@@ -181,7 +203,7 @@ def format_time_until(reset_time_str):
         tuple: (formatted_string, hours_remaining)
     """
     try:
-        reset_time = datetime.fromisoformat(reset_time_str.replace('+00:00', '+00:00'))
+        reset_time = datetime.fromisoformat(reset_time_str.replace("+00:00", "+00:00"))
         now = datetime.now(reset_time.tzinfo)
         delta = reset_time - now
 
@@ -209,11 +231,17 @@ def get_usage_data():
     try:
         # Get access token from keychain
         token_cmd = [
-            "security", "find-generic-password",
-            "-a", os.environ.get("USER", ""),
-            "-w", "-s", "Claude Code-credentials"
+            "security",
+            "find-generic-password",
+            "-a",
+            os.environ.get("USER", ""),
+            "-w",
+            "-s",
+            "Claude Code-credentials",
         ]
-        token_proc = subprocess.run(token_cmd, capture_output=True, text=True, timeout=2)
+        token_proc = subprocess.run(
+            token_cmd, capture_output=True, text=True, timeout=2
+        )
         if token_proc.returncode != 0:
             return None
 
@@ -250,7 +278,7 @@ def install_statusline():
 
     # Load existing settings or create new ones
     if config_file.exists():
-        with open(config_file, 'r') as f:
+        with open(config_file, "r") as f:
             try:
                 settings = json.load(f)
             except json.JSONDecodeError:
@@ -260,28 +288,35 @@ def install_statusline():
         settings = {}
 
     # Add/update statusLine configuration
-    settings['statusLine'] = {
-        "type": "command",
-        "command": script_path
-    }
+    settings["statusLine"] = {"type": "command", "command": script_path}
 
     # Write back the configuration
-    with open(config_file, 'w') as f:
+    with open(config_file, "w") as f:
         json.dump(settings, f, indent=2)
 
     print(f"{GREEN}✓{RESET} Statusline installed: {CYAN}{script_path}{RESET}")
     print(f"{GREEN}✓{RESET} Configuration saved to: {CYAN}{config_file}{RESET}")
-    print(f"\n{BOLD_YELLOW}Note:{RESET} Restart Claude Code for changes to take effect.")
+    print(
+        f"\n{BOLD_YELLOW}Note:{RESET} Restart Claude Code for changes to take effect."
+    )
 
 
 def main():
     parser = argparse.ArgumentParser(description="Claude Code Statusline Script")
-    parser.add_argument('--self-install', action='store_true',
-                        help='Register this script as the Claude Code statusline')
-    parser.add_argument('--test', '-t', action='store_true',
-                        help='Run with test data instead of reading from stdin')
-    parser.add_argument('--no-usage', action='store_true',
-                        help='Disable API usage data display')
+    parser.add_argument(
+        "--self-install",
+        action="store_true",
+        help="Register this script as the Claude Code statusline",
+    )
+    parser.add_argument(
+        "--test",
+        "-t",
+        action="store_true",
+        help="Run with test data instead of reading from stdin",
+    )
+    parser.add_argument(
+        "--no-usage", action="store_true", help="Disable API usage data display"
+    )
 
     args = parser.parse_args()
 
@@ -294,7 +329,11 @@ def main():
             "model": {"id": "claude-opus-4-1", "display_name": "Opus 4.1"},
             "workspace": {"current_dir": os.getcwd()},
             "version": "0.1.0",
-            "cost": {"total_cost_usd": 0.042, "total_lines_added": 50, "total_lines_removed": 10},
+            "cost": {
+                "total_cost_usd": 0.042,
+                "total_lines_added": 50,
+                "total_lines_removed": 10,
+            },
             "context_window": {
                 "context_window_size": 200000,
                 "current_usage": {
@@ -302,8 +341,8 @@ def main():
                     "output_tokens": 5000,
                     "cache_creation_input_tokens": 10000,
                     "cache_read_input_tokens": 5000,
-                }
-            }
+                },
+            },
         }
     else:
         data = json.load(sys.stdin)
@@ -311,7 +350,9 @@ def main():
     cwd = data.get("workspace", {}).get("current_dir") or data.get("cwd", os.getcwd())
 
     # Extract values
-    model = data.get("model", {}).get("display_name") or data.get("model", {}).get("id", "Unknown")
+    model = data.get("model", {}).get("display_name") or data.get("model", {}).get(
+        "id", "Unknown"
+    )
     version = data.get("version", "Unknown")
     cost = data.get("cost", {})
     cost_usd = cost.get("total_cost_usd", 0)
@@ -351,12 +392,14 @@ def main():
     if git_branch:
         parts.append(f"{BOLD_PURPLE}\ue0a0 {git_branch}{RESET}")
 
-    parts.extend([
-        f"{BOLD_YELLOW}⚡{model}{RESET}",
-        f"{ctx_color}{ctx_pct}%{RESET}",
-        f"{DIM}v{version}{RESET}",
-        f"{GREEN}+{lines_added}{RESET}/{YELLOW}-{lines_removed:<4}{RESET}",
-    ])
+    parts.extend(
+        [
+            f"{BOLD_YELLOW}⚡{model}{RESET}",
+            f"{ctx_color}{ctx_pct}%{RESET}",
+            f"{DIM}v{version}{RESET}",
+            f"{GREEN}+{lines_added}{RESET}/{YELLOW}-{lines_removed:<4}{RESET}",
+        ]
+    )
     if cost_usd > 0:
         parts.append(f"{CYAN}${cost_usd:.2f}{RESET}")
 
@@ -378,7 +421,9 @@ def main():
                 util_7d = seven_day.get("utilization", 0)
                 reset_7d = seven_day.get("resets_at", "")
                 time_7d, hours_remaining_7d = format_time_until(reset_7d)
-                emoji_7d = get_circle_emoji(util_7d, hours_remaining_7d, 168)  # 7 days = 168 hours
+                emoji_7d = get_circle_emoji(
+                    util_7d, hours_remaining_7d, 168
+                )  # 7 days = 168 hours
                 parts.append(f"{emoji_7d}{int(util_7d)}%/{time_7d}")
 
     if unknown_str:
