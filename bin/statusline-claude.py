@@ -54,6 +54,8 @@ KNOWN_FIELDS = {
     "context_window.current_usage.cache_read_input_tokens",
     "exceeds_200k_tokens",
     "vim.mode",
+    "context_window.used_percentage",
+    "context_window.remaining_percentage",
 }
 
 NEW_FIELDS_FILE = "/tmp/claude/statusline-new-fields.txt"
@@ -361,17 +363,21 @@ def main():
     ctx = data.get("context_window", {})
     ctx_size = ctx.get("context_window_size", 0)
 
-    # Use current_usage for accurate context % (null means no messages yet)
-    current = ctx.get("current_usage")
-    if current:
-        ctx_used = (
-            current.get("input_tokens", 0)
-            + current.get("cache_creation_input_tokens", 0)
-            + current.get("cache_read_input_tokens", 0)
-        )
-        ctx_pct = int(ctx_used * 100 / ctx_size) if ctx_size > 0 else 0
+    # Prefer used_percentage if available, otherwise calculate from tokens
+    ctx_pct = ctx.get("used_percentage")
+    if ctx_pct is None:
+        current = ctx.get("current_usage")
+        if current:
+            ctx_used = (
+                current.get("input_tokens", 0)
+                + current.get("cache_creation_input_tokens", 0)
+                + current.get("cache_read_input_tokens", 0)
+            )
+            ctx_pct = int(ctx_used * 100 / ctx_size) if ctx_size > 0 else 0
+        else:
+            ctx_pct = 0
     else:
-        ctx_pct = 0
+        ctx_pct = int(ctx_pct)
     if ctx_pct < 50:
         ctx_color = GREEN
     elif ctx_pct < 75:
