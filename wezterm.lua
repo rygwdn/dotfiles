@@ -26,8 +26,94 @@ smart_splits.apply_to_config(config, {
 	modifiers = { move = "CTRL", resize = "META" },
 })
 
+local resurrect = wezterm.plugin.require("https://github.com/MLFlexer/resurrect.wezterm")
+resurrect.state_manager.periodic_save()
+wezterm.on("gui-startup", resurrect.state_manager.resurrect_on_gui_startup)
+
+local function nav_section(tab)
+  local project = tab.active_pane.user_vars.project
+
+  if project then
+    return project
+  end
+
+  local cwd = tab.active_pane.current_working_dir
+  local max_length = 10
+  if cwd then
+    local file_path = cwd.file_path
+
+    -- Remove any leading and trailing slashes
+    file_path = file_path:match('^/*(.-)/*$')
+    local parent = file_path:match('([^/]*)/[^/]*$')
+    if parent and #parent > max_length then
+      parent = parent:sub(1, max_length - 1) .. '…'
+    end
+
+    cwd = file_path:match('([^/]+)/?$')
+    if cwd and #cwd > max_length then
+      cwd = cwd:sub(1, max_length - 1) .. '…'
+    end
+
+    return parent .. '/' .. cwd
+  end
+
+  return ''
+end
+
 local modal = wezterm.plugin.require("https://github.com/MLFlexer/modal.wezterm")
 modal.apply_to_config(config)
+
+local tabline = wezterm.plugin.require("https://github.com/michaelbrusegard/tabline.wez")
+tabline.setup({
+  options = {
+    icons_enabled = true,
+    theme = 'Catppuccin Mocha',
+    tabs_enabled = true,
+    theme_overrides = {},
+    section_separators = {
+      left = wezterm.nerdfonts.pl_left_hard_divider,
+      right = wezterm.nerdfonts.pl_right_hard_divider,
+    },
+    component_separators = {
+      left = wezterm.nerdfonts.pl_left_soft_divider,
+      right = wezterm.nerdfonts.pl_right_soft_divider,
+    },
+    tab_separators = {
+      left = wezterm.nerdfonts.pl_left_hard_divider,
+      right = wezterm.nerdfonts.pl_right_hard_divider,
+    },
+  },
+  sections = {
+    tabline_a = { 'mode' },
+    tabline_b = { 'workspace' },
+    tabline_c = { ' ' },
+    tab_active = {
+      'index',
+      { 'output', icon_no_output=nil },
+      { 'process', icons_only=true, padding = { left = 0, right = 1 } },
+      nav_section,
+      { 'zoomed', padding = 0 },
+    },
+    tab_inactive = {
+      'index',
+      { 'output', icon_no_output=nil },
+      { 'process', icons_only=true, padding = { left = 0, right = 1 } },
+      nav_section,
+    },
+    --tabline_x = { 'ram', 'cpu' },
+    tabline_x = {  },
+    --tabline_y = { 'datetime', 'battery' },
+    tabline_y = {  },
+    tabline_z = { 'domain' },
+  },
+  extensions = { 'resurrect' },
+})
+
+tabline.apply_to_config(config)
+
+
+-- update plugins:
+-- wezterm.plugin.update_all() 
 
 local keys = {
 	{ key = "a", mods = "LEADER|CTRL", action = act.ActivateLastTab },
@@ -57,10 +143,6 @@ for _, key in ipairs(keys) do
 	table.insert(config.keys, key)
 end
 
-wezterm.on("update-right-status", function(window, _)
-	modal.set_right_status(window)
-end)
-
 table.insert(config.key_tables.copy_mode, {
 	key = "y",
 	mods = "SHIFT",
@@ -88,93 +170,6 @@ config.use_fancy_tab_bar = false
 config.tab_bar_at_bottom = true
 config.tab_max_width = 64
 
-local function tab_title(tab_info)
-	local title = tab_info.tab_title
-	-- if the tab title is explicitly set, take that
-	if title and #title > 0 then
-		return title
-	end
-
-	-- Otherwise, use the title from the active pane
-	-- in that tab
-	local pane = tab_info.active_pane
-	if pane.domain_name and pane.domain_name ~= "local" then
-		return pane.title .. " - (" .. pane.domain_name .. ")"
-	end
-
-	return pane.title
-end
-
-wezterm.on("format-tab-title", function(tab, tabs, panes, config, hover, max_width)
-	local title = tab_title(tab)
-
-	return string.format(" %s: %s ", tab.tab_index + 1, title)
-end)
-
-wezterm.on("update-status", function(window, pane)
-	-- Each element holds the text for a cell in a "powerline" style << fade
-	local cells = {}
-
-	local cwd_uri = pane:get_current_working_dir()
-	if cwd_uri and type(cwd_uri) == "userdata" then
-		local cwd = cwd_uri.file_path
-		table.insert(cells, cwd)
-	end
-
-	local domain = pane:get_domain_name()
-	if domain and domain ~= "local" then
-		table.insert(cells, domain)
-	else
-		table.insert(cells, "")
-	end
-
-	-- I like my date/time in this style: "Wed Mar 3 08:14"
-	local date = wezterm.strftime("%Y-%m-%d %H:%M")
-	table.insert(cells, date)
-
-	-- An entry for each battery (typically 0 or 1 battery)
-	for _, b in ipairs(wezterm.battery_info()) do
-		table.insert(cells, string.format("%.0f%%", b.state_of_charge * 100))
-	end
-
-	-- Color palette for the backgrounds of each cell
-	local colors = {
-		"#3c1361",
-		"#52307c",
-		"#663a82",
-		"#7c5295",
-		"#b491c8",
-	}
-
-	-- Foreground color for the text across the fade
-	local text_fg = "#c0c0c0"
-
-	-- The elements to be formatted
-	local elements = {}
-	-- How many cells have been formatted
-	local num_cells = 0
-
-	-- Translate a cell into elements
-	local function push(text)
-		local cell_no = num_cells + 1
-		if text ~= "" then
-			table.insert(elements, { Foreground = { Color = colors[cell_no] } })
-			table.insert(elements, { Text = wezterm.nerdfonts.pl_right_hard_divider })
-
-			table.insert(elements, { Foreground = { Color = text_fg } })
-			table.insert(elements, { Background = { Color = colors[cell_no] } })
-			table.insert(elements, { Text = " " .. text .. " " })
-		end
-		num_cells = num_cells + 1
-	end
-
-	while #cells > 0 do
-		local cell = table.remove(cells, 1)
-		push(cell)
-	end
-
-	window:set_right_status(wezterm.format(elements))
-end)
 
 -- Local config
 local local_config_path = wezterm.home_dir .. "/.wezterm.local.lua"
