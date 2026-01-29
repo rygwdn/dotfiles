@@ -1,76 +1,266 @@
-#!/usr/bin/env bash
-# gh-pending-comments - Show pending review comments for the current user
-#
-# Usage:
-#   gh pending-comments [PR_URL_OR_NUMBER]
-#
-# If no PR is specified, uses the PR associated with the current branch.
+#!/usr/bin/env python3
+"""gh-pending-comments - Show pending review comments and unresolved threads.
 
-set -e
+Usage:
+  gh pending-comments [PR_URL_OR_NUMBER]
 
-PR_ARG="${1:-}"
+If no PR is specified, uses the PR associated with the current branch.
+"""
 
-# Get repo info
-if [[ -n "$PR_ARG" ]]; then
-  if [[ "$PR_ARG" =~ github\.com/([^/]+)/([^/]+)/pull/([0-9]+) ]]; then
-    OWNER="${BASH_REMATCH[1]}"
-    REPO="${BASH_REMATCH[2]}"
-    PR_NUMBER="${BASH_REMATCH[3]}"
-  elif [[ "$PR_ARG" =~ ^[0-9]+$ ]]; then
-    PR_NUMBER="$PR_ARG"
-    REPO_INFO=$(gh repo view --json owner,name -q '"\(.owner.login)/\(.name)"')
-    OWNER="${REPO_INFO%%/*}"
-    REPO="${REPO_INFO##*/}"
-  else
-    echo "Error: Invalid PR reference. Use PR number or full URL." >&2
-    exit 1
-  fi
-else
-  # Try to get PR from current branch
-  PR_INFO=$(gh pr view --json number,headRepository -q '"\(.number) \(.headRepository.owner.login) \(.headRepository.name)"' 2>/dev/null) || {
-    echo "Error: No PR found for current branch. Specify a PR number or URL." >&2
-    exit 1
-  }
-  read -r PR_NUMBER OWNER REPO <<< "$PR_INFO"
-fi
+import json
+import re
+import subprocess
+import sys
 
-# Get current user
-CURRENT_USER=$(gh api user -q '.login')
 
-# Query pending review comments with diff hunks
-COMMENTS_JSON=$(gh api graphql -f query='
-query($owner: String!, $repo: String!, $pr: Int!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $pr) {
-      url
-      reviews(first: 50, states: [PENDING]) {
-        nodes {
-          author { login }
-          comments(first: 100) {
-            nodes {
-              body
-              path
-              line
-              startLine
-              diffHunk
+# ANSI color codes
+class Colors:
+    """ANSI color codes, empty if not a TTY."""
+    def __init__(self, enabled: bool):
+        if enabled:
+            self.RESET = "\033[0m"
+            self.BOLD = "\033[1m"
+            self.DIM = "\033[2m"
+            self.BLUE = "\033[34m"
+            self.CYAN = "\033[36m"
+            self.YELLOW = "\033[33m"
+            self.GREEN = "\033[32m"
+            self.MAGENTA = "\033[35m"
+        else:
+            self.RESET = ""
+            self.BOLD = ""
+            self.DIM = ""
+            self.BLUE = ""
+            self.CYAN = ""
+            self.YELLOW = ""
+            self.GREEN = ""
+            self.MAGENTA = ""
+
+
+colors = Colors(sys.stdout.isatty())
+
+
+def run_gh(*args: str) -> str:
+    """Run a gh command and return stdout."""
+    result = subprocess.run(["gh", *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip())
+    return result.stdout.strip()
+
+
+def get_repo_info() -> tuple[str, str]:
+    """Get owner and repo name from current directory."""
+    output = run_gh("repo", "view", "--json", "owner,name", "-q", r'"\(.owner.login)/\(.name)"')
+    output = output.strip('"')
+    owner, repo = output.split("/")
+    return owner, repo
+
+
+def get_pr_from_branch() -> tuple[int, str, str]:
+    """Get PR number, owner, and repo from current branch."""
+    try:
+        output = run_gh(
+            "pr", "view", "--json", "number,headRepository,headRepositoryOwner",
+            "-q", r'"\(.number) \(.headRepositoryOwner.login) \(.headRepository.name)"'
+        )
+        parts = output.strip('"').split()
+        return int(parts[0]), parts[1], parts[2]
+    except RuntimeError:
+        print("Error: No PR found for current branch. Specify a PR number or URL.", file=sys.stderr)
+        sys.exit(1)
+
+
+def parse_pr_arg(arg: str) -> tuple[int, str, str]:
+    """Parse PR argument (URL or number) and return PR number, owner, repo."""
+    url_match = re.match(r".*github\.com/([^/]+)/([^/]+)/pull/(\d+)", arg)
+    if url_match:
+        return int(url_match.group(3)), url_match.group(1), url_match.group(2)
+
+    if arg.isdigit():
+        owner, repo = get_repo_info()
+        return int(arg), owner, repo
+
+    print("Error: Invalid PR reference. Use PR number or full URL.", file=sys.stderr)
+    sys.exit(1)
+
+
+def get_current_user() -> str:
+    """Get the current GitHub username."""
+    return json.loads(run_gh("api", "user"))["login"]
+
+
+def run_graphql(query: str, **variables: str | int) -> dict:
+    """Run a GraphQL query with variables."""
+    args = ["api", "graphql", "-f", f"query={query}"]
+    for key, value in variables.items():
+        flag = "-F" if isinstance(value, int) else "-f"
+        args.extend([flag, f"{key}={value}"])
+    return json.loads(run_gh(*args))
+
+
+def clean_body(body: str) -> str:
+    """Remove Graphite HTML tags and trim whitespace."""
+    body = re.sub(r"<!--__GRAPHITE_HTML_TAG_START__-->.*?<!--__GRAPHITE_HTML_TAG_END__-->", "", body, flags=re.DOTALL)
+    return body.strip()
+
+
+def trim_diff(diff: str, max_lines: int = 10) -> str:
+    """Trim diff to max_lines, adding ... snip ... marker if truncated."""
+    lines = diff.split("\n")
+    if len(lines) <= max_lines:
+        return diff
+
+    # Keep first 5 and last 5 lines
+    half = max_lines // 2
+    return "\n".join(lines[:half] + ["... snip ..."] + lines[-half:])
+
+
+def format_lines(start_line: int | None, line: int | None) -> str:
+    """Format line range string."""
+    if start_line and line:
+        return f"{start_line}-{line}"
+    return str(line or "")
+
+
+def format_pending_comments(data: dict, current_user: str) -> str:
+    """Format pending review comments from current user."""
+    output = []
+    reviews = data.get("data", {}).get("repository", {}).get("pullRequest", {}).get("reviews", {}).get("nodes", [])
+
+    for review in reviews:
+        if review.get("author", {}).get("login") != current_user:
+            continue
+        for comment in review.get("comments", {}).get("nodes", []):
+            path = comment.get("path", "")
+            lines = format_lines(comment.get("startLine"), comment.get("line"))
+            diff_hunk = trim_diff(comment.get("diffHunk", ""))
+            body = clean_body(comment.get("body", ""))
+            quoted_body = "\n> ".join(body.split("\n"))
+
+            header = f"{colors.BOLD}{colors.BLUE}## {path}:{lines}{colors.RESET}"
+            diff_block = f"{colors.DIM}```diff\n{diff_hunk}\n```{colors.RESET}"
+            output.append(f"{header}\n{diff_block}\n\n> {quoted_body}\n")
+
+    return "\n".join(output)
+
+
+def format_unresolved_threads(data: dict, current_user: str) -> str:
+    """Format unresolved review threads from other users."""
+    output = []
+    threads = data.get("data", {}).get("repository", {}).get("pullRequest", {}).get("reviewThreads", {}).get("nodes", [])
+
+    for thread in threads:
+        if thread.get("isResolved"):
+            continue
+
+        comments = thread.get("comments", {}).get("nodes", [])
+        other_comments = [c for c in comments if c.get("author", {}).get("login") != current_user]
+
+        if not other_comments:
+            continue
+
+        path = thread.get("path", "")
+        lines = format_lines(thread.get("startLine"), thread.get("line"))
+        diff_hunk = trim_diff(comments[0].get("diffHunk", "") if comments else "")
+
+        # Format the full conversation thread including current user's replies for context
+        comment_lines = []
+        for i, comment in enumerate(comments):
+            author = comment.get("author", {}).get("login", "unknown")
+            body = clean_body(comment.get("body", ""))
+            quoted_body = "\n> ".join(body.split("\n"))
+
+            # Show current user's comments with a different marker
+            if author == current_user:
+                author_label = f"{colors.BOLD}{colors.GREEN}You ({author}){colors.RESET}"
+                comment_lines.append(f"**{author_label}**:\n> {quoted_body}")
+            else:
+                author_label = f"{colors.BOLD}{colors.YELLOW}{author}{colors.RESET}"
+                comment_lines.append(f"**{author_label}**:\n> {quoted_body}")
+
+        separator = f"{colors.DIM}---{colors.RESET}"
+        thread_content = f"\n>\n> {separator}\n>\n".join(comment_lines)
+        header = f"{colors.BOLD}{colors.BLUE}## {path}:{lines}{colors.RESET}"
+        diff_block = f"{colors.DIM}```diff\n{diff_hunk}\n```{colors.RESET}"
+        output.append(f"{header}\n{diff_block}\n\n> {thread_content}\n")
+
+    return "\n".join(output)
+
+
+def main():
+    pr_arg = sys.argv[1] if len(sys.argv) > 1 else None
+
+    if pr_arg:
+        pr_number, owner, repo = parse_pr_arg(pr_arg)
+    else:
+        pr_number, owner, repo = get_pr_from_branch()
+
+    current_user = get_current_user()
+
+    # Query pending review comments
+    pending_data = run_graphql("""
+        query($owner: String!, $repo: String!, $pr: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $pr) {
+              reviews(first: 50, states: [PENDING]) {
+                nodes {
+                  author { login }
+                  comments(first: 100) {
+                    nodes {
+                      body
+                      path
+                      line
+                      startLine
+                      diffHunk
+                    }
+                  }
+                }
+              }
             }
           }
         }
-      }
-    }
-  }
-}' -f owner="$OWNER" -f repo="$REPO" -F pr="$PR_NUMBER")
+    """, owner=owner, repo=repo, pr=pr_number)
 
-# Format output with markdown
-echo "$COMMENTS_JSON" | jq -r --arg user "$CURRENT_USER" '
-  .data.repository.pullRequest.reviews.nodes[]
-  | select(.author.login == $user)
-  | .comments.nodes[]
-  | {
-      path: .path,
-      lines: (if .startLine then "\(.startLine)-\(.line)" else "\(.line)" end),
-      diffHunk: .diffHunk,
-      body: (.body | gsub("<!--__GRAPHITE_HTML_TAG_START__-->.*?<!--__GRAPHITE_HTML_TAG_END__-->"; "") | gsub("^\\s+|\\s+$"; ""))
-    }
-  | "## \(.path):\(.lines)\n```diff\n\(.diffHunk)\n```\n> \(.body | gsub("\n"; "\n> "))\n"
-'
+    # Query unresolved review threads
+    threads_data = run_graphql("""
+        query($owner: String!, $repo: String!, $pr: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $pr) {
+              reviewThreads(first: 100) {
+                nodes {
+                  isResolved
+                  path
+                  line
+                  startLine
+                  comments(first: 100) {
+                    nodes {
+                      body
+                      diffHunk
+                      author { login }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+    """, owner=owner, repo=repo, pr=pr_number)
+
+    pending_output = format_pending_comments(pending_data, current_user)
+    unresolved_output = format_unresolved_threads(threads_data, current_user)
+
+    if pending_output:
+        print(f"{colors.BOLD}{colors.CYAN}# Your Pending Comments{colors.RESET}")
+        print()
+        print(pending_output)
+
+    if unresolved_output:
+        if pending_output:
+            print()
+        print(f"{colors.BOLD}{colors.CYAN}# Unresolved Comments (from others){colors.RESET}")
+        print()
+        print(unresolved_output)
+
+
+if __name__ == "__main__":
+    main()
