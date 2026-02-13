@@ -31,12 +31,18 @@ end
 
 _abbr_if_gt co 'gt checkout' 'git checkout'
 _abbr_if_gt ci 'gt modify --commit' 'git commit'
-_abbr_if_gt pff 'gt sync --no-restack  --no-interactive && git merge --ff-only' 'git pull --ff-only'
+_abbr_if_gt pff 'gt sync --no-restack  --no-interactive' 'git pull --ff-only'
 _abbr_if_gt gfu 'gt sync --no-restack --no-interactive' 'git fetch --prune --tags origin'
 _abbr_if_gt pof '' 'git push origin --force-with-lease'
-_abbr_if_gt gph '' 'git push origin --set-upstream HEAD'
-_abbr_if_gt rbc '' 'git rebase --continue'
+_abbr_if_gt gph 'gt submit' 'git push origin --set-upstream HEAD'
+_abbr_if_gt gs 'gt submit' 'git push origin --set-upstream HEAD'
+_abbr_if_gt po 'gt submit' 'git push origin --set-upstream HEAD'
+_abbr_if_gt rbc 'gt continue' 'git rebase --continue'
 _abbr_if_gt rbi '' 'git rbi'
+_abbr_if_gt gls 'gt log --stack' 'git log'
+_abbr_if_gt rs 'gt restack' 'rs'
+_abbr_if_gt frs 'gt sync --no-restack --no-interactive && gt restack' 'git pull --rebase'
+_abbr_if_gt gm 'gt modify' 'git commit --amend --no-edit'
 
 if status is-interactive && which world-nav &>/dev/null
     world-nav shell-init --shell fish --require-version ~/dotfiles/world-nav/Cargo.toml | source
@@ -74,7 +80,8 @@ fish_add_path -m \
     /opt/homebrew/opt/fish/bin \
     /opt/homebrew/opt/starship/bin \
     ~/.fzf/bin \
-    ~/.poetry/bin
+    ~/.poetry/bin \
+    /Applications/Obsidian.app/Contents/MacOS
 
 set -x EDITOR vim
 set -x VISUAL vim
@@ -105,7 +112,6 @@ if test -n "$COMPOSER_NO_INTERACTION" || ! status is-interactive
     set -x GIT_PAGER cat
     set -x GH_PAGER cat
     set -x GH_PROMPT_DISABLED true
-    set -x DEV_NO_AUTO_UPDATE 1
 end
 
 if test "$TERM_PROGRAM" = vscode || test -n "$FISH_NOT_INTERACTIVE"
