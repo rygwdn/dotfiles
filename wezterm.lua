@@ -13,9 +13,15 @@ config.scrollback_lines = 100000
 
 -- Keys
 config.leader = { key = "a", mods = "CTRL" }
-config.keys = {
-  {key="Enter", mods="SHIFT", action=wezterm.action{SendString="\x1b\r"}},
-}
+config.enable_kitty_keyboard = true
+
+-- Add wezterm terminfo with:
+-- tempfile=$(mktemp) \
+--  && curl -o $tempfile https://raw.githubusercontent.com/wezterm/wezterm/main/termwiz/data/wezterm.terminfo \
+--  && tic -x -o ~/.terminfo $tempfile \
+--  && rm $tempfile
+config.term = "wezterm"
+config.keys = {}
 
 local wez_tmux = wezterm.plugin.require("https://github.com/sei40kr/wez-tmux")
 wez_tmux.apply_to_config(config, {})
@@ -27,6 +33,8 @@ smart_splits.apply_to_config(config, {
 })
 
 local resurrect = wezterm.plugin.require("https://github.com/MLFlexer/resurrect.wezterm")
+local local_state_path = wezterm.home_dir .. "/.local/state/wezterm/"
+resurrect.state_manager.change_state_save_dir(local_state_path)
 resurrect.state_manager.periodic_save()
 wezterm.on("gui-startup", resurrect.state_manager.resurrect_on_gui_startup)
 
@@ -111,9 +119,17 @@ tabline.setup({
 
 tabline.apply_to_config(config)
 
-
 -- update plugins:
 -- wezterm.plugin.update_all() 
+
+config.mouse_bindings = {
+  {
+    event = { Down = { streak = 4, button = 'Left' } },
+    action = wezterm.action.SelectTextAtMouseCursor 'SemanticZone',
+    mods = 'NONE',
+  },
+}
+
 
 local keys = {
 	{ key = "a", mods = "LEADER|CTRL", action = act.ActivateLastTab },
@@ -137,6 +153,35 @@ local keys = {
 	},
 	{ key = "LeftArrow", mods = "CMD", action = wezterm.action.SendKey({ key = "Home" }) },
 	{ key = "RightArrow", mods = "CMD", action = wezterm.action.SendKey({ key = "End" }) },
+
+	{ key = "Space", mods = "CTRL", action = wezterm.action.ShowTabNavigator },
+
+  {
+    key = "r",
+    mods = "ALT",
+    action = wezterm.action_callback(function(win, pane)
+      resurrect.fuzzy_loader.fuzzy_load(win, pane, function(id, label)
+        local type = string.match(id, "^([^/]+)") -- match before '/'
+        id = string.match(id, "([^/]+)$") -- match after '/'
+        id = string.match(id, "(.+)%..+$") -- remove file extention
+        local opts = {
+          relative = true,
+          restore_text = true,
+          on_pane_restore = resurrect.tab_state.default_on_pane_restore,
+        }
+        if type == "workspace" then
+          local state = resurrect.state_manager.load_state(id, "workspace")
+          resurrect.workspace_state.restore_workspace(state, opts)
+        elseif type == "window" then
+          local state = resurrect.state_manager.load_state(id, "window")
+          resurrect.window_state.restore_window(pane:window(), state, opts)
+        elseif type == "tab" then
+          local state = resurrect.state_manager.load_state(id, "tab")
+          resurrect.tab_state.restore_tab(pane:tab(), state, opts)
+        end
+      end)
+    end),
+  },
 }
 
 for _, key in ipairs(keys) do
