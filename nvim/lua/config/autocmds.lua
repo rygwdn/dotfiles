@@ -19,3 +19,23 @@ vim.api.nvim_create_autocmd("FileType", {
     end
   end,
 })
+
+-- Disable inline diagnostics (virtual text) for markdown files
+-- Clears virtual text after every diagnostic update on markdown buffers
+vim.api.nvim_create_autocmd("FileType", {
+  group = vim.api.nvim_create_augroup("markdown_diagnostics", { clear = true }),
+  pattern = { "markdown" },
+  callback = function(args)
+    local bufnr = args.buf
+    vim.api.nvim_create_autocmd("DiagnosticChanged", {
+      buffer = bufnr,
+      callback = function()
+        -- Hide all virtual text diagnostics in this buffer
+        local all_ns = vim.api.nvim_get_namespaces()
+        for _, ns in pairs(all_ns) do
+          vim.diagnostic.show(ns, bufnr, nil, { virtual_text = false })
+        end
+      end,
+    })
+  end,
+})

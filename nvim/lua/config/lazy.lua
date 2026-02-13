@@ -23,7 +23,7 @@ require("lazy").setup({
   },
   checker = {
     enabled = not api_only and not is_remote,
-    notify = not api_only and not is_remote,
+    notify = false,
   },
   change_detection = {
     enabled = not api_only,
