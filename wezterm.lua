@@ -37,7 +37,24 @@ local resurrect = wezterm.plugin.require("https://github.com/MLFlexer/resurrect.
 local local_state_path = wezterm.home_dir .. "/.local/state/wezterm/"
 resurrect.state_manager.change_state_save_dir(local_state_path)
 resurrect.state_manager.periodic_save()
-wezterm.on("gui-startup", resurrect.state_manager.resurrect_on_gui_startup)
+-- Maximize the default workspace window on startup and display changes
+local function maximize_default_workspace()
+  local mux = wezterm.mux
+  local workspace = mux.get_active_workspace()
+  for _, window in ipairs(mux.all_windows()) do
+    if window:get_workspace() == workspace then
+      window:gui_window():maximize()
+    end
+  end
+end
+
+wezterm.on("gui-startup", function(cmd)
+  resurrect.state_manager.resurrect_on_gui_startup(cmd)
+end)
+
+wezterm.on("gui-attached", function(_domain)
+  maximize_default_workspace()
+end)
 
 local function nav_section(tab)
   local project = tab.active_pane.user_vars.project
@@ -144,6 +161,9 @@ local keys = {
 	{ key = "|", mods = "LEADER", action = act({ SplitHorizontal = { domain = "CurrentPaneDomain" } }) },
 
 	{ key = "Space", mods = "LEADER", action = act.QuickSelect },
+
+	-- Disable default Alt+Enter fullscreen toggle
+	{ key = "Enter", mods = "ALT", action = act.DisableDefaultAssignment },
 
 	{ key = "p", mods = "CMD|SHIFT", action = act.ActivateCommandPalette },
 	{ key = "k", mods = "CMD", action = act.ActivateCommandPalette },
