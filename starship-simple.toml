@@ -3,27 +3,16 @@
 add_newline = false
 
 # Simple format - left prompt only with path and all enabled modules
-format = "${env_var.WORKTREE_PATH_PREFIX}${env_var.WORKTREE_PATH_SHORTENED}${env_var.WORKTREE_PATH_NORMAL}$git_branch$character"
+format = "${custom.shortpath}$git_branch$character"
 
 command_timeout = 5000
 
-[env_var.WORKTREE_PATH_PREFIX]
-default = ""
-format = "[$env_value]($style)"
-style = "purple"
-description = "Path prefix"
-
-[env_var.WORKTREE_PATH_SHORTENED]
-default = ""
-format = "[$env_value]($style)"
+[custom.shortpath]
+command = "world-nav shortpath --section full $PWD"
+when = "true"
+format = "[$output]($style) "
 style = "cyan"
-description = "Shortened path segments"
-
-[env_var.WORKTREE_PATH_NORMAL]
-default = ""
-format = "[$env_value]($style) "
-style = "bold cyan"
-description = "Full path segments"
+description = "Shortened path from world-nav"
 
 [git_branch]
 format = '[$symbol$branch(:$remote_branch)]($style) '

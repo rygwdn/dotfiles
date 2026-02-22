@@ -45,7 +45,7 @@ _abbr_if_gt frs 'gt sync --no-restack --no-interactive && gt restack' 'git pull 
 _abbr_if_gt gm 'gt modify' 'git commit --amend --no-edit'
 
 if status is-interactive && which world-nav &>/dev/null
-    world-nav shell-init --shell fish --require-version ~/dotfiles/world-nav/Cargo.toml | source
+    world-nav shell-init --shell fish --no-segments --require-version ~/src/github.com/rygwdn/jump/Cargo.toml | source
 end
 
 abbr st git st

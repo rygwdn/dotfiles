@@ -9,11 +9,9 @@ compdef _git-fixup git-fixup
 path+=("$HOME/dotfiles/bin")
 path+=("/Applications/WezTerm.app/Contents/MacOS")
 
-# Initialize worktree-util shell integration
+# Initialize world-nav shell integration
 if command -v world-nav >/dev/null 2>&1; then
-    eval "$(world-nav shell-init --shell zsh --require-version '^0.5.0' 2>/dev/null)"
-elif command -v worktree-util >/dev/null 2>&1; then
-    eval "$(worktree-util shell-init --shell zsh --require-version '^0.5.0' --init-navigate --init-code 2>/dev/null)"
+    eval "$(world-nav shell-init --shell zsh --no-segments --require-version ~/src/github.com/rygwdn/jump/Cargo.toml 2>/dev/null)"
 fi
 
 

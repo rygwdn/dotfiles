@@ -17,14 +17,8 @@ function fish_title
         end
     end
 
-    # Use pre-computed shortpath segments from update_path_segments function
-    set -l path_display
-    if set -q WORKTREE_PATH_PREFIX; and set -q WORKTREE_PATH_NORMAL; and set -q WORKTREE_PATH_SHORTENED
-        set path_display "$WORKTREE_PATH_PREFIX$WORKTREE_PATH_SHORTENED$WORKTREE_PATH_NORMAL"
-    else
-        # Fallback to prompt_pwd if env vars aren't set
-        set path_display (prompt_pwd -d 1 -D 1)
-    end
+    set -l path_display (world-nav shortpath --section full $PWD 2>/dev/null)
+    test -z "$path_display" && set path_display (prompt_pwd -d 1 -D 1)
 
     # Build the title: [ssh] command path
     set -l title_parts

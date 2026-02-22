@@ -2,7 +2,7 @@
 
 add_newline = false
 
-format = "${env_var.WORKTREE_PATH_PREFIX}${env_var.WORKTREE_PATH_SHORTENED}${env_var.WORKTREE_PATH_NORMAL} $character"
+format = "${custom.shortpath} $character"
 right_format = """${custom.git_branch_custom}$all"""
 
 command_timeout = 5000
@@ -10,23 +10,12 @@ command_timeout = 5000
 [directory]
 disabled = true
 
-[env_var.WORKTREE_PATH_PREFIX]
-default = ""
-format = "[$env_value]($style)"
-style = "purple"
-description = "Path prefix from worktree-util"
-
-[env_var.WORKTREE_PATH_SHORTENED]
-default = ""
-format = "[$env_value]($style)"
+[custom.shortpath]
+command = "world-nav shortpath --section full $PWD"
+when = "true"
+format = "[$output]($style)"
 style = "cyan"
-description = "Shortened path segments from worktree-util"
-
-[env_var.WORKTREE_PATH_NORMAL]
-default = ""
-format = "[$env_value]($style)"
-style = "bold cyan"
-description = "Full path segments from worktree-util"
+description = "Shortened path from world-nav"
 
 [username]
 disabled = true
