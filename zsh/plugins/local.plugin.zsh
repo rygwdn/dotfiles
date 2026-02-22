@@ -9,9 +9,9 @@ compdef _git-fixup git-fixup
 path+=("$HOME/dotfiles/bin")
 path+=("/Applications/WezTerm.app/Contents/MacOS")
 
-# Initialize world-nav shell integration
-if command -v world-nav >/dev/null 2>&1; then
-    eval "$(world-nav shell-init --shell zsh --no-segments --require-version ~/src/github.com/rygwdn/jump/Cargo.toml 2>/dev/null)"
+# Initialize jumpr shell integration
+if command -v jumpr >/dev/null 2>&1; then
+    eval "$(jumpr shell-init --shell zsh --no-segments 2>/dev/null)"
 fi
 
 

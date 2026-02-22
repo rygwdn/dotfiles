@@ -17,7 +17,7 @@ function fish_title
         end
     end
 
-    set -l path_display (world-nav shortpath --section full $PWD 2>/dev/null)
+    set -l path_display (jumpr shortpath --section full $PWD 2>/dev/null)
     test -z "$path_display" && set path_display (prompt_pwd -d 1 -D 1)
 
     # Build the title: [ssh] command path

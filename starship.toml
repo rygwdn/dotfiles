@@ -11,11 +11,11 @@ command_timeout = 5000
 disabled = true
 
 [custom.shortpath]
-command = "world-nav shortpath --section full $PWD"
+command = "jumpr shortpath --section full $PWD"
 when = "true"
 format = "[$output]($style)"
 style = "cyan"
-description = "Shortened path from world-nav"
+description = "Shortened path from jumpr"
 
 [username]
 disabled = true

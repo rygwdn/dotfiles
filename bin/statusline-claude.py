@@ -93,11 +93,11 @@ def get_git_and_path(cwd):
     except Exception:
         procs["git"] = None
 
-    # Start world-nav process (single call with full output)
-    if shutil.which("world-nav"):
+    # Start jumpr process (single call with full output)
+    if shutil.which("jumpr"):
         try:
             procs["path"] = subprocess.Popen(
-                ["world-nav", "shortpath", "--section", "full", cwd],
+                ["jumpr", "shortpath", "--section", "full", cwd],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 text=True,

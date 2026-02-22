@@ -8,11 +8,11 @@ format = "${custom.shortpath}$git_branch$character"
 command_timeout = 5000
 
 [custom.shortpath]
-command = "world-nav shortpath --section full $PWD"
+command = "jumpr shortpath --section full $PWD"
 when = "true"
 format = "[$output]($style) "
 style = "cyan"
-description = "Shortened path from world-nav"
+description = "Shortened path from jumpr"
 
 [git_branch]
 format = '[$symbol$branch(:$remote_branch)]($style) '
