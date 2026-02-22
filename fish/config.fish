@@ -44,8 +44,14 @@ _abbr_if_gt rs 'gt restack' 'rs'
 _abbr_if_gt frs 'gt sync --no-restack --no-interactive && gt restack' 'git pull --rebase'
 _abbr_if_gt gm 'gt modify' 'git commit --amend --no-edit'
 
-if status is-interactive && which jumpr &>/dev/null
-    jumpr shell-init --shell fish --no-segments | source
+if status is-interactive
+    if not which jumpr &>/dev/null
+        echo "jumpr not found, installing..."
+        curl -fsSL https://raw.githubusercontent.com/rygwdn/jump/main/get-jumpr.sh | sh -s -- --install-dir "$HOME/.local/bin"
+    end
+    if which jumpr &>/dev/null
+        jumpr shell-init --shell fish --no-segments | source
+    end
 end
 
 abbr st git st

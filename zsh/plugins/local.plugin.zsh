@@ -9,7 +9,11 @@ compdef _git-fixup git-fixup
 path+=("$HOME/dotfiles/bin")
 path+=("/Applications/WezTerm.app/Contents/MacOS")
 
-# Initialize jumpr shell integration
+# Initialize jumpr shell integration (auto-install if missing)
+if ! command -v jumpr >/dev/null 2>&1; then
+    echo "jumpr not found, installing..."
+    curl -fsSL https://raw.githubusercontent.com/rygwdn/jump/main/get-jumpr.sh | sh -s -- --install-dir "$HOME/.local/bin"
+fi
 if command -v jumpr >/dev/null 2>&1; then
     eval "$(jumpr shell-init --shell zsh --no-segments 2>/dev/null)"
 fi
