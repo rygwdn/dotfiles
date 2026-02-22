@@ -50,7 +50,7 @@ if status is-interactive
         curl -fsSL https://raw.githubusercontent.com/rygwdn/jump/main/get-jumpr.sh | sh -s -- --install-dir "$HOME/.local/bin"
     end
     if which jumpr &>/dev/null
-        jumpr shell-init --shell fish --no-segments | source
+        jumpr shell-init --shell fish | source
     end
 end
 

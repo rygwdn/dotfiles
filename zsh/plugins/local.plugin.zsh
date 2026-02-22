@@ -15,7 +15,7 @@ if ! command -v jumpr >/dev/null 2>&1; then
     curl -fsSL https://raw.githubusercontent.com/rygwdn/jump/main/get-jumpr.sh | sh -s -- --install-dir "$HOME/.local/bin"
 fi
 if command -v jumpr >/dev/null 2>&1; then
-    eval "$(jumpr shell-init --shell zsh --no-segments 2>/dev/null)"
+    eval "$(jumpr shell-init --shell zsh 2>/dev/null)"
 fi
 
 
