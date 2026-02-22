@@ -8,16 +8,19 @@ format = "${env_var.WORKTREE_PATH_PREFIX}${env_var.WORKTREE_PATH_SHORTENED}${env
 command_timeout = 5000
 
 [env_var.WORKTREE_PATH_PREFIX]
+default = ""
 format = "[$env_value]($style)"
 style = "purple"
 description = "Path prefix"
 
 [env_var.WORKTREE_PATH_SHORTENED]
+default = ""
 format = "[$env_value]($style)"
 style = "cyan"
 description = "Shortened path segments"
 
 [env_var.WORKTREE_PATH_NORMAL]
+default = ""
 format = "[$env_value]($style) "
 style = "bold cyan"
 description = "Full path segments"

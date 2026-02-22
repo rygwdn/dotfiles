@@ -17,9 +17,16 @@ function fish_prompt
     set STARSHIP_DURATION "$CMD_DURATION$cmd_duration"
     set STARSHIP_JOBS (count (jobs -p))
 
-    set -fx WORKTREE_PATH_PREFIX "$WORKTREE_PATH_PREFIX"
-    set -fx WORKTREE_PATH_SHORTENED "$WORKTREE_PATH_SHORTENED"
-    set -fx WORKTREE_PATH_NORMAL "$WORKTREE_PATH_NORMAL"
+    # If world-nav hasn't populated path vars, fall back to prompt_pwd
+    if not set -q WORKTREE_PATH_NORMAL; or test -z "$WORKTREE_PATH_NORMAL"
+        set -fx WORKTREE_PATH_PREFIX ""
+        set -fx WORKTREE_PATH_SHORTENED ""
+        set -fx WORKTREE_PATH_NORMAL (prompt_pwd -d 1 -D 1)
+    else
+        set -fx WORKTREE_PATH_PREFIX "$WORKTREE_PATH_PREFIX"
+        set -fx WORKTREE_PATH_SHORTENED "$WORKTREE_PATH_SHORTENED"
+        set -fx WORKTREE_PATH_NORMAL "$WORKTREE_PATH_NORMAL"
+    end
 
     if contains -- --final-rendering $argv
         # Transient prompt (simplified)
