@@ -3,7 +3,24 @@
 import argparse
 import platform
 import os
+import sys
+import subprocess
 from pathlib import Path
+
+REPO_URL = "https://github.com/rygwdn/dotfiles"
+DOTFILES_DEST = Path.home() / "dotfiles"
+
+def bootstrap():
+    """Clone or update the repo, then re-exec init.py from it."""
+    if DOTFILES_DEST.exists():
+        print("Updating existing dotfiles...")
+        subprocess.run(["git", "-C", str(DOTFILES_DEST), "pull"], check=True)
+    else:
+        print("Cloning dotfiles...")
+        subprocess.run(["git", "clone", REPO_URL, str(DOTFILES_DEST)], check=True)
+
+    script = DOTFILES_DEST / "init.py"
+    os.execv(sys.executable, [sys.executable, str(script)] + sys.argv[1:])
 
 all_platforms = [
     "bashrc",
@@ -22,7 +39,6 @@ fish_contents = [
     ("fish/conf.d", ".config/fish/conf.d"),
     ("fish/config.fish", ".config/fish/config.fish"),
     ("fish/fish_plugins", ".config/fish/fish_plugins"),
-    ("fish/fish_variables", ".config/fish/fish_variables"),
     ("fish/functions", ".config/fish/functions"),
     ("fish/themes", ".config/fish/themes"),
 ]
@@ -40,13 +56,15 @@ unix_links = all_platforms + fish_contents + [
     "tmux.conf",
 ]
 
+DOTFILES_DIR = Path(__file__).resolve().parent
+
 def dolink(file, destname=None):
-    src = Path(file).resolve()
+    src = (DOTFILES_DIR / file).resolve()
     orig_dest = Path(Path.home(), destname or "." + src.name)
     dest = orig_dest.resolve()
 
     destname = "~/" + (destname or str(dest.relative_to(Path.home())))
-    srcname = src.relative_to(Path.cwd())
+    srcname = src.relative_to(DOTFILES_DIR)
 
     if not src.exists():
         raise Exception(f"{src} does not exist!")
@@ -118,4 +136,6 @@ def main():
                 op()
 
 if __name__ == "__main__":
+    if __file__ == "<stdin>":
+        bootstrap()
     main()
