@@ -40,7 +40,6 @@ fish_contents = [
     ("fish/config.fish", ".config/fish/config.fish"),
     ("fish/fish_plugins", ".config/fish/fish_plugins"),
     ("fish/functions", ".config/fish/functions"),
-    ("fish/themes", ".config/fish/themes"),
 ]
 
 windows_links = all_platforms + fish_contents + [
@@ -104,12 +103,35 @@ def check_windows_env():
             print(ei)
         print("-------------------------------------")
 
+def set_shell_fish():
+    fish = subprocess.run(["which", "fish"], capture_output=True, text=True).stdout.strip()
+    if not fish:
+        print("✘ fish not found in PATH")
+        return
+
+    shells_file = Path("/etc/shells")
+    shells = shells_file.read_text().splitlines()
+    if fish not in shells:
+        print(f"Adding {fish} to /etc/shells (requires sudo)...")
+        subprocess.run(["sudo", "sh", "-c", f"echo {fish} >> /etc/shells"], check=True)
+
+    current = os.environ.get("SHELL", "")
+    if current == fish:
+        print(f"✔ shell is already {fish}")
+    else:
+        print(f"Setting default shell to {fish} (requires sudo)...")
+        subprocess.run(["chsh", "-s", fish], check=True)
+
 def main():
     parser = argparse.ArgumentParser(description='Initialize dotfiles')
     parser.add_argument('--dry', action='store_true', help='do a dry run')
     parser.add_argument('--clean', action='store_true', help='remove links')
+    parser.add_argument('--fish', action='store_true', help='set default shell to fish')
 
     args = parser.parse_args()
+
+    if args.fish:
+        set_shell_fish()
 
     is_windows = platform.system() == "Windows"
     links = is_windows and windows_links or unix_links
