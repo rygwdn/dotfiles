@@ -9,7 +9,7 @@ command_timeout = 5000
 
 [custom.shortpath]
 command = "jumpr shortpath --section full $PWD"
-when = "true"
+when = "command -v jumpr"
 format = "[$output]($style) "
 style = "cyan"
 description = "Shortened path from jumpr"
