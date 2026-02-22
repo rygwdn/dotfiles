@@ -20,6 +20,7 @@ config.enable_kitty_keyboard = true
 --  && curl -o $tempfile https://raw.githubusercontent.com/wezterm/wezterm/main/termwiz/data/wezterm.terminfo \
 --  && tic -x -o ~/.terminfo $tempfile \
 --  && rm $tempfile
+-- (or let fish/conf.d/wezterm_terminfo.fish handle it automatically)
 config.term = "wezterm"
 config.keys = {}
 
