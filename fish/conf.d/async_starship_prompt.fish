@@ -1,3 +1,5 @@
+command -q starship || exit 0
+
 set -g __async_prompt_var _async_prompt_$fish_pid'_rprompt'
 
 function fish_right_prompt
