@@ -77,6 +77,7 @@ fish_add_path -m \
     ~/.cabal/bin \
     ~/.cargo/bin \
     ~/.rvm/bin \
+    ~/.deno/bin \
     ~/go/bin \
     /usr/local/sbin \
     /usr/local/bin \
