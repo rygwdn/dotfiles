@@ -147,6 +147,18 @@ config.mouse_bindings = {
     action = wezterm.action.SelectTextAtMouseCursor 'SemanticZone',
     mods = 'NONE',
   },
+  -- Require cmd+click to open links
+  {
+    event = { Up = { streak = 1, button = 'Left' } },
+    mods = 'SUPER',
+    action = act.OpenLinkAtMouseCursor,
+  },
+  -- Disable default click-to-open link behavior
+  {
+    event = { Up = { streak = 1, button = 'Left' } },
+    mods = 'NONE',
+    action = act.CompleteSelection 'ClipboardAndPrimarySelection',
+  },
 }
 
 
