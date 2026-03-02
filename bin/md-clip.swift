@@ -16,28 +16,6 @@ guard !inputData.isEmpty, let markdownText = String(data: inputData, encoding: .
     exit(1)
 }
 
-// MARK: - Preprocess: normalise Slack-style bullets to markdown list items
-
-/// Converts Unicode bullet characters (• U+2022) at the start of lines into
-/// standard `- ` list items so pandoc recognises them.
-/// Standard `- ` / `* ` / `+ ` markers are left alone — CommonMark handles
-/// those correctly without requiring a preceding blank line.
-func preprocessMarkdown(_ text: String) -> String {
-    let unicodeBullet = "\u{2022}"
-    return text
-        .components(separatedBy: "\n")
-        .map { line -> String in
-            let stripped = line.trimmingCharacters(in: .whitespaces)
-            guard stripped.hasPrefix(unicodeBullet) else { return line }
-            let body = stripped.dropFirst().drop(while: { $0 == " " })
-            return "- \(body)"
-        }
-        .joined(separator: "\n")
-}
-
-let processedText = preprocessMarkdown(markdownText)
-let processedData = Data(processedText.utf8)
-
 // MARK: - Convert via pandoc (markdown → RTF)
 
 let pandoc = Process()
@@ -58,7 +36,7 @@ do {
     exit(1)
 }
 
-inPipe.fileHandleForWriting.write(processedData)
+inPipe.fileHandleForWriting.write(inputData)
 inPipe.fileHandleForWriting.closeFile()
 pandoc.waitUntilExit()
 
