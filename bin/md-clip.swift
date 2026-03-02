@@ -18,51 +18,21 @@ guard !inputData.isEmpty, let markdownText = String(data: inputData, encoding: .
 
 // MARK: - Preprocess: normalise Slack-style bullets to markdown list items
 
-/// Normalises Slack/non-standard list markers and ensures pandoc sees proper
-/// markdown list blocks:
-///   • U+2022 bullets → `- ` list items
-///   `- ` / `* ` / `+ ` items that immediately follow a non-blank non-list
-///   paragraph get a blank line inserted before them so pandoc recognises the
-///   block as a list rather than a continuation of the preceding paragraph.
+/// Converts Unicode bullet characters (• U+2022) at the start of lines into
+/// standard `- ` list items so pandoc recognises them.
+/// Standard `- ` / `* ` / `+ ` markers are left alone — CommonMark handles
+/// those correctly without requiring a preceding blank line.
 func preprocessMarkdown(_ text: String) -> String {
     let unicodeBullet = "\u{2022}"
-    let lines = text.components(separatedBy: "\n")
-    var out: [String] = []
-    out.reserveCapacity(lines.count + 4)
-
-    func isListLine(_ s: String) -> Bool {
-        let t = s.trimmingCharacters(in: .whitespaces)
-        return t.hasPrefix(unicodeBullet)
-            || t.hasPrefix("- ") || t == "-"
-            || t.hasPrefix("* ") || t == "*"
-            || t.hasPrefix("+ ") || t == "+"
-    }
-
-    for (i, line) in lines.enumerated() {
-        let stripped = line.trimmingCharacters(in: .whitespaces)
-
-        if stripped.hasPrefix(unicodeBullet) {
-            // Convert • bullet → standard - list item
-            let prevStripped = i > 0 ? lines[i - 1].trimmingCharacters(in: .whitespaces) : ""
-            if !prevStripped.isEmpty && !isListLine(prevStripped) {
-                out.append("")
-            }
+    return text
+        .components(separatedBy: "\n")
+        .map { line -> String in
+            let stripped = line.trimmingCharacters(in: .whitespaces)
+            guard stripped.hasPrefix(unicodeBullet) else { return line }
             let body = stripped.dropFirst().drop(while: { $0 == " " })
-            out.append("- \(body)")
-        } else if isListLine(stripped) {
-            // Standard list marker — ensure a blank line before the first item
-            // in a run when it directly follows a non-blank non-list paragraph.
-            let prevStripped = i > 0 ? lines[i - 1].trimmingCharacters(in: .whitespaces) : ""
-            if !prevStripped.isEmpty && !isListLine(prevStripped) {
-                out.append("")
-            }
-            out.append(line)
-        } else {
-            out.append(line)
+            return "- \(body)"
         }
-    }
-
-    return out.joined(separator: "\n")
+        .joined(separator: "\n")
 }
 
 let processedText = preprocessMarkdown(markdownText)
@@ -72,7 +42,7 @@ let processedData = Data(processedText.utf8)
 
 let pandoc = Process()
 pandoc.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-pandoc.arguments = ["pandoc", "-f", "markdown", "-t", "rtf", "--standalone"]
+pandoc.arguments = ["pandoc", "-f", "commonmark", "-t", "rtf", "--standalone"]
 
 let inPipe  = Pipe()
 let outPipe = Pipe()
