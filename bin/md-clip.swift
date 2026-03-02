@@ -20,7 +20,7 @@ guard !inputData.isEmpty, let markdownText = String(data: inputData, encoding: .
 
 let pandoc = Process()
 pandoc.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-pandoc.arguments = ["pandoc", "-f", "markdown", "-t", "rtf"]
+pandoc.arguments = ["pandoc", "-f", "markdown", "-t", "rtf", "--standalone"]
 
 let inPipe  = Pipe()
 let outPipe = Pipe()
