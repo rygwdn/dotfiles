@@ -22,7 +22,7 @@ guard !inputData.isEmpty, let markdownText = String(data: inputData, encoding: .
 func runPandoc(to format: String, extraArgs: [String] = []) -> Data {
     let proc = Process()
     proc.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-    proc.arguments = ["pandoc", "-f", "commonmark", "-t", format] + extraArgs
+    proc.arguments = ["pandoc", "-f", "gfm", "-t", format] + extraArgs
 
     let inPipe  = Pipe()
     let outPipe = Pipe()
@@ -54,20 +54,8 @@ func runPandoc(to format: String, extraArgs: [String] = []) -> Data {
     return out
 }
 
-let rtfData = runPandoc(to: "rtf", extraArgs: ["--standalone"])
-
-// Pandoc produces adjacent block elements with no spacing between them.
-// Slack (and most web editors) collapse <p> margins, so we insert an empty
-// <p><br></p> between every pair of adjacent block-level close/open tags to
-// preserve the blank lines from the original source.
-var html = String(data: runPandoc(to: "html"), encoding: .utf8)!
-let blockBoundary = try! NSRegularExpression(pattern: #"(</(?:p|ul|ol|blockquote)>)\n(<(?:p|ul|ol|blockquote)[> ])"#)
-html = blockBoundary.stringByReplacingMatches(
-    in: html,
-    range: NSRange(html.startIndex..., in: html),
-    withTemplate: "$1\n<p><br></p>\n$2"
-)
-let htmlData = html.data(using: .utf8)!
+let rtfData  = runPandoc(to: "rtf",  extraArgs: ["--standalone", "--wrap=none"])
+let htmlData = runPandoc(to: "html", extraArgs: ["--wrap=none"])
 
 // MARK: - Write to clipboard
 
