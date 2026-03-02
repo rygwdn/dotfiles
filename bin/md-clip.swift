@@ -54,8 +54,20 @@ func runPandoc(to format: String, extraArgs: [String] = []) -> Data {
     return out
 }
 
-let rtfData  = runPandoc(to: "rtf",  extraArgs: ["--standalone"])
-let htmlData = runPandoc(to: "html")
+let rtfData = runPandoc(to: "rtf", extraArgs: ["--standalone"])
+
+// Pandoc produces adjacent block elements with no spacing between them.
+// Slack (and most web editors) collapse <p> margins, so we insert an empty
+// <p><br></p> between every pair of adjacent block-level close/open tags to
+// preserve the blank lines from the original source.
+var html = String(data: runPandoc(to: "html"), encoding: .utf8)!
+let blockBoundary = try! NSRegularExpression(pattern: #"(</(?:p|ul|ol|blockquote)>)\n(<(?:p|ul|ol|blockquote)[> ])"#)
+html = blockBoundary.stringByReplacingMatches(
+    in: html,
+    range: NSRange(html.startIndex..., in: html),
+    withTemplate: "$1\n<p><br></p>\n$2"
+)
+let htmlData = html.data(using: .utf8)!
 
 // MARK: - Write to clipboard
 
