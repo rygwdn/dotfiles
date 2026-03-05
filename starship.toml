@@ -2,7 +2,7 @@
 
 add_newline = false
 
-format = "${custom.shortpath} $character"
+format = "${custom.shortpath_project}${custom.shortpath_path} $character"
 right_format = """${custom.git_branch_custom}$all"""
 
 command_timeout = 5000
@@ -10,12 +10,19 @@ command_timeout = 5000
 [directory]
 disabled = true
 
-[custom.shortpath]
-command = "jumpr shortpath --section full $PWD"
+[custom.shortpath_project]
+command = "jumpr shortpath --project"
+when = "command -v jumpr"
+format = "[$output]($style)"
+style = "bold cyan"
+description = "Project/repo prefix from jumpr shortpath"
+
+[custom.shortpath_path]
+command = "jumpr shortpath --path"
 when = "command -v jumpr"
 format = "[$output]($style)"
 style = "cyan"
-description = "Shortened path from jumpr"
+description = "Directory path from jumpr shortpath"
 
 [username]
 disabled = true
