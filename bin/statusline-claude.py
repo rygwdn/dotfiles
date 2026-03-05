@@ -317,6 +317,10 @@ def main():
         help="Run with test data instead of reading from stdin",
     )
     parser.add_argument(
+        "--debug",
+        action="store_true",
+    )
+    parser.add_argument(
         "--no-usage", action="store_true", help="Disable API usage data display"
     )
 
@@ -413,8 +417,11 @@ def main():
     if not args.no_usage:
         usage = get_usage_data()
         if usage:
+            if args.debug:
+                print(json.dumps(usage, indent=2))
             five_hour = usage.get("five_hour", {})
             seven_day = usage.get("seven_day", {})
+            extra = usage.get("extra_usage", {})
 
             if five_hour and five_hour.get("utilization") is not None:
                 util_5h = five_hour.get("utilization", 0)
@@ -431,6 +438,14 @@ def main():
                     util_7d, hours_remaining_7d, 168
                 )  # 7 days = 168 hours
                 parts.append(f"{emoji_7d}{int(util_7d)}%/{time_7d}")
+
+            if extra and extra.get("is_enabled") and extra.get("utilization") is not None:
+                util_ex = extra.get("utilization", 0)
+                used = extra.get("used_credits", 0) / 100
+                limit = extra.get("monthly_limit", 0) / 100
+                parts.append(f"💳{int(util_ex)}% (${used:.2f}/${limit:.0f})")
+        else:
+            parts.append(f"{RED}⚠ no usage{RESET}")
 
     if unknown_str:
         parts.append(unknown_str)
