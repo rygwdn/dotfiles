@@ -69,8 +69,9 @@ local function nav_section(tab)
   return ''
 end
 
-local modal = wezterm.plugin.require("https://github.com/MLFlexer/modal.wezterm")
-modal.apply_to_config(config)
+local modal_url = "https://github.com/rygwdn/modal.wezterm"
+local modal = wezterm.plugin.require(modal_url)
+modal.apply_to_config(config, modal_url)
 
 local tabline = wezterm.plugin.require("https://github.com/michaelbrusegard/tabline.wez")
 tabline.setup({
