@@ -19,7 +19,7 @@ function fish_title
 
     set -l path_display
     if command -q jumpr
-        set path_display (jumpr shortpath --section full $PWD 2>/dev/null)
+        set path_display (jumpr shortpath --project $PWD 2>/dev/null)
     end
     test -z "$path_display" && set path_display (prompt_pwd -d 1 -D 1)
 

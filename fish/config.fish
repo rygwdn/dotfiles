@@ -136,3 +136,7 @@ else
     set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
     set -g fish_transient_prompt 1
 end
+
+# bun
+set --export BUN_INSTALL "$HOME/.bun"
+set --export PATH $BUN_INSTALL/bin $PATH

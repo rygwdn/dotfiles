@@ -1,1 +1,4 @@
 bun.fish
+docker.fish
+kubectl.fish
+orbctl.fish
