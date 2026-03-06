@@ -97,7 +97,7 @@ def get_git_and_path(cwd):
     if shutil.which("jumpr"):
         try:
             procs["path"] = subprocess.Popen(
-                ["jumpr", "shortpath", "--section", "full", cwd],
+                ["jumpr", "shortpath", cwd],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
                 text=True,

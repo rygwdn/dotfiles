@@ -8,7 +8,7 @@ format = "${custom.shortpath}$git_branch$character"
 command_timeout = 5000
 
 [custom.shortpath]
-command = "jumpr shortpath --section full $PWD"
+command = "jumpr shortpath $PWD"
 when = "command -v jumpr"
 format = "[$output]($style) "
 style = "cyan"
