@@ -191,8 +191,9 @@ function __done_humanize_duration -a milliseconds
 end
 
 # verify that the system has graphical capabilities before initializing
+# (use no-fork checks instead of calling lsappinfo at init — saves ~15ms)
 if test -z "$SSH_CLIENT" # not over ssh
-    and count (__done_get_focused_window_id) >/dev/null # is able to get window id
+    and test -n "$TERM_PROGRAM" -o -n "$DISPLAY" -o -n "$WAYLAND_DISPLAY" -o -n "$SWAYSOCK" -o -n "$HYPRLAND_INSTANCE_SIGNATURE" # has a graphical session
     set __done_enabled
 end
 

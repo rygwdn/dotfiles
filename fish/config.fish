@@ -93,7 +93,16 @@ if status is-interactive
         echo "jumpr not found, installing..."
         curl -fsSL https://raw.githubusercontent.com/rygwdn/jump/main/get-jumpr.sh | sh -s -- --install-dir "$HOME/.local/bin"
     end
-    command -q jumpr && jumpr shell-init --shell fish | source
+    if command -q jumpr
+        # Cache jumpr shell integration (saves ~10ms fork/exec per startup)
+        set -l jumpr_cache ~/.cache/fish/jumpr-init.fish
+        set -l jumpr_bin (command -s jumpr)
+        if not test -f $jumpr_cache; or test $jumpr_bin -nt $jumpr_cache
+            mkdir -p ~/.cache/fish
+            jumpr shell-init --shell fish > $jumpr_cache
+        end
+        source $jumpr_cache
+    end
 end
 
 set -U __done_exclude '(git (?!push|pull)|vim)'
@@ -141,6 +150,7 @@ end
 
 if test -n "$FISH_SIMPLE_TERM"
     set -x STARSHIP_CONFIG "$HOME/dotfiles/starship-simple.toml"
+    status features mark-prompt off
 else
     set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
     set -g fish_transient_prompt 1
