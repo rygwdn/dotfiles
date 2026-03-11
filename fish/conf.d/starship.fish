@@ -1,5 +1,13 @@
-set -g STARSHIP_CMD $(which starship 2>/dev/null || which /usr/local/bin/starship 2>/dev/null || which /opt/homebrew/bin/starship 2>/dev/null)
-test -f "$STARSHIP_CMD" || exit 0
+# Find starship binary — prefer PATH lookup (builtin, no subprocess), fall back to known locations
+if command -q starship
+    set -g STARSHIP_CMD (command -s starship)
+else if test -x /opt/homebrew/bin/starship
+    set -g STARSHIP_CMD /opt/homebrew/bin/starship
+else if test -x /usr/local/bin/starship
+    set -g STARSHIP_CMD /usr/local/bin/starship
+else
+    exit 0
+end
 
 
 set -gx STARSHIP_SESSION_KEY (string sub -s1 -l16 (random)(random)(random)(random)(random)0000000000000000)

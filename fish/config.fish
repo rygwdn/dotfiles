@@ -8,16 +8,43 @@
 # Disable default greeting
 set -g fish_greeting
 
-abbr ll ls -l
-abbr la ls -A
+# Configure path
+fish_add_path -gm \
+    ~/bin \
+    ~/.bin \
+    ~/dotfiles/bin \
+    ~/.local/bin \
+    ~/.dev/userprofile/bin/ \
+    /opt/homebrew/opt/rustup/bin \
+    ~/.cabal/bin \
+    ~/.cargo/bin \
+    ~/.rvm/bin \
+    ~/.deno/bin \
+    ~/go/bin \
+    /usr/local/sbin \
+    /usr/local/bin \
+    /opt/local/bin \
+    /opt/homebrew/bin \
+    /opt/homebrew/opt/fish/bin \
+    /opt/homebrew/opt/starship/bin \
+    ~/.fzf/bin \
+    ~/.poetry/bin \
+    ~/.local/bin \
+    /Applications/Obsidian.app/Contents/MacOS
+
 
 function _is_gt
     set -l git_root (git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo '/dev/null')
     test "$git_root" != /dev/null && test -f "$git_root/.graphite_repo_config"
 end
 
+# Check for gt once, not per-abbreviation (saves ~24ms of `which` spawns)
+if command -q gt
+    set -g __has_gt 1
+end
+
 function _abbr_if_gt -a abbr gt git
-    if which gt &>/dev/null
+    if test "$__has_gt" = 1
         eval "$(
     echo "function _abbr_$abbr"
     echo "  _is_gt && echo '$gt' || echo '$git'"
@@ -44,16 +71,11 @@ _abbr_if_gt rs 'gt restack' 'rs'
 _abbr_if_gt frs 'gt sync --no-restack --no-interactive && gt restack' 'git pull --rebase'
 _abbr_if_gt gm 'gt modify' 'git commit --amend --no-edit'
 
-if status is-interactive
-    if not which jumpr &>/dev/null
-        echo "jumpr not found, installing..."
-        curl -fsSL https://raw.githubusercontent.com/rygwdn/jump/main/get-jumpr.sh | sh -s -- --install-dir "$HOME/.local/bin"
-    end
-    if which jumpr &>/dev/null
-        jumpr shell-init --shell fish | source
-    end
-end
+# Clean up setup-only globals
+set -e __has_gt
 
+abbr ll ls -l
+abbr la ls -A
 abbr st git st
 abbr gd git diff
 abbr gdc git diff --cached
@@ -66,29 +88,15 @@ abbr rg rg -S
 
 abbr mdf cd ~/dotfiles
 
-set -U __done_exclude '(git (?!push|pull)|vim)'
+if status is-interactive
+    if not command -q jumpr
+        echo "jumpr not found, installing..."
+        curl -fsSL https://raw.githubusercontent.com/rygwdn/jump/main/get-jumpr.sh | sh -s -- --install-dir "$HOME/.local/bin"
+    end
+    command -q jumpr && jumpr shell-init --shell fish | source
+end
 
-fish_add_path -m \
-    ~/bin \
-    ~/.bin \
-    ~/dotfiles/bin \
-    ~/.local/bin \
-    /opt/homebrew/opt/rustup/bin \
-    ~/.cabal/bin \
-    ~/.cargo/bin \
-    ~/.rvm/bin \
-    ~/.deno/bin \
-    ~/go/bin \
-    /usr/local/sbin \
-    /usr/local/bin \
-    /opt/local/bin \
-    /opt/homebrew/bin \
-    /opt/homebrew/opt/ruby/bin \
-    /opt/homebrew/opt/fish/bin \
-    /opt/homebrew/opt/starship/bin \
-    ~/.fzf/bin \
-    ~/.poetry/bin \
-    /Applications/Obsidian.app/Contents/MacOS
+set -U __done_exclude '(git (?!push|pull)|vim)'
 
 set -x EDITOR vim
 set -x VISUAL vim
@@ -109,7 +117,7 @@ set fish_cursor_default block
 set fish_cursor_insert line
 set fish_cursor_replace_one underscore
 
-set -x SHELL (which fish)
+set -x SHELL (status fish-path)
 set -x STARSHIP_SHELL fish
 
 if test -n "$COMPOSER_NO_INTERACTION" || ! status is-interactive
