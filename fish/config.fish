@@ -150,7 +150,8 @@ end
 
 if test -n "$FISH_SIMPLE_TERM"
     set -x STARSHIP_CONFIG "$HOME/dotfiles/starship-simple.toml"
-    status features mark-prompt off
+    # Disable OSC 133 prompt markers in simple terminals (fish 4.x)
+    set -g fish_features no-mark-prompt
 else
     set -x STARSHIP_CONFIG "$HOME/dotfiles/starship.toml"
     set -g fish_transient_prompt 1
