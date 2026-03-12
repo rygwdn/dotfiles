@@ -1,4 +1,4 @@
-command -q starship || exit 0
+command -q starship || test -x /opt/homebrew/bin/starship || exit 0
 
 set -g __async_prompt_var _async_prompt_$fish_pid'_rprompt'
 
@@ -46,7 +46,8 @@ function __async_prompt_spawn
       kill -s SIGUSR1 $fish_pid &
     "
 
-    fish -c $script &
+    set -l fish_bin (status fish-path)
+    FISH_BG=1 $fish_bin -c $script &
 
     builtin disown
 end

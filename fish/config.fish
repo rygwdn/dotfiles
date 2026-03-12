@@ -127,7 +127,7 @@ set fish_cursor_insert line
 set fish_cursor_replace_one underscore
 
 set -x SHELL (status fish-path)
-set -x STARSHIP_SHELL fish
+set -x STARSHIP_SHELL 'sh'
 
 if test -n "$COMPOSER_NO_INTERACTION" || ! status is-interactive
     set -x FISH_NOT_INTERACTIVE 1
