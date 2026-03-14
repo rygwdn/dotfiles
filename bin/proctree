@@ -149,15 +149,19 @@ def render_mem_bar(stats: dict, width=50) -> str:
         n = max(0, round(gb / total * width))
         return f"{color}{ch * n}{RESET}"
 
-    bar = (seg(stats["wired"],      RED,    "▓") +
-           seg(max(0, stats["used"] - stats["wired"]), YELLOW, "█") +
-           seg(stats["compressed"], CYAN,   "░") +
-           seg(max(0, total - stats["used"] - stats["compressed"]), DIM, "·"))
+    # used_bar = wired + active + compressed (= Activity Monitor "Memory Used")
+    used_bar = stats["used"] + stats["compressed"]
+    bar = (seg(stats["wired"],                                RED,    "▓") +
+           seg(max(0, stats["used"] - stats["wired"]),        YELLOW, "█") +
+           seg(stats["compressed"],                           CYAN,   "░") +
+           seg(max(0, total - used_bar),                      DIM,    "·"))
 
     def gb(v): return f"{v:.1f}G"
 
     # Line 1: the bar itself with used/total
-    line1 = f"  [{bar}]  {WHITE}{gb(stats['used'])}{RESET}/{gb(total)}"
+    # "used" here matches Activity Monitor's "Memory Used" = wired + active + compressed
+    used_display = stats["used"] + stats["compressed"]
+    line1 = f"  [{bar}]  {WHITE}{gb(used_display)}{RESET}/{gb(total)}"
 
     # Line 2: breakdown numbers, colors matching bar segments
     parts = [
