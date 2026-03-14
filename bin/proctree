@@ -1,0 +1,869 @@
+#!/opt/homebrew/bin/uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "psutil>=5.9",
+# ]
+# ///
+"""
+proctree — Process Resource Tree Viewer
+
+Memory columns:
+  Normal mode (RSS + CMP):
+    RSS  — pages resident in physical RAM (uncompressed); inflated by shared
+           framework pages that are counted in every process
+    CMP  — pages compressed by the macOS memory compressor (still in RAM,
+           just shrunk; decompressed on access)
+
+  Sudo mode (USS + CMP + SWAP):
+    USS  — Unique Set Size: RSS minus shared pages — the memory exclusively
+           owned by this process; the most accurate single-process figure
+    CMP  — same as above
+    SWAP — pages paged out to disk (via vmmap, collected for top processes)
+
+Run as root / via sudo for the accurate USS + SWAP view.
+
+Usage:  proctree [--min-cpu PCT] [--min-mem MB] [--no-system]
+                 [--sample-ms MS] [--watch SEC]
+        sudo proctree ...
+"""
+
+import subprocess
+import os
+import re
+import json
+import time
+import argparse
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Optional, Callable
+
+import psutil
+
+SUDO_MODE      = (os.geteuid() == 0)
+SHOW_SWAP      = False  # set to True at runtime via --swap flag
+SHOW_MEM_SPLIT = False  # set to True at runtime via --split-mem flag
+
+# ── ANSI ───────────────────────────────────────────────────────────────────────
+
+RESET  = "\033[0m"
+BOLD   = "\033[1m"
+DIM    = "\033[2m"
+RED    = "\033[91m"
+YELLOW = "\033[93m"
+GREEN  = "\033[92m"
+BLUE   = "\033[94m"
+WHITE  = "\033[97m"
+CYAN   = "\033[96m"
+
+def _cpu_color(v):
+    if v >= 80: return RED
+    if v >= 40: return YELLOW
+    if v >= 10: return GREEN
+    return DIM
+
+def _mem_color(mb):
+    if mb >= 2000: return RED
+    if mb >= 500:  return YELLOW
+    if mb >= 100:  return GREEN
+    return DIM
+
+def fmt_cpu(v, dim=False):
+    """6 display chars: ' 99.9%'"""
+    s = f"{v:5.1f}%"
+    return f"{DIM}{s}{RESET}" if dim else f"{_cpu_color(v)}{s}{RESET}"
+
+def fmt_mem(mb, dim=False):
+    """5 display chars: ' 1.6G' / ' 429M'"""
+    s = f"{mb/1024:4.1f}G" if mb >= 1024 else f"{mb:4.0f}M"
+    return f"{DIM}{s}{RESET}" if dim else f"{_mem_color(mb)}{s}{RESET}"
+
+def fmt_mem_combined(mb, cmp_mb, dim=False):
+    """
+    Fixed 10-char field.
+    With CMP:    primary right-aligned in 5, '+', CMP right-aligned in 4  = 10 chars
+    Without CMP: primary right-aligned in 10                               = 10 chars
+    Examples: ' 6.8G+ 87M'  '  429M+791M'  '      519M'
+    """
+    def _short(v):
+        return f"{v/1024:.1f}G" if v >= 1024 else f"{v:.0f}M"
+
+    color = _mem_color(mb + cmp_mb)
+    if cmp_mb < 1:
+        s = f"{_short(mb):>10}"
+    else:
+        s = f"{_short(mb):>5}+{_short(cmp_mb):>4}"   # 5 + 1 + 4 = 10 chars
+
+    return f"{DIM if dim else color}{s}{RESET}"
+
+def fmt_swap(mb, dim=False):
+    """5 display chars for swap — amber tint, greyed when zero."""
+    if mb < 1:
+        return f"{DIM}   — {RESET}"
+    if dim:
+        return f"{DIM}{mb/1024:4.1f}G{RESET}" if mb >= 1024 else f"{DIM}{mb:4.0f}M{RESET}"
+    color = RED if mb >= 2000 else YELLOW if mb >= 200 else DIM
+    return f"{color}{mb/1024:4.1f}G{RESET}" if mb >= 1024 else f"{color}{mb:4.0f}M{RESET}"
+
+
+# ── System Memory Bar ──────────────────────────────────────────────────────────
+
+def system_mem_stats() -> dict:
+    vm   = psutil.virtual_memory()
+    swap = psutil.swap_memory()
+
+    compressed_pages = 0
+    page_size        = 16384
+    try:
+        out = subprocess.check_output(["vm_stat"], text=True,
+                                      stderr=subprocess.DEVNULL, timeout=3)
+        for line in out.splitlines():
+            if "page size of" in line:
+                m = re.search(r'(\d+) bytes', line)
+                if m:
+                    page_size = int(m.group(1))
+            elif "occupied by compressor" in line:
+                m = re.search(r'([\d]+)', line.split(":")[1])
+                if m:
+                    compressed_pages = int(m.group(1))
+    except Exception:
+        pass
+
+    GB = 1024 ** 3
+    return {
+        "total":      vm.total      / GB,
+        "used":       vm.used       / GB,
+        "wired":      vm.wired      / GB,
+        "compressed": compressed_pages * page_size / GB,
+        "swap_used":  swap.used     / GB,
+        "swap_total": swap.total    / GB,
+    }
+
+
+def render_mem_bar(stats: dict, width=50) -> str:
+    total = stats["total"]
+    if total == 0:
+        return ""
+
+    def seg(gb, color, ch):
+        n = max(0, round(gb / total * width))
+        return f"{color}{ch * n}{RESET}"
+
+    bar = (seg(stats["wired"],      RED,    "▓") +
+           seg(max(0, stats["used"] - stats["wired"]), YELLOW, "█") +
+           seg(stats["compressed"], CYAN,   "░") +
+           seg(max(0, total - stats["used"] - stats["compressed"]), DIM, "·"))
+
+    def gb(v): return f"{v:.1f}G"
+
+    # Line 1: the bar itself with used/total
+    line1 = f"  [{bar}]  {WHITE}{gb(stats['used'])}{RESET}/{gb(total)}"
+
+    # Line 2: breakdown numbers, colors matching bar segments
+    parts = [
+        f"{RED}▓ wired {gb(stats['wired'])}{RESET}",
+        f"{YELLOW}█ active {gb(max(0, stats['used'] - stats['wired']))}{RESET}",
+        f"{CYAN}░ cmp {gb(stats['compressed'])}{RESET}",
+    ]
+    if stats["swap_total"] > 0:
+        pct   = stats["swap_used"] / stats["swap_total"] * 100
+        color = RED if pct > 80 else YELLOW if pct > 40 else DIM
+        parts.append(f"{color}swap {gb(stats['swap_used'])}/{gb(stats['swap_total'])}{RESET}")
+
+    line2 = "    " + "  ".join(parts)
+
+    return f"{line1}\n{line2}"
+
+
+# ── Per-process swap via vmmap (sudo mode only) ───────────────────────────────
+
+def _vmmap_details(pid: int) -> tuple[float, float]:
+    """
+    Parse DIRTY and SWAPPED from `vmmap -summary <pid>` TOTAL line.
+    Returns (dirty_mb, swap_mb). Requires root for system processes.
+    """
+    try:
+        out = subprocess.check_output(
+            ["vmmap", "-summary", str(pid)],
+            stderr=subprocess.DEVNULL, timeout=5,
+        ).decode(errors="replace")
+        for line in out.splitlines():
+            if line.startswith("TOTAL"):
+                parts = line.split()
+                # TOTAL  VIRTUAL  RESIDENT  DIRTY  SWAPPED ...
+                if len(parts) >= 5:
+                    def _mb(s):
+                        m = re.match(r"([\d.]+)([BKMGT])", s.upper())
+                        if not m: return 0.0
+                        v, u = float(m.group(1)), m.group(2)
+                        return v * {"B":1/1024/1024,"K":1/1024,"M":1,"G":1024,"T":1024**2}[u]
+                    return _mb(parts[3]), _mb(parts[4])
+    except Exception:
+        pass
+    return 0.0, 0.0
+
+
+def fill_vmmap(pids: set[int], procs: dict) -> None:
+    """Fetch dirty+swap for the given pids in parallel (sudo mode)."""
+    from concurrent.futures import ThreadPoolExecutor
+    def fetch(pid):
+        dirty, swap = _vmmap_details(pid)
+        if pid in procs:
+            procs[pid].mem_dirty = dirty
+            procs[pid].mem_swap  = swap
+    with ThreadPoolExecutor(max_workers=min(len(pids), 6)) as ex:
+        list(ex.map(fetch, pids))
+
+
+# ── Per-process compressed memory via top ─────────────────────────────────────
+
+def _parse_top_size(s: str) -> float:
+    """Convert top size string ('351M', '1184M', '0B', '2.5G') to MB."""
+    m = re.match(r"([\d.]+)([BKMGT])", s.strip().upper())
+    if not m:
+        return 0.0
+    v, u = float(m.group(1)), m.group(2)
+    return v * {"B": 1/1024/1024, "K": 1/1024, "M": 1, "G": 1024, "T": 1024**2}[u]
+
+
+def collect_compressed() -> dict[int, float]:
+    """
+    Run `top -l 1 -stats pid,cmprs` — a single fast call that returns
+    per-process compressed memory for all processes at once.
+    Returns pid → compressed_mb.
+    """
+    try:
+        out = subprocess.check_output(
+            ["top", "-l", "1", "-stats", "pid,cmprs"],
+            stderr=subprocess.DEVNULL, timeout=5,
+        ).decode()
+        result: dict[int, float] = {}
+        parsing = False
+        for line in out.splitlines():
+            if line.startswith("PID"):
+                parsing = True
+                continue
+            if not parsing:
+                continue
+            parts = line.split()
+            if len(parts) >= 2:
+                try:
+                    result[int(parts[0])] = _parse_top_size(parts[1])
+                except (ValueError, IndexError):
+                    pass
+        return result
+    except Exception:
+        return {}
+
+
+# ── Process Data ───────────────────────────────────────────────────────────────
+
+@dataclass
+class ProcInfo:
+    pid:       int
+    ppid:      int
+    name:      str
+    exe:       str
+    cpu:       float
+    mem_rss:   float   # MB — RSS: resident (uncompressed) RAM (normal mode)
+    mem_uss:   float   # MB — USS: unique set size, RSS minus shared (sudo mode)
+    mem_cmp:   float   # MB — compressed by macOS memory compressor
+    mem_dirty: float   # MB — vmmap DIRTY: private dirty pages (sudo mode)
+    mem_swap:  float   # MB — vmmap SWAPPED: pages on disk (sudo mode)
+    tty:       Optional[str]
+    cmdline:   list
+    wez_pane:  Optional[str]
+    tmux_pane: Optional[str]
+    tmux_sock: Optional[str]
+
+    @property
+    def mem_primary(self) -> float:
+        """The main memory figure shown in the tree (USS in sudo, RSS otherwise)."""
+        return self.mem_uss if SUDO_MODE else self.mem_rss
+
+    @property
+    def short_name(self):
+        if self.exe:
+            return re.sub(r'\.(app|bin|sh)$', '', os.path.basename(self.exe))
+        return self.name or f"pid:{self.pid}"
+
+    @property
+    def app_name(self):
+        if self.exe:
+            m = re.search(r'/([^/]+)\.app/', self.exe)
+            if m:
+                return m.group(1)
+            return os.path.basename(self.exe)
+        return self.name or f"pid:{self.pid}"
+
+    @property
+    def short_args(self) -> str:
+        if not self.cmdline or len(self.cmdline) <= 1:
+            return ""
+        s = " ".join(self.cmdline[1:])
+        return s[:80] + "…" if len(s) > 80 else s
+
+
+_SHELLS = frozenset(('fish', 'bash', 'zsh', 'sh', 'dash', 'tcsh', 'csh', 'ksh'))
+
+def _self_pids() -> set[int]:
+    """
+    Pids that are part of this proctree invocation and should be hidden.
+    Walk up from os.getpid() until we reach a shell (which belongs to the
+    pane and should remain visible).
+    """
+    exclude: set[int] = set()
+    try:
+        p = psutil.Process(os.getpid())
+        while p:
+            if (p.name() or '').lower() in _SHELLS:
+                break
+            exclude.add(p.pid)
+            parent = p.parent()
+            if parent is None or parent.pid == p.pid:
+                break
+            p = parent
+    except Exception:
+        pass
+    return exclude
+
+
+def _read_env(proc) -> dict:
+    try:
+        return proc.environ()
+    except Exception:
+        return {}
+
+
+def collect_processes(sample_ms=500) -> dict[int, ProcInfo]:
+    skip = _self_pids()
+    handles = {}
+    for p in psutil.process_iter(['pid', 'ppid', 'name', 'exe', 'memory_info',
+                                   'terminal', 'cmdline']):
+        try:
+            if p.pid in skip:
+                continue
+            p.cpu_percent()
+            handles[p.pid] = p
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+
+    # Collect compressed memory in parallel with the CPU sample window
+    cmp_future: dict[int, float] = {}
+    import threading
+    cmp_lock   = threading.Lock()
+    cmp_result = {}
+
+    def _fetch_cmp():
+        data = collect_compressed()
+        with cmp_lock:
+            cmp_result.update(data)
+
+    cmp_thread = threading.Thread(target=_fetch_cmp, daemon=True)
+    cmp_thread.start()
+
+    time.sleep(sample_ms / 1000)
+    cmp_thread.join(timeout=5)
+
+    procs: dict[int, ProcInfo] = {}
+    for pid, p in handles.items():
+        try:
+            info    = p.info
+            cpu     = p.cpu_percent()
+            rss     = (info['memory_info'].rss if info['memory_info'] else 0) / (1024 * 1024)
+            uss     = rss  # default; overwritten below if sudo
+            if SUDO_MODE:
+                try:
+                    uss = p.memory_full_info().uss / (1024 * 1024)
+                except Exception:
+                    uss = rss  # fallback for processes we can't inspect (e.g. pid 1)
+            tty_raw = info.get('terminal')
+            # Only read environ for TTY-attached processes — those are the
+            # pane/session seeds. Descendants are captured by subtree walk.
+            env      = _read_env(p) if tty_raw else {}
+            tmux_raw = env.get('TMUX', '')
+            procs[pid] = ProcInfo(
+                pid=pid,
+                ppid=info['ppid'] or 0,
+                name=info['name'] or '',
+                exe=info['exe'] or '',
+                cpu=cpu,
+                mem_rss=rss,
+                mem_uss=uss,
+                mem_cmp=cmp_result.get(pid, 0.0),
+                mem_dirty=0.0,
+                mem_swap=0.0,
+                tty=os.path.basename(tty_raw) if tty_raw else None,
+                cmdline=info['cmdline'] or [],
+                wez_pane=env.get('WEZTERM_PANE'),
+                tmux_pane=env.get('TMUX_PANE'),
+                tmux_sock=tmux_raw.split(',')[0] if tmux_raw else None,
+            )
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+
+    return procs
+
+
+def build_children(procs: dict[int, ProcInfo]) -> dict[int, list[int]]:
+    ch: dict[int, list[int]] = defaultdict(list)
+    for pid, p in procs.items():
+        if p.ppid and p.ppid in procs:
+            ch[p.ppid].append(pid)
+    return ch
+
+
+def subtree_pids(pid, ch, visited=None) -> set[int]:
+    if visited is None:
+        visited = set()
+    if pid in visited:
+        return visited
+    visited.add(pid)
+    for c in ch.get(pid, []):
+        subtree_pids(c, ch, visited)
+    return visited
+
+
+def totals(pids, procs) -> tuple[float, float, float, float]:
+    """Returns (cpu, mem_primary_mb, cmp_mb, swap_mb)."""
+    cpu  = sum(procs[p].cpu         for p in pids if p in procs)
+    mem  = sum(procs[p].mem_primary for p in pids if p in procs)
+    cmp  = sum(procs[p].mem_cmp     for p in pids if p in procs)
+    swap = sum(procs[p].mem_swap    for p in pids if p in procs)
+    return cpu, mem, cmp, swap
+
+
+def expand_seeds(seeds: set[int], ch, procs) -> set[int]:
+    expanded: set[int] = set()
+    for s in seeds:
+        expanded |= subtree_pids(s, ch)
+    return expanded & set(procs.keys())
+
+
+# ── Recursive subtree builder ──────────────────────────────────────────────────
+
+ChildRow = tuple[str, float, float, float, float, Optional[Callable]]
+# (label, cpu, mem_primary, cmp, swap, children_fn)
+
+
+def subtree_children_fn(root_pids: set[int], group_pids: set[int],
+                        ch, procs, show_args=True) -> Callable[[], list[ChildRow]]:
+    def fn() -> list[ChildRow]:
+        buckets: dict[str, list[int]] = defaultdict(list)
+        for pid in root_pids:
+            p = procs.get(pid)
+            if p:
+                buckets[p.short_name].append(pid)
+
+        rows: list[ChildRow] = []
+        for sname, pids in buckets.items():
+            sub = set().union(*(subtree_pids(p, ch) & group_pids for p in pids))
+            c, r, m, s = totals(sub, procs)
+
+            if len(pids) == 1:
+                pid      = pids[0]
+                args     = procs[pid].short_args
+                label    = sname + (f"  {DIM}{args}{RESET}" if show_args and args else "")
+                kid_pids = {k for k in ch.get(pid, []) if k in group_pids}
+                cfn = subtree_children_fn(kid_pids, group_pids, ch, procs, show_args) \
+                      if kid_pids else None
+            else:
+                label = f"{sname} ×{len(pids)}"
+                cfn   = None
+
+            rows.append((label, c, r, m, s, cfn))
+        return rows
+
+    return fn
+
+
+# ── WezTerm ────────────────────────────────────────────────────────────────────
+
+def get_wezterm_pane_map() -> dict[str, dict]:
+    try:
+        out = subprocess.check_output(
+            ["wezterm", "cli", "list", "--format", "json"],
+            stderr=subprocess.DEVNULL, timeout=5,
+        )
+        return {str(p["pane_id"]): p for p in json.loads(out)}
+    except Exception:
+        return {}
+
+
+def shorten_cwd(url: str) -> str:
+    path = re.sub(r'^file://[^/]+', '', url)
+    path = path.replace('%40', '@').replace('%20', ' ')
+    home = os.path.expanduser('~')
+    return ('~' + path[len(home):]) if path.startswith(home) else path
+
+
+def build_wezterm_section(procs, ch, claimed_pids):
+    pane_seeds: dict[str, set[int]] = defaultdict(set)
+    wez_self: set[int] = set()
+
+    for pid, p in procs.items():
+        if p.wez_pane is not None:
+            pane_seeds[p.wez_pane].add(pid)
+        elif "wezterm" in (p.exe or p.name or "").lower():
+            wez_self.add(pid)
+
+    if not pane_seeds and not wez_self:
+        return None
+
+    pane_groups: dict[str, set[int]] = {
+        k: expand_seeds(v, ch, procs) for k, v in pane_seeds.items()
+    }
+
+    seen: set[int] = set()
+    for pane_id in sorted(pane_groups, key=lambda x: int(x) if x.isdigit() else 0):
+        pane_groups[pane_id] -= seen
+        seen |= pane_groups[pane_id]
+
+    all_pids      = wez_self | seen
+    c, r, m, s    = totals(all_pids, procs)
+    pane_meta     = get_wezterm_pane_map()
+
+    def children_fn():
+        rows: list[ChildRow] = []
+        for pane_id, pids in pane_groups.items():
+            meta  = pane_meta.get(pane_id, {})
+            title = (meta.get("title") or meta.get("tab_title") or "").strip()
+            cwd   = shorten_cwd(meta["cwd"]) if meta.get("cwd") else ""
+            label = f"Tab {meta.get('tab_id','?')} · Pane {meta.get('pane_id', pane_id)}"
+            if title:
+                label += f": {title}"
+            if cwd and cwd not in ('~/', '~'):
+                label += f"  {DIM}{cwd}{RESET}"
+            pc, pr, pm, ps = totals(pids, procs)
+            roots = {pid for pid in pids if procs[pid].ppid not in pids}
+            cfn   = subtree_children_fn(roots, pids, ch, procs) if roots else None
+            rows.append((label, pc, pr, pm, ps, cfn))
+        if wez_self:
+            pc, pr, pm, ps = totals(wez_self, procs)
+            rows.append(("[wezterm GUI]", pc, pr, pm, ps, None))
+        return rows
+
+    claimed_pids |= all_pids
+    return c, r, m, s, children_fn
+
+
+# ── tmux ───────────────────────────────────────────────────────────────────────
+
+def get_tmux_pane_map() -> dict[str, dict]:
+    try:
+        fmt = ("#{session_name}|#{window_index}|#{window_name}"
+               "|#{pane_index}|#{pane_id}|#{pane_pid}|#{pane_current_command}")
+        out = subprocess.check_output(
+            ["tmux", "list-panes", "-a", "-F", fmt],
+            stderr=subprocess.DEVNULL, timeout=5,
+        ).decode()
+        result = {}
+        for line in out.strip().splitlines():
+            parts = line.split("|", 6)
+            if len(parts) == 7:
+                result[parts[4]] = {
+                    "session": parts[0], "window_index": int(parts[1]),
+                    "window_name": parts[2], "pane_index": int(parts[3]),
+                    "pane_id": parts[4], "pane_pid": int(parts[5]),
+                    "command": parts[6],
+                }
+        return result
+    except Exception:
+        return {}
+
+
+def build_tmux_sections(procs, ch, claimed_pids):
+    pane_seeds: dict[tuple[str, str], set[int]] = defaultdict(set)
+    for pid, p in procs.items():
+        if pid not in claimed_pids and p.tmux_sock and p.tmux_pane:
+            pane_seeds[(p.tmux_sock, p.tmux_pane)].add(pid)
+
+    if not pane_seeds:
+        return []
+
+    tmux_meta   = get_tmux_pane_map()
+    pane_groups = {k: expand_seeds(v, ch, procs) for k, v in pane_seeds.items()}
+
+    session_panes: dict[str, list] = defaultdict(list)
+    all_pids: set[int] = set()
+    for (sock, pane_id), pids in pane_groups.items():
+        meta    = tmux_meta.get(pane_id, {})
+        session = meta.get("session") or f"tmux@{os.path.basename(sock)}"
+        session_panes[session].append((pane_id, pids, meta))
+        all_pids |= pids
+
+    sections = []
+    for session, panes in session_panes.items():
+        ses_pids         = set().union(*(p for _, p, _ in panes))
+        sc, sr, sm, ss   = totals(ses_pids, procs)
+
+        def make_cfn(pane_list):
+            def fn():
+                rows: list[ChildRow] = []
+                for pane_id, pids, meta in pane_list:
+                    win   = meta.get("window_name") or f"win{meta.get('window_index','?')}"
+                    label = f"{win}:{meta.get('pane_index','?')}"
+                    cmd   = meta.get("command", "")
+                    if cmd:
+                        label += f" — {cmd}"
+                    pc, pr, pm, ps = totals(pids, procs)
+                    roots = {pid for pid in pids if procs[pid].ppid not in pids}
+                    cfn   = subtree_children_fn(roots, pids, ch, procs) if roots else None
+                    rows.append((label, pc, pr, pm, ps, cfn))
+                return rows
+            return fn
+
+        sections.append((f"tmux: {session}", sc, sr, sm, ss, make_cfn(panes), ses_pids))
+
+    claimed_pids |= all_pids
+    return sections
+
+
+# ── System Detection ───────────────────────────────────────────────────────────
+
+SYSTEM_PREFIXES = (
+    "/sbin/", "/usr/sbin/", "/usr/libexec/", "/usr/bin/",
+    "/System/", "/Library/Apple/", "/Library/Frameworks/",
+    "/private/", "/usr/standalone/",
+)
+
+def is_system(p: ProcInfo) -> bool:
+    if p.pid == 1:
+        return True
+    if p.ppid in (0, 1) or p.ppid not in range(1, 2**31):
+        if not p.exe:
+            return True
+        if any(p.exe.startswith(pfx) for pfx in SYSTEM_PREFIXES):
+            return True
+        if p.exe.startswith("/usr/") and "/homebrew/" not in p.exe:
+            return True
+    return False
+
+
+# ── Hot Panel ──────────────────────────────────────────────────────────────────
+
+HOT_CPU = 10.0
+HOT_MEM = 1024.0  # MB
+
+def build_hot_panel(procs) -> list[str]:
+    buckets: dict[str, list[ProcInfo]] = defaultdict(list)
+    for p in procs.values():
+        buckets[p.short_name].append(p)
+
+    hot = []
+    for name, group in buckets.items():
+        cpu  = sum(p.cpu         for p in group)
+        mem  = sum(p.mem_primary for p in group)
+        cmp  = sum(p.mem_cmp     for p in group)
+        swap = sum(p.mem_swap    for p in group)
+        if cpu >= HOT_CPU or mem + cmp >= HOT_MEM:
+            label = f"{name} ×{len(group)}" if len(group) > 1 else name
+            hot.append((cpu, mem, cmp, swap, label))
+
+    if not hot:
+        return []
+
+    hot.sort(key=lambda x: x[0] + (x[1] + x[2]) / 100)  # ascending: hottest at bottom
+    lines = [f"  {BOLD}🔥 Hot{RESET}  {DIM}({HOT_CPU:.0f}%+ cpu or {HOT_MEM/1024:.0f}G+ ram){RESET}"]
+    for cpu, mem, cmp, swap, label in hot:
+        line = (f"  {fmt_cpu(cpu)}  {fmt_mem_combined(mem, cmp)}"
+                if SHOW_MEM_SPLIT else
+                f"  {fmt_cpu(cpu)}  {fmt_mem(mem + cmp)}")
+        if SHOW_SWAP:
+            line += f"  {fmt_swap(swap)}"
+        lines.append(line + f"  {label}")
+    return lines
+
+
+# ── Rendering ──────────────────────────────────────────────────────────────────
+
+BLANK = "    "
+PIPE  = "│   "
+TEE   = "├── "
+ELBOW = "└── "
+
+
+def render_node(lines, label, cpu, mem, cmp, swap=0.0,
+                children_fn=None, prefix="", is_last=True,
+                min_cpu=2.0, min_mem=200.0, top_level=False):
+    connector = (ELBOW if is_last else TEE) if prefix else ""
+    dim       = not top_level
+    metrics = (f"{fmt_cpu(cpu, dim)}  {fmt_mem_combined(mem, cmp, dim)}"
+               if SHOW_MEM_SPLIT else
+               f"{fmt_cpu(cpu, dim)}  {fmt_mem(mem + cmp, dim)}")
+    if SHOW_SWAP:
+        metrics += f"  {fmt_swap(swap, dim)}"
+    lines.append(
+        f"  {metrics}  {prefix}{connector}{BOLD if top_level else ''}{label}{RESET}"
+    )
+
+    if children_fn:
+        kids    = children_fn()
+        visible = [(l, c, r, m, s, f) for l, c, r, m, s, f in kids
+                   if c >= min_cpu or r + m >= min_mem]
+        visible.sort(key=lambda x: x[1] + (x[2] + x[3]) / 100)  # ascending: hottest at bottom
+        child_prefix = prefix + (BLANK if is_last else PIPE)
+        for i, (cl, cc, cr, cm, cs, cf) in enumerate(visible):
+            render_node(lines, cl, cc, cr, cm, cs, cf, child_prefix,
+                        is_last=(i == len(visible) - 1),
+                        min_cpu=min_cpu, min_mem=min_mem, top_level=False)
+
+
+def section_header(title):
+    dashes = '─' * max(0, 46 - len(title))
+    return f"\n  {BOLD}{BLUE}── {title} {dashes}{RESET}"
+
+
+# ── Main ───────────────────────────────────────────────────────────────────────
+
+SYSTEM_CHILD_MIN_CPU = 2.0
+SYSTEM_CHILD_MIN_MEM = 100.0
+
+
+def build_output(procs, ch, args) -> list[str]:
+    """
+    All process groups in one unified list, sorted ascending by resource usage
+    so the hottest entries appear at the bottom, closest to the prompt.
+    """
+    lines        = []
+    claimed_pids: set[int] = set()
+    entries: list[tuple[float, float, float, float, str, any]] = []
+    # Each entry: (cpu, mem_primary, cmp, swap, label, children_fn)
+
+    # ── System / Daemons ───────────────────────────────────────────────────────
+    if not args.no_system:
+        sys_pids         = {pid for pid, p in procs.items() if is_system(p)}
+        sc, sr, sm, ss   = totals(sys_pids, procs)
+        claimed_pids    |= sys_pids
+
+        def sys_cfn():
+            rows = [
+                (procs[pid].short_name,
+                 procs[pid].cpu, procs[pid].mem_primary,
+                 procs[pid].mem_cmp, procs[pid].mem_swap, None)
+                for pid in sys_pids
+                if procs[pid].cpu >= SYSTEM_CHILD_MIN_CPU
+                or procs[pid].mem_primary >= SYSTEM_CHILD_MIN_MEM
+            ]
+            rows.sort(key=lambda x: x[1] + x[2] / 100)
+            return rows
+
+        entries.append((sc, sr, sm, ss, "System / Daemons", sys_cfn))
+
+    # ── WezTerm and tmux claimed first so their pids are excluded from app scan ──
+    wez = build_wezterm_section(procs, ch, claimed_pids)
+    if wez:
+        wc, wr, wm, ws, wcfn = wez
+        entries.append((wc, wr, wm, ws, "WezTerm", wcfn))
+
+    for label, c, r, m, s, cfn, pids in build_tmux_sections(procs, ch, claimed_pids):
+        entries.append((c, r, m, s, label, cfn))
+
+    # ── User Applications (unclaimed non-system processes) ─────────────────────
+    app_groups: dict[str, dict] = {}
+    for pid, p in procs.items():
+        if pid in claimed_pids or is_system(p):
+            continue
+        if p.ppid in (0, 1) or p.ppid not in procs:
+            sub = subtree_pids(pid, ch) - claimed_pids
+            if p.app_name not in app_groups:
+                app_groups[p.app_name] = {"pids": set(), "root": pid}
+            app_groups[p.app_name]["pids"] |= sub
+
+    for name, grp in app_groups.items():
+        pids         = grp["pids"]
+        c, r, m, s   = totals(pids, procs)
+        if c < args.min_cpu and r + m < args.min_mem:
+            continue
+        root     = grp["root"]
+        kid_pids = {k for k in ch.get(root, []) if k in pids}
+        cfn = subtree_children_fn(kid_pids, pids, ch, procs, show_args=False) \
+              if kid_pids else None
+        entries.append((c, r, m, s, name, cfn))
+        claimed_pids |= pids
+
+    # ── Render all entries sorted ascending (hottest at bottom) ────────────────
+    entries.sort(key=lambda x: x[0] + (x[1] + x[2]) / 100)
+    for c, r, m, s, label, cfn in entries:
+        render_node(lines, label, c, r, m, s, cfn,
+                    min_cpu=args.min_cpu, min_mem=args.min_mem, top_level=True)
+
+    # ── Hot panel (bottom: most important, seen last) ──────────────────────────
+    hot = build_hot_panel(procs)
+    if hot:
+        lines.append("")
+        lines.extend(hot)
+
+    return lines
+
+
+def run_once(args):
+    print(f"{DIM}Sampling…{RESET}", end="\r", flush=True)
+    procs = collect_processes(args.sample_ms)
+    ch    = build_children(procs)
+
+    global SHOW_SWAP, SHOW_MEM_SPLIT
+    SHOW_SWAP      = args.swap
+    SHOW_MEM_SPLIT = args.split_mem
+    if SHOW_SWAP:
+        vmmap_pids = set(
+            sorted(procs.keys(), key=lambda p: procs[p].mem_rss, reverse=True)[:30]
+        )
+        print(f"{DIM}Fetching swap for {len(vmmap_pids)} processes…{RESET}",
+              end="\r", flush=True)
+        fill_vmmap(vmmap_pids, procs)
+
+    print(" " * 50, end="\r")
+
+    mem_stats = system_mem_stats()
+    total_cpu = sum(p.cpu for p in procs.values())
+
+    mode_tag   = f"  {BOLD}{YELLOW}[sudo: USS]{RESET}" if SUDO_MODE else ""
+    mem_label  = ("USS(+CMP)" if SUDO_MODE else "RSS(+CMP)") if SHOW_MEM_SPLIT \
+                 else ("USS" if SUDO_MODE else "MEM")
+    col_header = (f"  {DIM}  CPU%  {mem_label:>10}"
+                  f"{'    SWAP' if args.swap else ''}{RESET}")
+
+    print(f"\n{BOLD}{WHITE}⬡ Process Resource Tree{RESET}{mode_tag}"
+          f"  {fmt_cpu(total_cpu)} total cpu"
+          f"  {DIM}(min {args.min_cpu}% / {args.min_mem:.0f}M){RESET}")
+    print(col_header)
+
+    lines = build_output(procs, ch, args)
+    print("\n".join(lines))
+    print(col_header)
+    print()
+    print(render_mem_bar(mem_stats))
+    print()
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Show process resource usage as a hierarchical tree",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--min-cpu",   type=float, default=10.0,  metavar="PCT")
+    parser.add_argument("--min-mem",   type=float, default=500.0, metavar="MB")
+    parser.add_argument("--no-system", action="store_true")
+    parser.add_argument("--sample-ms", type=int,   default=500,   metavar="MS")
+    parser.add_argument("--watch",     type=float, default=0,     metavar="SEC")
+    parser.add_argument("--swap",       action="store_true",
+                        help="Collect per-process swap via vmmap (slow, ~5-10s)")
+    parser.add_argument("--split-mem",  action="store_true",
+                        help="Show RSS and CMP as separate values (e.g. 6.8G+791M)")
+    args = parser.parse_args()
+
+    if args.watch > 0:
+        try:
+            while True:
+                os.system("clear")
+                run_once(args)
+                time.sleep(args.watch)
+        except KeyboardInterrupt:
+            print(f"\n{DIM}Stopped.{RESET}")
+    else:
+        run_once(args)
+
+
+if __name__ == "__main__":
+    main()
