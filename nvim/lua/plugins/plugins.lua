@@ -1,4 +1,25 @@
 return {
+  -- macOS 26+ enforces strict code signing on dlopen'd .so files.
+  -- Re-sign tree-sitter parsers after install so nvim doesn't crash.
+  {
+    "nvim-treesitter/nvim-treesitter",
+    config = function(_, opts)
+      require("nvim-treesitter.configs").setup(opts)
+      -- Re-sign any parser .so files that were just compiled/installed
+      vim.api.nvim_create_autocmd("User", {
+        pattern = "TSInstallDone",
+        callback = function()
+          local parser_dir = vim.fn.stdpath("data") .. "/site/parser"
+          vim.fn.jobstart(
+            "find " .. parser_dir .. " -name '*.so' -exec codesign -f -s - {} \\;",
+            { detach = true }
+          )
+        end,
+        desc = "Re-sign tree-sitter parsers for macOS 26 code signing enforcement",
+      })
+    end,
+  },
+
   { "nvim-mini/mini.pairs", enabled = false },
   {
     "windwp/nvim-autopairs",
@@ -234,10 +255,16 @@ return {
   {
     "folke/tokyonight.nvim",
     opts = {
+      style = "night",
       dim_inactive = true, -- dims inactive windows
       on_colors = function(c)
         c.border = c.blue0
-        c.bg_dark = c.black
+        c.bg = "#000000"
+        c.bg_dark = "#000000"
+      end,
+      on_highlights = function(hl, c)
+        hl.RenderMarkdownCode = { bg = c.bg_highlight }
+        hl["@markup.raw.markdown_inline"] = { fg = c.cyan, bg = "NONE" }
       end,
     },
   },
