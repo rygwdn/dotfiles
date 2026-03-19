@@ -15,6 +15,9 @@ vim.api.nvim_create_autocmd("FileType", {
   callback = function()
     if vim.g.vscode ~= 1 then
       vim.opt_local.wrap = true
+      vim.opt_local.linebreak = true
+      vim.opt_local.breakindent = true
+      vim.opt_local.breakindentopt = "list:-1"
       vim.opt_local.spell = true
     end
   end,
