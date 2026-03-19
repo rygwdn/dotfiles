@@ -53,6 +53,7 @@ local focus_overrides = {
       wrap = { default = true, rendered = true },
       linebreak = { default = true, rendered = true },
       breakindent = { default = true, rendered = true },
+      breakindentopt = { default = "list:-1", rendered = "list:-1,shift:1" },
     },
   },
 }
