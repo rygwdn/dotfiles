@@ -36,7 +36,87 @@ smart_splits.apply_to_config(config, {
 local resurrect = wezterm.plugin.require("https://github.com/MLFlexer/resurrect.wezterm")
 local local_state_path = wezterm.home_dir .. "/.local/state/wezterm/"
 resurrect.state_manager.change_state_save_dir(local_state_path)
-resurrect.state_manager.periodic_save()
+resurrect.state_manager.periodic_save({ interval_seconds = 120 })
+
+-- Resurrect error toast notifications
+wezterm.on("resurrect.error", function(err)
+  wezterm.log_error("resurrect error: " .. tostring(err))
+  local window = wezterm.mux.all_windows()[1]
+  if window then
+    window:gui_window():toast_notification("resurrect.wezterm", "Error: " .. tostring(err), nil, 4000)
+  end
+end)
+
+-- Backup helpers for resurrect state files
+local backup_dir = local_state_path .. "backups/"
+local max_backups = 20
+
+local function count_tabs_in_state(state_path)
+  local file = io.open(state_path, "r")
+  if not file then return 0 end
+  local content = file:read("*a")
+  file:close()
+  local count = 0
+  -- Count '"tabs":[' arrays and their elements via '"pane_tree"' occurrences
+  for _ in content:gmatch('"pane_tree"') do
+    count = count + 1
+  end
+  return count
+end
+
+local function backup_state_file(source_path)
+  local file = io.open(source_path, "r")
+  if not file then return end
+  local content = file:read("*a")
+  file:close()
+  if #content == 0 then return end
+
+  local tab_count = count_tabs_in_state(source_path)
+  local workspace = wezterm.mux.get_active_workspace() or "default"
+  local date_str = os.date("%Y-%m-%d")
+  local time_str = os.date("%H%M%S")
+
+  -- De-dupe: skip if a same-day file with identical tab count already exists
+  local ok, entries = pcall(wezterm.read_dir, backup_dir)
+  if ok and entries then
+    local pattern = workspace .. "_" .. date_str .. ".*_" .. tostring(tab_count) .. "tabs"
+    for _, entry in ipairs(entries) do
+      if entry:match(pattern) then
+        return -- duplicate exists
+      end
+    end
+  end
+
+  -- Ensure backup directory exists
+  os.execute('mkdir -p "' .. backup_dir .. '"')
+
+  local backup_name = workspace .. "_" .. date_str .. "_" .. time_str .. "_" .. tab_count .. "tabs.json"
+  local dest = backup_dir .. backup_name
+  local out = io.open(dest, "w")
+  if out then
+    out:write(content)
+    out:close()
+    wezterm.log_info("resurrect backup: " .. backup_name)
+  end
+
+  -- Prune old backups (keep last max_backups)
+  local ok2, all_entries = pcall(wezterm.read_dir, backup_dir)
+  if ok2 and all_entries then
+    -- Filter to only .json backup files and sort alphabetically (oldest first)
+    local backups = {}
+    for _, entry in ipairs(all_entries) do
+      if entry:match("%.json$") then
+        table.insert(backups, entry)
+      end
+    end
+    table.sort(backups)
+    while #backups > max_backups do
+      os.remove(backups[1])
+      table.remove(backups, 1)
+    end
+  end
+end
+
 -- Maximize the default workspace window on startup and display changes
 local function maximize_default_workspace()
   local mux = wezterm.mux
@@ -49,7 +129,18 @@ local function maximize_default_workspace()
 end
 
 wezterm.on("gui-startup", function(cmd)
+  -- Backup existing state BEFORE restore can overwrite it
+  local state_file = local_state_path .. "workspace/default.json"
+  backup_state_file(state_file)
   resurrect.state_manager.resurrect_on_gui_startup(cmd)
+end)
+
+wezterm.on("gui-shutdown", function()
+  -- Save current state then back it up
+  local state = resurrect.workspace_state.get_workspace_state()
+  resurrect.state_manager.save_state(state)
+  local state_file = local_state_path .. "workspace/default.json"
+  backup_state_file(state_file)
 end)
 
 wezterm.on("gui-attached", function(_domain)
