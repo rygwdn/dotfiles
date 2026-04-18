@@ -4,7 +4,7 @@ return {
   {
     "nvim-treesitter/nvim-treesitter",
     config = function(_, opts)
-      require("nvim-treesitter.configs").setup(opts)
+      require("nvim-treesitter.config").setup(opts)
       -- Re-sign any parser .so files that were just compiled/installed
       vim.api.nvim_create_autocmd("User", {
         pattern = "TSInstallDone",
@@ -263,8 +263,16 @@ return {
         c.bg_dark = "#000000"
       end,
       on_highlights = function(hl, c)
-        hl.RenderMarkdownCode = { bg = c.bg_highlight }
+        hl.RenderMarkdownCode = { bg = c.bg_dark1 }
         hl["@markup.raw.markdown_inline"] = { fg = c.cyan, bg = "NONE" }
+        -- Dim heading backgrounds so border chars are subtle, not full-white
+        local heading_bg = c.bg_dark1
+        hl.RenderMarkdownH1Bg = { bg = heading_bg }
+        hl.RenderMarkdownH2Bg = { bg = heading_bg }
+        hl.RenderMarkdownH3Bg = { bg = heading_bg }
+        hl.RenderMarkdownH4Bg = { bg = heading_bg }
+        hl.RenderMarkdownH5Bg = { bg = heading_bg }
+        hl.RenderMarkdownH6Bg = { bg = heading_bg }
       end,
     },
   },
@@ -294,4 +302,44 @@ return {
       },
     },
   },
+  -- {
+  --   "folke/snacks.nvim",
+  --   ---@type snacks.Config
+  --   opts = {
+  --     scroll = {
+  --       animate = {
+  --         duration = { step = 10, total = 200 },
+  --         easing = "linear",
+  --       },
+  --       -- faster animation when repeating scroll after delay
+  --       animate_repeat = {
+  --         delay = 100, -- delay in ms before using the repeat animation
+  --         duration = { step = 5, total = 50 },
+  --         easing = "linear",
+  --       }
+  --       -- your scroll configuration comes here
+  --       -- or leave it empty to use the default settings
+  --       -- refer to the configuration section below
+  --     }
+  --   }
+  -- }
+  -- {
+  --   "folke/snacks.nvim",
+  --   opts = function(_, opts)
+  --     opts.scroll = {
+  --       {
+  --         animate = {
+  --           duration = { step = 10, total = 200 },
+  --           easing = "linear",
+  --         },
+  --         -- faster animation when repeating scroll after delay
+  --         animate_repeat = {
+  --           delay = 100, -- delay in ms before using the repeat animation
+  --           duration = { step = 5, total = 50 },
+  --           easing = "linear",
+  --         },
+  --       }
+  --     }
+  --   end,
+  -- },
 }
