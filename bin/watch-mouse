@@ -1,0 +1,176 @@
+#!/opt/homebrew/bin/uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "hid>=1.0.5",
+# ]
+# ///
+"""
+watch-mouse — stream raw HID reports from a USB mouse (or any HID device).
+
+Usage:
+  watch-mouse                       # default VID/PID 0x1209:0xc000, auto-pick mouse interface
+  watch-mouse --list                # list all HID devices
+  watch-mouse --vid 0x1234 --pid 0x5678
+  watch-mouse --interface 2         # pick a specific interface index
+
+Requires hidapi: `brew install hidapi`.
+If the `hid` import can't find the dylib, set:
+  export DYLD_LIBRARY_PATH="/opt/homebrew/lib:$DYLD_LIBRARY_PATH"
+
+Note: opening the mouse interface may make the cursor stop responding while
+the script runs (macOS won't share the interface). Ctrl-C to release. If that
+happens, pick a different --interface index — a vendor-defined interface
+(UsagePage 0xff00) will still report movement without hijacking the pointer.
+"""
+
+import argparse
+import os
+import sys
+import threading
+import time
+
+
+def shim_hidapi_loader():
+    # macOS SIP strips DYLD_LIBRARY_PATH, and the `hid` wrapper calls
+    # ctypes.cdll.LoadLibrary('libhidapi.dylib') with a bare name which only
+    # searches system paths. Monkey-patch LoadLibrary to rewrite that one
+    # call to the Homebrew absolute path.
+    if sys.platform != "darwin":
+        return
+    import ctypes
+    for p in ("/opt/homebrew/lib", "/usr/local/lib"):
+        candidate = os.path.join(p, "libhidapi.dylib")
+        if os.path.exists(candidate):
+            original = ctypes.cdll.LoadLibrary
+
+            def patched(name, *a, **kw):
+                if name == "libhidapi.dylib":
+                    return original(candidate, *a, **kw)
+                return original(name, *a, **kw)
+
+            ctypes.cdll.LoadLibrary = patched
+            return
+
+
+shim_hidapi_loader()
+
+import hid  # noqa: E402
+
+
+def parse_hex(s: str) -> int:
+    return int(s, 16) if s.lower().startswith("0x") else int(s)
+
+
+def fmt_device(info: dict) -> str:
+    return (
+        f"vid={info['vendor_id']:#06x} pid={info['product_id']:#06x}  "
+        f"usage_page={info['usage_page']:#x} usage={info['usage']:#x}  "
+        f"{info.get('manufacturer_string','') or ''} {info.get('product_string','') or ''}  "
+        f"path={info['path'].decode(errors='replace')}"
+    )
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--vid", type=parse_hex, default=0x1209, help="Vendor ID (default: 0x1209)")
+    ap.add_argument("--pid", type=parse_hex, default=0xC000, help="Product ID (default: 0xc000)")
+    ap.add_argument("--interface", type=int, default=None, help="Interface index to open (see --list)")
+    ap.add_argument("--list", action="store_true", help="List HID devices and exit")
+    ap.add_argument("--grep", default=None, help="Case-insensitive substring filter on manufacturer/product string")
+    ap.add_argument("--timeout", type=int, default=1000, help="Read timeout in ms (default: 1000)")
+    ap.add_argument("--report-size", type=int, default=64, help="Max report size bytes (default: 64)")
+    args = ap.parse_args()
+
+    def matches_grep(info: dict) -> bool:
+        if not args.grep:
+            return True
+        needle = args.grep.lower()
+        haystack = " ".join(
+            str(info.get(k, "") or "") for k in ("manufacturer_string", "product_string")
+        ).lower()
+        return needle in haystack
+
+    if args.list:
+        for info in hid.enumerate():
+            if matches_grep(info):
+                print(fmt_device(info))
+        return 0
+
+    if args.grep:
+        infos = [d for d in hid.enumerate() if matches_grep(d)]
+        if not infos:
+            print(f"No device matching --grep {args.grep!r} found. Try --list.", file=sys.stderr)
+            return 1
+    else:
+        infos = [d for d in hid.enumerate() if d["vendor_id"] == args.vid and d["product_id"] == args.pid]
+        if not infos:
+            print(f"No device {args.vid:#06x}:{args.pid:#06x} found. Try --list.", file=sys.stderr)
+            return 1
+
+    for i, info in enumerate(infos):
+        print(f"[{i}] {fmt_device(info)}")
+
+    # --grep implies open-all-matched. Otherwise open a single interface
+    # (--interface idx, or the first mouse interface by default).
+    if args.grep:
+        open_indices = list(range(len(infos)))
+    elif args.interface is not None:
+        open_indices = [args.interface]
+    else:
+        open_indices = [
+            next(
+                (i for i, d in enumerate(infos) if d["usage_page"] == 0x01 and d["usage"] == 0x02),
+                0,
+            )
+        ]
+
+    print(f"\nOpening {open_indices}\n", file=sys.stderr)
+
+    print_lock = threading.Lock()
+    stop = threading.Event()
+
+    def reader(idx: int, info: dict) -> None:
+        try:
+            d = hid.Device(path=info["path"])
+        except Exception as e:
+            with print_lock:
+                print(f"[{idx}] open failed: {e}", file=sys.stderr)
+            return
+        try:
+            while not stop.is_set():
+                try:
+                    data = d.read(args.report_size, timeout=args.timeout)
+                except Exception as e:
+                    with print_lock:
+                        print(f"[{idx}] read error: {e}", file=sys.stderr)
+                    return
+                if data:
+                    ts = time.strftime("%H:%M:%S")
+                    ms = int((time.time() % 1) * 1000)
+                    hexed = " ".join(f"{b:02x}" for b in data)
+                    with print_lock:
+                        print(f"{ts}.{ms:03d}  [{idx}] len={len(data):2d}  {hexed}")
+        finally:
+            d.close()
+
+    threads = [
+        threading.Thread(target=reader, args=(i, infos[i]), daemon=True, name=f"reader-{i}")
+        for i in open_indices
+    ]
+    for t in threads:
+        t.start()
+
+    try:
+        while any(t.is_alive() for t in threads):
+            for t in threads:
+                t.join(timeout=0.25)
+    except KeyboardInterrupt:
+        stop.set()
+        for t in threads:
+            t.join(timeout=1.0)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
