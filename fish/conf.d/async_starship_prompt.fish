@@ -1,6 +1,21 @@
 command -q starship || test -x /opt/homebrew/bin/starship || exit 0
 
-set -g __async_prompt_var _async_prompt_$fish_pid'_rprompt'
+# Per-pid tempfile-based async right prompt.
+#
+# Replaces the previous universal-variable-based implementation so that:
+#   - $fish_variables is not polluted with _async_prompt_<pid>_rprompt entries
+#   - no cross-session broadcast of prompt state
+#   - cleanup is per-pid and automatic via mktemp -d + fish_exit
+#
+# Flow:
+#   fish_prompt event  → spawn a background fish that runs starship, writes
+#                        the rendered right prompt atomically to a pid-scoped
+#                        tempfile, then SIGUSR1's the parent.
+#   SIGUSR1 handler    → `commandline -f repaint`.
+#   fish_right_prompt  → reads the tempfile (effectively memory/tmpfs IO).
+
+set -g __async_prompt_tmpdir (command mktemp -d -t fish_async_prompt)
+set -g __async_prompt_rfile $__async_prompt_tmpdir/rprompt
 
 function fish_right_prompt
     # Hide right prompt when transient
@@ -8,9 +23,8 @@ function fish_right_prompt
         return
     end
 
-    if set -q $__async_prompt_var
-        echo -n $$__async_prompt_var
-    end
+    test -e $__async_prompt_rfile
+    and string collect <$__async_prompt_rfile
 end
 
 function __async_prompt_fire --on-event fish_prompt
@@ -18,10 +32,12 @@ function __async_prompt_fire --on-event fish_prompt
 
     set -l __async_prompt_last_pipestatus $pipestatus
 
-    if set -q $__async_prompt_var
-        # Strip ANSI colors and show in brblack
-        echo -n $$__async_prompt_var | sed -r 's/\x1B\[[0-9;]*[JKmsu]//g' | read -zl uncolored_prompt
-        set $__async_prompt_var (set_color brblack)"$uncolored_prompt"(set_color normal)
+    # Repaint the existing prompt greyed-out as a loading indicator while the
+    # new one renders in the background.
+    if test -e $__async_prompt_rfile
+        read -zl prev <$__async_prompt_rfile
+        echo -n $prev | sed -r 's/\x1B\[[0-9;]*[JKmsu]//g' | read -zl uncolored
+        printf '%s' (set_color brblack)$uncolored(set_color normal) >$__async_prompt_rfile
     end
 
     __async_prompt_spawn
@@ -41,8 +57,12 @@ function __async_prompt_spawn
 
     set -l prompt_cmd "STARSHIP_CONFIG=$STARSHIP_CONFIG $STARSHIP_CMD prompt --right --terminal-width=\"$COLUMNS\" --status=$STARSHIP_CMD_STATUS --pipestatus=\"$STARSHIP_CMD_PIPESTATUS\" --keymap=$STARSHIP_KEYMAP --cmd-duration=$STARSHIP_DURATION --jobs=$STARSHIP_JOBS"
 
+    # Write to a sibling file then rename — avoids torn reads if the parent
+    # repaints concurrently with a slow starship run.
     set -l script "
-      set -U $__async_prompt_var ($prompt_cmd)
+      set -l tmp $__async_prompt_rfile.\$fish_pid
+      $prompt_cmd >\$tmp
+      and command mv -f \$tmp $__async_prompt_rfile
       kill -s SIGUSR1 $fish_pid &
     "
 
@@ -56,15 +76,6 @@ function __async_prompt_repaint_prompt --on-signal SIGUSR1
     commandline -f repaint >/dev/null 2>/dev/null
 end
 
-function __async_prompt_variable_cleanup --on-event fish_exit
-    set -l prefix _async_prompt_
-    set -l prompt_vars (set --show | string match -rg '^\$('"$prefix"'\d+_rprompt):' | uniq)
-    for var in $prompt_vars
-        set -l pid (string match -rg '^'"$prefix"'(\d+)_rprompt' $var)
-        if not ps $pid &>/dev/null
-            or test $pid -eq $fish_pid
-            set -Ue $var
-        end
-    end
-    set -ge __async_prompt_var
+function __async_prompt_tmpdir_cleanup --on-event fish_exit
+    command rm -rf "$__async_prompt_tmpdir"
 end
