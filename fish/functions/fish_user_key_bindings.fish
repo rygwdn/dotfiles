@@ -32,11 +32,8 @@ function _better_vi_mode
         bind guu '_downcase_x -b'
         bind gUU '_upcase_x -b'
 
-        bind guiw '_downcase_x -t'
-        bind guiW '_downcase_x -t'
-
-        bind gUiw '_upcase_x -t'
-        bind gUiW '_upcase_x -t'
+        # NOTE: guiw/gUiw bindings removed — fish 4.x parses 'gui' as the Super/GUI
+        # modifier key, so these sequences no longer work as multi-char vi key bindings.
     end
 end
 
