@@ -14,7 +14,7 @@ command -q starship || test -x /opt/homebrew/bin/starship || exit 0
 #   SIGUSR1 handler    → `commandline -f repaint`.
 #   fish_right_prompt  → reads the tempfile (effectively memory/tmpfs IO).
 
-set -g __async_prompt_tmpdir (command mktemp -d -t fish_async_prompt)
+set -g __async_prompt_tmpdir (command mktemp -d -t fish_async_prompt.XXXXXX)
 set -g __async_prompt_rfile $__async_prompt_tmpdir/rprompt
 
 function fish_right_prompt
