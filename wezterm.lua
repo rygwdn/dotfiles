@@ -281,6 +281,66 @@ local keys = {
 
 	{ key = "Space", mods = "CTRL", action = wezterm.action.ShowTabNavigator },
 
+	-- Copy the previous prompt + its output using semantic zones (requires OSC 133 shell integration)
+	{
+		key = "c",
+		mods = "CMD|SHIFT",
+		action = wezterm.action_callback(function(window, pane)
+			local zones = pane:get_semantic_zones()
+			if not zones or #zones == 0 then
+				window:toast_notification("wezterm", "No semantic zones found (is OSC 133 shell integration enabled?)", nil, 3000)
+				return
+			end
+
+			-- Helper: extract text for a single zone and trim trailing whitespace.
+			local function zone_text(z)
+				local t = pane:get_text_from_region(z.start_x, z.start_y, z.end_x, z.end_y) or ""
+				return (t:gsub("%s+$", ""))
+			end
+
+			-- Walk backwards through Output zones to find the most recent NON-EMPTY one.
+			-- This skips past empty outputs from things like hitting Enter on an empty prompt.
+			-- We also skip the very last zone if it's an Output that's still being produced
+			-- by the current command (its end position tracks the cursor).
+			local output_idx
+			for i = #zones, 1, -1 do
+				if zones[i].semantic_type == "Output" and zone_text(zones[i]) ~= "" then
+					output_idx = i
+					break
+				end
+			end
+			if not output_idx then
+				window:toast_notification("wezterm", "No previous non-empty output found", nil, 3000)
+				return
+			end
+
+			-- Walk backwards to find the Prompt zone that started this command.
+			local start_idx = output_idx
+			for i = output_idx - 1, 1, -1 do
+				if zones[i].semantic_type == "Prompt" then
+					start_idx = i
+					break
+				end
+				start_idx = i
+			end
+
+			local start_zone = zones[start_idx]
+			local end_zone = zones[output_idx]
+			local text = pane:get_text_from_region(
+				start_zone.start_x, start_zone.start_y,
+				end_zone.end_x, end_zone.end_y
+			)
+			-- Trim trailing whitespace/newlines from the captured region.
+			text = (text or ""):gsub("%s+$", "")
+			if text == "" then
+				window:toast_notification("wezterm", "Previous prompt + output was empty", nil, 2000)
+				return
+			end
+			window:copy_to_clipboard(text, "ClipboardAndPrimarySelection")
+			window:toast_notification("wezterm", "Copied previous prompt + output (" .. #text .. " chars)", nil, 2000)
+		end),
+	},
+
   {
     key = "r",
     mods = "ALT",
