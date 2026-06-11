@@ -1,10 +1,3 @@
-# if not functions fisher
-#     set -q XDG_CONFIG_HOME; or set XDG_CONFIG_HOME ~/.config
-#     curl -sL https://git.io/fisher | source && fisher install jorgebucaran/fisher
-#     fisher update
-# end
-#
-
 # Disable default greeting
 set -g fish_greeting
 
@@ -107,6 +100,8 @@ if status is-interactive
     end
 end
 
+test -d ~/Documents/Personal/.obsidian && abbr nn cd ~/Documents/Personal
+
 set -U __done_exclude '(git (?!push|pull)|vim)'
 
 set -x EDITOR vim
@@ -129,7 +124,7 @@ set fish_cursor_insert line
 set fish_cursor_replace_one underscore
 
 set -x SHELL (status fish-path)
-set -x STARSHIP_SHELL 'sh'
+set -x STARSHIP_SHELL /bin/sh
 
 if test -n "$COMPOSER_NO_INTERACTION" || ! status is-interactive
     set -x FISH_NOT_INTERACTIVE 1
