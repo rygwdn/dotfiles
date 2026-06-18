@@ -3,8 +3,10 @@
 import argparse
 import platform
 import os
+import shutil
 import sys
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 REPO_URL = "https://github.com/rygwdn/dotfiles"
@@ -38,7 +40,6 @@ fish_contents = [
     ("fish/completions", ".config/fish/completions"),
     ("fish/conf.d", ".config/fish/conf.d"),
     ("fish/config.fish", ".config/fish/config.fish"),
-    ("fish/fish_plugins", ".config/fish/fish_plugins"),
     ("fish/functions", ".config/fish/functions"),
 ]
 
@@ -57,7 +58,13 @@ unix_links = all_platforms + fish_contents + [
 
 DOTFILES_DIR = Path(__file__).resolve().parent
 
-def dolink(file, destname=None):
+def _backup(dest):
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup = dest.parent / (dest.name + f".bak.{stamp}")
+    dest.rename(backup)
+    return backup
+
+def dolink(file, destname=None, force=False):
     src = (DOTFILES_DIR / file).resolve()
     orig_dest = Path(Path.home(), destname or "." + src.name)
     dest = orig_dest.resolve()
@@ -66,23 +73,39 @@ def dolink(file, destname=None):
     srcname = src.relative_to(DOTFILES_DIR)
 
     if not src.exists():
-        raise Exception(f"{src} does not exist!")
+        print(f"✘ {srcname} does not exist, skipping")
+        return
 
     if src.exists() and dest.exists() and src.samefile(dest):
-        #destname = orig_dest
-        #srcname = src
         print(f"✔ {srcname} -> {destname}")
     elif dest.exists() and dest.is_file():
         with dest.open() as dFile:
             with src.open() as sFile:
-                if dFile.readlines() == sFile.readlines():
-                    print(f"✘ {destname} exists & contains same content as {srcname}")
-                else:
-                    print(f"✘ {destname} exists & differs from {srcname}")
+                same = dFile.readlines() == sFile.readlines()
+        if same:
+            if force:
+                print(f"↷ {srcname} -> {destname} (replacing identical file)")
+                return lambda: (_backup(dest), dest.symlink_to(src.resolve()))
+            else:
+                print(f"✘ {destname} exists & contains same content as {srcname}")
+        else:
+            if force:
+                print(f"↷ {srcname} -> {destname} (backing up & replacing)")
+                return lambda: (_backup(dest), dest.symlink_to(src.resolve()))
+            else:
+                print(f"✘ {destname} exists & differs from {srcname}")
     elif dest.exists():
-        print(f"✘ {destname} exists & not linked to {srcname}")
+        if force:
+            print(f"↷ {srcname} -> {destname} (backing up & replacing)")
+            return lambda: (shutil.move(str(dest), str(dest.parent / (dest.name + f".bak.{datetime.now().strftime('%Y%m%d_%H%M%S')}"))), dest.symlink_to(src.resolve()))
+        else:
+            print(f"✘ {destname} exists & not linked to {srcname}")
     elif dest.is_symlink():
-        print(f"✘ {destname} is a broken link")
+        if force:
+            print(f"↷ {srcname} -> {destname} (removing broken link & replacing)")
+            return lambda: (dest.unlink(), dest.symlink_to(src.resolve()))
+        else:
+            print(f"✘ {destname} is a broken link")
     else:
         print(f"↷ {srcname} -> {destname}")
         return lambda: dest.symlink_to(src.resolve())
@@ -127,6 +150,7 @@ def main():
     parser.add_argument('--dry', action='store_true', help='do a dry run')
     parser.add_argument('--clean', action='store_true', help='remove links')
     parser.add_argument('--fish', action='store_true', help='set default shell to fish')
+    parser.add_argument('--force', action='store_true', help='back up existing files/dirs and replace with symlinks')
 
     args = parser.parse_args()
 
@@ -141,7 +165,7 @@ def main():
     operations = []
     for link in links:
         src, dest = type(link) is tuple and link or [link, None]
-        operation = dolink(src, dest)
+        operation = dolink(src, dest, force=args.force)
         if operation:
             operations.append(operation)
 
