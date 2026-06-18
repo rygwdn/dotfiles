@@ -126,6 +126,57 @@ def check_windows_env():
             print(ei)
         print("-------------------------------------")
 
+def check_tools(install=False):
+    is_mac = platform.system() == "Darwin"
+    is_linux = platform.system() == "Linux"
+
+    tools = [
+        {
+            "cmd": "starship",
+            "desc": "prompt theme",
+            "mac": "brew install starship",
+            "linux": "curl -sS https://starship.rs/install.sh | sh",
+        },
+        {
+            "cmd": "jumpr",
+            "desc": "smart directory navigation (used in prompt)",
+            "mac": 'curl -fsSL https://raw.githubusercontent.com/rygwdn/jump/main/get-jumpr.sh | sh -s -- --install-dir "$HOME/.local/bin"',
+            "linux": 'curl -fsSL https://raw.githubusercontent.com/rygwdn/jump/main/get-jumpr.sh | sh -s -- --install-dir "$HOME/.local/bin"',
+        },
+    ]
+
+    missing = []
+    for tool in tools:
+        if not shutil.which(tool["cmd"]):
+            missing.append(tool)
+
+    if not missing:
+        return
+
+    if install:
+        for tool in missing:
+            cmd = tool["mac"] if is_mac else tool["linux"] if is_linux else None
+            if not cmd:
+                print(f"  ✘ {tool['cmd']} — no install command for this platform")
+                continue
+            print(f"\n⬇ Installing {tool['cmd']} ({tool['desc']})...")
+            result = subprocess.run(cmd, shell=True)
+            if result.returncode != 0:
+                print(f"  ✘ Failed to install {tool['cmd']}")
+            elif shutil.which(tool["cmd"]):
+                print(f"  ✔ {tool['cmd']} installed")
+            else:
+                print(f"  ⚠ Install ran but {tool['cmd']} not found in PATH")
+    else:
+        print("\n⚠ Missing tools (run with --install-tools to install):")
+        for tool in missing:
+            cmd = tool["mac"] if is_mac else tool["linux"] if is_linux else None
+            print(f"  ✘ {tool['cmd']} — {tool['desc']}")
+            if cmd:
+                print(f"      Install: {cmd}")
+        print()
+
+
 def set_shell_fish():
     fish = subprocess.run(["which", "fish"], capture_output=True, text=True).stdout.strip()
     if not fish:
@@ -151,11 +202,14 @@ def main():
     parser.add_argument('--clean', action='store_true', help='remove links')
     parser.add_argument('--fish', action='store_true', help='set default shell to fish')
     parser.add_argument('--force', action='store_true', help='back up existing files/dirs and replace with symlinks')
+    parser.add_argument('--install-tools', action='store_true', help='install missing tools (starship, jumpr)')
 
     args = parser.parse_args()
 
     if args.fish:
         set_shell_fish()
+
+    check_tools(install=args.install_tools)
 
     is_windows = platform.system() == "Windows"
     links = is_windows and windows_links or unix_links
