@@ -13,8 +13,6 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from urllib.request import Request, urlopen
-from urllib.error import URLError, HTTPError
 
 # ANSI color codes
 GREEN = "\033[32m"
@@ -31,12 +29,18 @@ RESET = "\033[0m"
 KNOWN_FIELDS = {
     "hook_event_name",
     "session_id",
+    "session_name",
     "transcript_path",
     "cwd",
     "model.id",
     "model.display_name",
     "workspace.current_dir",
     "workspace.project_dir",
+    "workspace.added_dirs",
+    "workspace.git_worktree",
+    "workspace.repo.host",
+    "workspace.repo.owner",
+    "workspace.repo.name",
     "version",
     "output_style.name",
     "cost.total_cost_usd",
@@ -44,6 +48,10 @@ KNOWN_FIELDS = {
     "cost.total_api_duration_ms",
     "cost.total_lines_added",
     "cost.total_lines_removed",
+    "rate_limits.five_hour.resets_at",
+    "rate_limits.five_hour.used_percentage",
+    "rate_limits.seven_day.resets_at",
+    "rate_limits.seven_day.used_percentage",
     "context_window.total_input_tokens",
     "context_window.total_output_tokens",
     "context_window.context_window_size",
@@ -56,6 +64,18 @@ KNOWN_FIELDS = {
     "vim.mode",
     "context_window.used_percentage",
     "context_window.remaining_percentage",
+    "effort.level",
+    "fast_mode",
+    "thinking.enabled",
+    "agent.name",
+    "pr.number",
+    "pr.url",
+    "pr.review_state",
+    "worktree.name",
+    "worktree.path",
+    "worktree.branch",
+    "worktree.original_cwd",
+    "worktree.original_branch",
 }
 
 NEW_FIELDS_FILE = "/tmp/claude/statusline-new-fields.txt"
@@ -177,24 +197,22 @@ def get_circle_emoji(percentage, time_remaining_hours, total_window_hours):
         burn_rate = 0
 
     # Projected usage at end of window based on current burn rate
-    if time_remaining_hours > 0:
-        projected_usage = percentage + (
-            burn_rate * (time_remaining_hours / total_window_hours) * 100
-        )
+    if time_elapsed_pct > 0:
+        projected_usage = burn_rate * 100
     else:
         projected_usage = percentage
 
     # Color based on projected outcome
     if projected_usage > 100 or percentage >= 95:
-        return "🔴"  # Will likely exceed limit
+        return "\U0001F534"  # Will likely exceed limit
     elif projected_usage > 90 or percentage >= 85:
-        return "🟠"  # Cutting it close
+        return "\U0001F7E0"  # Cutting it close
     elif projected_usage > 70 or percentage >= 60:
-        return "🟡"  # Moderate usage
+        return "\U0001F7E1"  # Moderate usage
     elif projected_usage > 40:
-        return "🟢"  # Good pace
+        return "\U0001F7E2"  # Good pace
     else:
-        return "⚪"  # Light usage, plenty of headroom
+        return "\u26AA"  # Light usage, plenty of headroom
 
 
 def format_time_until(reset_time_str):
@@ -205,7 +223,11 @@ def format_time_until(reset_time_str):
         tuple: (formatted_string, hours_remaining)
     """
     try:
-        reset_time = datetime.fromisoformat(reset_time_str.replace("+00:00", "+00:00"))
+        if isinstance(reset_time_str, (int, float)):
+            from datetime import timezone
+            reset_time = datetime.fromtimestamp(reset_time_str, tz=timezone.utc)
+        else:
+            reset_time = datetime.fromisoformat(reset_time_str)
         now = datetime.now(reset_time.tzinfo)
         delta = reset_time - now
 
@@ -228,43 +250,19 @@ def format_time_until(reset_time_str):
         return "", 0
 
 
-def get_usage_data():
-    """Fetch usage data from Anthropic API using built-in urllib."""
+
+def _version_is_recent(max_age_secs=1800):
+    """Return True if the claude binary was installed within max_age_secs."""
     try:
-        # Get access token from keychain
-        token_cmd = [
-            "security",
-            "find-generic-password",
-            "-a",
-            os.environ.get("USER", ""),
-            "-w",
-            "-s",
-            "Claude Code-credentials",
-        ]
-        token_proc = subprocess.run(
-            token_cmd, capture_output=True, text=True, timeout=2
-        )
-        if token_proc.returncode != 0:
-            return None
-
-        credentials = json.loads(token_proc.stdout.strip())
-        access_token = credentials.get("claudeAiOauth", {}).get("accessToken")
-        if not access_token:
-            return None
-
-        # Fetch usage data using urllib
-        url = "https://api.anthropic.com/api/oauth/usage"
-        request = Request(url)
-        request.add_header("Authorization", f"Bearer {access_token}")
-        request.add_header("anthropic-beta", "oauth-2025-04-20")
-
-        with urlopen(request, timeout=3) as response:
-            usage_data = json.loads(response.read().decode())
-            return usage_data
-    except (URLError, HTTPError, json.JSONDecodeError, subprocess.TimeoutExpired):
-        return None
+        import shutil
+        claude_bin = shutil.which("claude")
+        if not claude_bin:
+            return False
+        real_path = os.path.realpath(claude_bin)
+        mtime = os.path.getmtime(real_path)
+        return (datetime.now().timestamp() - mtime) < max_age_secs
     except Exception:
-        return None
+        return False
 
 
 def install_statusline():
@@ -296,8 +294,8 @@ def install_statusline():
     with open(config_file, "w") as f:
         json.dump(settings, f, indent=2)
 
-    print(f"{GREEN}✓{RESET} Statusline installed: {CYAN}{script_path}{RESET}")
-    print(f"{GREEN}✓{RESET} Configuration saved to: {CYAN}{config_file}{RESET}")
+    print(f"{GREEN}\u2713{RESET} Statusline installed: {CYAN}{script_path}{RESET}")
+    print(f"{GREEN}\u2713{RESET} Configuration saved to: {CYAN}{config_file}{RESET}")
     print(
         f"\n{BOLD_YELLOW}Note:{RESET} Restart Claude Code for changes to take effect."
     )
@@ -320,9 +318,6 @@ def main():
         "--debug",
         action="store_true",
     )
-    parser.add_argument(
-        "--no-usage", action="store_true", help="Disable API usage data display"
-    )
 
     args = parser.parse_args()
 
@@ -332,16 +327,33 @@ def main():
 
     if args.test:
         data = {
-            "model": {"id": "claude-opus-4-1", "display_name": "Opus 4.1"},
-            "workspace": {"current_dir": os.getcwd()},
-            "version": "0.1.0",
+            "session_id": "test-session-abc123",
+            "session_name": "my-feature",
+            "transcript_path": "/tmp/claude/transcript.jsonl",
+            "cwd": os.getcwd(),
+            "model": {"id": "claude-opus-4-8", "display_name": "Opus 4.8"},
+            "workspace": {
+                "current_dir": os.getcwd(),
+                "project_dir": os.getcwd(),
+                "added_dirs": [],
+                "git_worktree": None,
+                "repo": {"host": "github.com", "owner": "anthropics", "name": "claude-code"},
+            },
+            "version": "2.1.132",
+            "output_style": {"name": "default"},
             "cost": {
                 "total_cost_usd": 0.042,
+                "total_duration_ms": 125000,
+                "total_api_duration_ms": 8300,
                 "total_lines_added": 50,
                 "total_lines_removed": 10,
             },
             "context_window": {
+                "total_input_tokens": 45000,
+                "total_output_tokens": 5000,
                 "context_window_size": 200000,
+                "used_percentage": 22,
+                "remaining_percentage": 78,
                 "current_usage": {
                     "input_tokens": 30000,
                     "output_tokens": 5000,
@@ -349,6 +361,16 @@ def main():
                     "cache_read_input_tokens": 5000,
                 },
             },
+            "exceeds_200k_tokens": False,
+            "effort": {"level": "high"},
+            "thinking": {"enabled": True},
+            "rate_limits": {
+                "five_hour": {"used_percentage": 35.0, "resets_at": int(datetime.now().timestamp()) + 7200},
+                "seven_day": {"used_percentage": 12.5, "resets_at": int(datetime.now().timestamp()) + 86400 * 5},
+            },
+            "vim": {"mode": "NORMAL"},
+            "agent": {"name": "security-reviewer"},
+            "pr": {"number": 42, "url": "https://github.com/anthropics/claude-code/pull/42", "review_state": "pending"},
         }
     else:
         data = json.load(sys.stdin)
@@ -359,9 +381,8 @@ def main():
     model = data.get("model", {}).get("display_name") or data.get("model", {}).get(
         "id", "Unknown"
     )
-    version = data.get("version", "Unknown")
+    version = data.get("version")
     cost = data.get("cost", {})
-    cost_usd = cost.get("total_cost_usd", 0)
     lines_added = cost.get("total_lines_added", 0)
     lines_removed = cost.get("total_lines_removed", 0)
     ctx = data.get("context_window", {})
@@ -389,6 +410,18 @@ def main():
     else:
         ctx_color = RED
 
+    # Optional display fields
+    effort_level = data.get("effort", {}).get("level")
+    fast_mode = data.get("fast_mode")
+    thinking_enabled = data.get("thinking", {}).get("enabled")
+    session_name = data.get("session_name")
+    agent_name = data.get("agent", {}).get("name")
+    pr = data.get("pr", {})
+    pr_number = pr.get("number") if pr else None
+    pr_review_state = pr.get("review_state") if pr else None
+    worktree_name = data.get("worktree", {}).get("name")
+    workspace_git_worktree = data.get("workspace", {}).get("git_worktree")
+
     # Unknown fields
     actual = set(get_paths(data))
     unknown = actual - KNOWN_FIELDS
@@ -399,53 +432,69 @@ def main():
     git_branch, path_display = get_git_and_path(cwd)
     parts = [path_display]
 
-    if git_branch:
+    if git_branch and git_branch not in ("master", "main"):
         parts.append(f"{BOLD_PURPLE}\ue0a0 {git_branch}{RESET}")
+
+    model_short = model
+    for full, short in (("Sonnet", "S"), ("Opus", "O"), ("Haiku", "H"), ("Fable", "F")):
+        model_short = model_short.replace(full, short)
+    model_short = model_short.replace(" ", "")
 
     parts.extend(
         [
-            f"{BOLD_YELLOW}⚡{model}{RESET}",
+            f"{BOLD_YELLOW}{model_short}{RESET}",
             f"{ctx_color}{ctx_pct}%{RESET}",
-            f"{DIM}v{version}{RESET}",
-            f"{GREEN}+{lines_added}{RESET}/{YELLOW}-{lines_removed:<4}{RESET}",
         ]
     )
-    if cost_usd > 0:
-        parts.append(f"{CYAN}${cost_usd:.2f}{RESET}")
 
-    # Add usage data (unless disabled)
-    if not args.no_usage:
-        usage = get_usage_data()
-        if usage:
-            if args.debug:
-                print(json.dumps(usage, indent=2))
-            five_hour = usage.get("five_hour", {})
-            seven_day = usage.get("seven_day", {})
-            extra = usage.get("extra_usage", {})
+    if version and _version_is_recent():
+        parts.append(f"{BOLD_CYAN}v{version} NEW{RESET}")
 
-            if five_hour and five_hour.get("utilization") is not None:
-                util_5h = five_hour.get("utilization", 0)
-                reset_5h = five_hour.get("resets_at", "")
-                time_5h, hours_remaining_5h = format_time_until(reset_5h)
-                emoji_5h = get_circle_emoji(util_5h, hours_remaining_5h, 5)
-                parts.append(f"{emoji_5h}{int(util_5h)}%/{time_5h}")
+    parts.append(f"{GREEN}+{lines_added}{RESET}/{YELLOW}-{lines_removed:<4}{RESET}")
 
-            if seven_day and seven_day.get("utilization") is not None:
-                util_7d = seven_day.get("utilization", 0)
-                reset_7d = seven_day.get("resets_at", "")
-                time_7d, hours_remaining_7d = format_time_until(reset_7d)
-                emoji_7d = get_circle_emoji(
-                    util_7d, hours_remaining_7d, 168
-                )  # 7 days = 168 hours
-                parts.append(f"{emoji_7d}{int(util_7d)}%/{time_7d}")
+    if worktree_name:
+        parts.append(f"{BOLD_CYAN}wt:{worktree_name}{RESET}")
+    elif workspace_git_worktree:
+        parts.append(f"{CYAN}wt:{workspace_git_worktree}{RESET}")
 
-            if extra and extra.get("is_enabled") and extra.get("utilization") is not None:
-                util_ex = extra.get("utilization", 0)
-                used = extra.get("used_credits", 0) / 100
-                limit = extra.get("monthly_limit", 0) / 100
-                parts.append(f"💳{int(util_ex)}% (${used:.2f}/${limit:.0f})")
-        else:
-            parts.append(f"{RED}⚠ no usage{RESET}")
+    if agent_name:
+        parts.append(f"{CYAN}agent:{agent_name}{RESET}")
+
+    if pr_number:
+        review_icons = {"approved": "✓", "changes_requested": "✗", "draft": "○", "pending": "?"}
+        icon = review_icons.get(pr_review_state, "")
+        pr_str = f"#{pr_number}"
+        if icon:
+            pr_str += icon
+        parts.append(f"{CYAN}{pr_str}{RESET}")
+
+    if effort_level and effort_level != "medium":
+        parts.append(f"{CYAN}effort:{effort_level}{RESET}")
+
+    if fast_mode:
+        parts.append(f"{BOLD_CYAN}fast{RESET}")
+
+    if thinking_enabled:
+        parts.append(f"{BOLD_CYAN}think{RESET}")
+
+    # Add rate limit data from statusline input
+    rate_limits = data.get("rate_limits", {})
+    five_hour = rate_limits.get("five_hour", {})
+    seven_day = rate_limits.get("seven_day", {})
+
+    if five_hour and five_hour.get("used_percentage") is not None:
+        util_5h = five_hour.get("used_percentage", 0)
+        reset_5h = five_hour.get("resets_at", "")
+        time_5h, hours_remaining_5h = format_time_until(reset_5h)
+        emoji_5h = get_circle_emoji(util_5h, hours_remaining_5h, 5)
+        parts.append(f"{emoji_5h}{int(util_5h)}%/{time_5h}")
+
+    if seven_day and seven_day.get("used_percentage") is not None:
+        util_7d = seven_day.get("used_percentage", 0)
+        reset_7d = seven_day.get("resets_at", "")
+        time_7d, hours_remaining_7d = format_time_until(reset_7d)
+        emoji_7d = get_circle_emoji(util_7d, hours_remaining_7d, 168)  # 7 days = 168 hours
+        parts.append(f"{emoji_7d}{int(util_7d)}%/{time_7d}")
 
     if unknown_str:
         parts.append(unknown_str)
