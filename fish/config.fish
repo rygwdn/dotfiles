@@ -26,60 +26,28 @@ fish_add_path -gm \
     /Applications/Obsidian.app/Contents/MacOS
 
 
-function _is_gt
-    set -l git_root (git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo '/dev/null')
-    test "$git_root" != /dev/null && test -f "$git_root/.graphite_repo_config"
-end
+abbr co  'git checkout'
+abbr ci  'git commit'
+abbr pff  'git pull --ff-only'
+abbr gfu  'git fetch origin'
+abbr pof 'git push origin --force-with-lease'
+abbr gph 'git push origin --set-upstream HEAD'
+abbr rbc 'git rebase --continue'
+abbr rbi 'git rbi'
+abbr gls 'git log'
+abbr glss 'git log --oneline'
+abbr frs 'git pull --rebase'
+abbr gm 'git commit --amend --no-edit'
 
-# Check for gt once, not per-abbreviation (saves ~24ms of `which` spawns)
-if command -q gt
-    set -g __has_gt 1
-end
-
-function _abbr_if_gt -a abbr gt git
-    if test "$__has_gt" = 1
-        eval "$(
-    echo "function _abbr_$abbr"
-    echo "  _is_gt && echo '$gt' || echo '$git'"
-    echo "end"
-    echo "abbr $abbr -f _abbr_$abbr"
-  )"
-    else
-        abbr $abbr $git
-    end
-end
-
-_abbr_if_gt co 'gt checkout' 'git checkout'
-_abbr_if_gt ci 'gt modify --commit' 'git commit'
-_abbr_if_gt pff 'gt sync --no-restack  --no-interactive' 'git pull --ff-only'
-_abbr_if_gt gfu 'gt sync --no-restack --no-interactive' 'git fetch --prune --tags origin'
-_abbr_if_gt pof '' 'git push origin --force-with-lease'
-_abbr_if_gt gph 'gt submit' 'git push origin --set-upstream HEAD'
-_abbr_if_gt gs 'gt submit' 'git push origin --set-upstream HEAD'
-_abbr_if_gt gss 'gt submit --stack --update-only' ''
-_abbr_if_gt po 'gt submit' 'git push origin --set-upstream HEAD'
-_abbr_if_gt rbc 'gt continue' 'git rebase --continue'
-_abbr_if_gt rbi '' 'git rbi'
-_abbr_if_gt gls 'gt log --stack' 'git log'
-_abbr_if_gt glss 'gt log short --stack' 'git log --oneline'
-_abbr_if_gt rs 'gt restack' 'rs'
-_abbr_if_gt frs 'gt sync --no-restack --no-interactive && gt restack' 'git pull --rebase'
-_abbr_if_gt gm 'gt modify' 'git commit --amend --no-edit'
-
-# Clean up setup-only globals
-set -e __has_gt
 
 abbr ll ls -l
 abbr la ls -A
 abbr st git st
 abbr gd git diff
 abbr gdc git diff --cached
-abbr gmt git mergetool
 abbr br git branch
 abbr show git show
 abbr "c." code .
-
-abbr rg rg -S
 
 abbr mdf cd ~/dotfiles
 
