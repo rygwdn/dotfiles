@@ -12,6 +12,7 @@ from pathlib import Path
 REPO_URL = "https://github.com/rygwdn/dotfiles"
 DOTFILES_DEST = Path.home() / "dotfiles"
 
+
 def bootstrap():
     """Clone or update the repo, then re-exec init.py from it."""
     if DOTFILES_DEST.exists():
@@ -23,6 +24,7 @@ def bootstrap():
 
     script = DOTFILES_DEST / "init.py"
     os.execv(sys.executable, [sys.executable, str(script)] + sys.argv[1:])
+
 
 all_platforms = [
     "bashrc",
@@ -45,86 +47,93 @@ fish_contents = [
 
 windows_links = all_platforms + fish_contents + [
     ("nvim", ".config/nvim"),
-    ("_vsvimrc",  "_vsvimrc"),
-    ("windows/profile.ps1",  "Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"),
-    ("win-vind",  ".win-vind"),
+    ("_vsvimrc", "_vsvimrc"),
+    ("windows/profile.ps1", "Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1"),
+    ("win-vind", ".win-vind"),
 ]
 
 unix_links = all_platforms + fish_contents + [
     ("nvim", ".config/nvim"),
     "flexget",
     "tmux.conf",
+    ("omp/secrets/extension.ts", ".omp/agent/extensions/omp-secrets.ts"),
 ]
 
 DOTFILES_DIR = Path(__file__).resolve().parent
 
-def _backup(dest):
+
+def _backup(path):
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup = dest.parent / (dest.name + f".bak.{stamp}")
-    dest.rename(backup)
+    backup = path.parent / (path.name + f".bak.{stamp}")
+    path.rename(backup)
     return backup
+
 
 def dolink(file, destname=None, force=False):
     src = (DOTFILES_DIR / file).resolve()
-    orig_dest = Path(Path.home(), destname or "." + src.name)
-    dest = orig_dest.resolve()
-
-    destname = "~/" + (destname or str(dest.relative_to(Path.home())))
-    srcname = src.relative_to(DOTFILES_DIR)
+    dest = Path.home() / (destname or "." + src.name)
+    label_dest = "~/" + str(dest.relative_to(Path.home()))
+    label_src = src.relative_to(DOTFILES_DIR)
 
     if not src.exists():
-        print(f"✘ {srcname} does not exist, skipping")
+        print(f"✘ {label_src} does not exist, skipping")
         return
 
-    if src.exists() and dest.exists() and src.samefile(dest):
-        print(f"✔ {srcname} -> {destname}")
-    elif dest.exists() and dest.is_file():
-        with dest.open() as dFile:
-            with src.open() as sFile:
-                same = dFile.readlines() == sFile.readlines()
-        if same:
-            if force:
-                print(f"↷ {srcname} -> {destname} (replacing identical file)")
-                return lambda: (_backup(dest), dest.symlink_to(src.resolve()))
-            else:
-                print(f"✘ {destname} exists & contains same content as {srcname}")
-        else:
-            if force:
-                print(f"↷ {srcname} -> {destname} (backing up & replacing)")
-                return lambda: (_backup(dest), dest.symlink_to(src.resolve()))
-            else:
-                print(f"✘ {destname} exists & differs from {srcname}")
+    if dest.exists() and src.samefile(dest):
+        print(f"✔ {label_src} -> {label_dest}")
+        return
+
+    if dest.is_file():
+        same = dest.read_text() == src.read_text()
+        block_desc = f"exists & {'contains same content as' if same else 'differs from'} {label_src}"
+        replace_msg = "replacing identical file" if same else "backing up & replacing"
+        def action(): _backup(dest); dest.symlink_to(src)
     elif dest.exists():
-        if force:
-            print(f"↷ {srcname} -> {destname} (backing up & replacing)")
-            return lambda: (shutil.move(str(dest), str(dest.parent / (dest.name + f".bak.{datetime.now().strftime('%Y%m%d_%H%M%S')}"))), dest.symlink_to(src.resolve()))
-        else:
-            print(f"✘ {destname} exists & not linked to {srcname}")
+        block_desc = f"exists & not linked to {label_src}"
+        replace_msg = "backing up & replacing"
+        def action(): _backup(dest); dest.symlink_to(src)
     elif dest.is_symlink():
-        if force:
-            print(f"↷ {srcname} -> {destname} (removing broken link & replacing)")
-            return lambda: (dest.unlink(), dest.symlink_to(src.resolve()))
-        else:
-            print(f"✘ {destname} is a broken link")
+        block_desc = "is a broken link"
+        replace_msg = "removing broken link & replacing"
+        def action(): dest.unlink(); dest.symlink_to(src)
     else:
-        print(f"↷ {srcname} -> {destname}")
-        return lambda: dest.symlink_to(src.resolve())
+        print(f"↷ {label_src} -> {label_dest}")
+        return lambda: dest.symlink_to(src)
+
+    if force:
+        print(f"↷ {label_src} -> {label_dest} ({replace_msg})")
+        return action
+    else:
+        print(f"✘ {label_dest} {block_desc}")
+
+
+def dounlink(file, destname=None):
+    src = (DOTFILES_DIR / file).resolve()
+    dest = Path.home() / (destname or "." + src.name)
+    label_dest = "~/" + str(dest.relative_to(Path.home()))
+    label_src = src.relative_to(DOTFILES_DIR)
+
+    if dest.is_symlink() and dest.exists() and src.samefile(dest):
+        print(f"✘ {label_src} -> {label_dest} (removing)")
+        return lambda: dest.unlink()
+    else:
+        print(f"  {label_dest} not linked to {label_src}, skipping")
+
 
 def check_windows_env():
     env_issues = []
-
     home = Path.home()
     expected_config = f"{home}\\.config"
-    if 'XDG_CONFIG_HOME' not in os.environ or os.environ['XDG_CONFIG_HOME'] != expected_config:
+    if os.environ.get("XDG_CONFIG_HOME") != expected_config:
         env_issues.append(f'Please set XDG_CONFIG_HOME to "{expected_config}"')
-    if 'HOME' not in os.environ or os.environ["HOME"] != home:
+    if os.environ.get("HOME") != str(home):
         env_issues.append(f'Please set HOME to "{home}"')
-
     if env_issues:
         print("-------------------------------------")
         for ei in env_issues:
             print(ei)
         print("-------------------------------------")
+
 
 def check_tools(install=False):
     is_mac = platform.system() == "Darwin"
@@ -145,11 +154,7 @@ def check_tools(install=False):
         },
     ]
 
-    missing = []
-    for tool in tools:
-        if not shutil.which(tool["cmd"]):
-            missing.append(tool)
-
+    missing = [t for t in tools if not shutil.which(t["cmd"])]
     if not missing:
         return
 
@@ -178,31 +183,30 @@ def check_tools(install=False):
 
 
 def set_shell_fish():
-    fish = subprocess.run(["which", "fish"], capture_output=True, text=True).stdout.strip()
+    fish = shutil.which("fish")
     if not fish:
         print("✘ fish not found in PATH")
         return
 
     shells_file = Path("/etc/shells")
-    shells = shells_file.read_text().splitlines()
-    if fish not in shells:
+    if fish not in shells_file.read_text().splitlines():
         print(f"Adding {fish} to /etc/shells (requires sudo)...")
         subprocess.run(["sudo", "sh", "-c", f"echo {fish} >> /etc/shells"], check=True)
 
-    current = os.environ.get("SHELL", "")
-    if current == fish:
+    if os.environ.get("SHELL") == fish:
         print(f"✔ shell is already {fish}")
     else:
         print(f"Setting default shell to {fish} (requires sudo)...")
         subprocess.run(["chsh", "-s", fish], check=True)
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Initialize dotfiles')
-    parser.add_argument('--dry', action='store_true', help='do a dry run')
-    parser.add_argument('--clean', action='store_true', help='remove links')
-    parser.add_argument('--fish', action='store_true', help='set default shell to fish')
-    parser.add_argument('--force', action='store_true', help='back up existing files/dirs and replace with symlinks')
-    parser.add_argument('--install-tools', action='store_true', help='install missing tools (starship, jumpr)')
+    parser = argparse.ArgumentParser(description="Initialize dotfiles")
+    parser.add_argument("--dry", action="store_true", help="do a dry run")
+    parser.add_argument("--clean", action="store_true", help="remove dotfile symlinks")
+    parser.add_argument("--fish", action="store_true", help="set default shell to fish")
+    parser.add_argument("--force", action="store_true", help="back up existing files/dirs and replace with symlinks")
+    parser.add_argument("--install-tools", action="store_true", help="install missing tools (starship, jumpr)")
 
     args = parser.parse_args()
 
@@ -212,28 +216,31 @@ def main():
     check_tools(install=args.install_tools)
 
     is_windows = platform.system() == "Windows"
-    links = is_windows and windows_links or unix_links
+    links = windows_links if is_windows else unix_links
     if is_windows:
         check_windows_env()
 
     operations = []
     for link in links:
-        src, dest = type(link) is tuple and link or [link, None]
-        operation = dolink(src, dest, force=args.force)
-        if operation:
-            operations.append(operation)
+        src, dest = link if isinstance(link, tuple) else (link, None)
+        op = dounlink(src, dest) if args.clean else dolink(src, dest, force=args.force)
+        if op:
+            operations.append(op)
 
     if args.dry:
-        exit(1 if operations else 0)
-
-    if not args.dry:
-        Path(Path.home(), ".config").mkdir(exist_ok=True)
-        Path(Path.home(), ".config/fish").mkdir(exist_ok=True)
-        Path(Path.home(), ".config/kitty").mkdir(exist_ok=True)
+        sys.exit(1 if operations else 0)
+    else:
+        if not args.clean:
+            Path.home().joinpath(".config").mkdir(exist_ok=True)
+            Path.home().joinpath(".config/fish").mkdir(exist_ok=True)
+            Path.home().joinpath(".config/kitty").mkdir(exist_ok=True)
+            Path.home().joinpath(".config/tridactyl").mkdir(exist_ok=True)
+            if not is_windows:
+                Path.home().joinpath(".omp/agent/extensions").mkdir(parents=True, exist_ok=True)
 
         for op in operations:
-            if op:
-                op()
+            op()
+
 
 if __name__ == "__main__":
     if __file__ == "<stdin>":

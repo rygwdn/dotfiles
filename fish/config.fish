@@ -126,13 +126,20 @@ set fish_cursor_replace_one underscore
 set -x SHELL (status fish-path)
 set -x STARSHIP_SHELL /bin/sh
 
-if test -n "$COMPOSER_NO_INTERACTION" || ! status is-interactive
+if ! status is-interactive
     set -x FISH_NOT_INTERACTIVE 1
 
     set -x PAGER cat
     set -x GIT_PAGER cat
     set -x GH_PAGER cat
     set -x GH_PROMPT_DISABLED true
+else
+    set --erase FISH_NOT_INTERACTIVE
+
+    set --erase PAGER
+    set --erase GIT_PAGER
+    set --erase GH_PAGER
+    set --erase GH_PROMPT_DISABLED
 end
 
 if test "$TERM_PROGRAM" = vscode || test -n "$FISH_NOT_INTERACTIVE"
@@ -154,6 +161,17 @@ else
     set -g fish_transient_prompt 1
 end
 
+# herdr sanitizes the outer terminal's identity env (TERM_PROGRAM, WEZTERM_PANE,
+# ITERM_SESSION_ID), so omp detects "base" and renders no inline images. Force
+# the kitty graphics protocol inside herdr panes (wezterm/moshi render it).
+if test "$HERDR_ENV" = "1"
+    set -x PI_FORCE_IMAGE_PROTOCOL kitty
+end
+
 # bun
 set --export BUN_INSTALL "$HOME/.bun"
 set --export PATH $BUN_INSTALL/bin $PATH
+
+# Added by OrbStack: command-line tools and integration
+# This won't be added again if you remove it.
+source ~/.orbstack/shell/init2.fish 2>/dev/null || :

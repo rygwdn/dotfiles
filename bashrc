@@ -19,3 +19,4 @@ export EDITOR=vim
 export PAGER=less
 
 [[ -x /opt/homebrew/bin/brew ]] && eval $(/opt/homebrew/bin/brew shellenv)
+. "$HOME/.cargo/env"
