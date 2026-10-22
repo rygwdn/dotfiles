@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import { Markdown, useSdk, type PluginBrowserBbSdk } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import type { OmpHubAgent } from "../hub-contract.js";
+import { AgentControls } from "./agent-controls.js";
 
 // Only the public SDK row fields this compact, read-only view displays.
 type TranscriptRow =
@@ -195,6 +196,7 @@ export function AgentConversation({ threadId, agent }: { threadId: string; agent
   return (
     <div aria-label={`${agent.id} conversation`} className="min-w-0 space-y-3">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Read-only conversation</p>
+      <AgentControls threadId={threadId} agent={agent} />
       {snapshot.olderCursor ? (
         <Button type="button" variant="outline" size="sm" disabled={snapshot.loading} onClick={() => setPageCount((count) => count + 1)}>
           Load earlier messages

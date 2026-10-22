@@ -2,6 +2,62 @@ import { describe, expect, it } from "vitest";
 import { buildOmpSessionParams, buildOmpTurnOptions } from "./session-params.js";
 
 describe("buildOmpSessionParams", () => {
+  it.each([
+    {
+      permissionMode: "full",
+      permissionScope: "full",
+      approvalReviewer: null,
+      permissionEscalation: null,
+    },
+    {
+      permissionMode: "accept-edits",
+      permissionScope: "workspace",
+      approvalReviewer: "user",
+      permissionEscalation: "ask",
+    },
+    {
+      permissionMode: "accept-edits",
+      permissionScope: "workspace",
+      approvalReviewer: "user",
+      permissionEscalation: "deny",
+    },
+  ] as const)("carries the complete $permissionMode/$permissionEscalation policy into sessions and turns", (permissionPolicy) => {
+    const options = { ...permissionPolicy, model: "fake-provider/fake-model" };
+    expect(buildOmpSessionParams({
+      threadId: "bb-thread-1",
+      cwd: "/tmp/worktree",
+      instructionMode: "append",
+      options,
+    }).permissionPolicy).toEqual(permissionPolicy);
+    expect(buildOmpTurnOptions(options).permissionPolicy).toEqual(permissionPolicy);
+  });
+
+  it("does not advertise an automatic reviewer as a native approval mode", () => {
+    const options = {
+      permissionMode: "auto",
+      permissionScope: "workspace",
+      approvalReviewer: "automatic",
+      permissionEscalation: "ask",
+    } as const;
+    expect(() => buildOmpSessionParams({
+      threadId: "bb-thread-1",
+      cwd: "/tmp/worktree",
+      instructionMode: "append",
+      options,
+    })).toThrow("OMP does not support automatic approval review.");
+    expect(() => buildOmpTurnOptions(options)).toThrow("OMP does not support automatic approval review.");
+  });
+
+  it("leaves an omitted permission policy absent rather than inventing one", () => {
+    expect(buildOmpSessionParams({
+      threadId: "bb-thread-1",
+      cwd: "/tmp/worktree",
+      instructionMode: "append",
+      options: {},
+    })).not.toHaveProperty("permissionPolicy");
+    expect(buildOmpTurnOptions({})).not.toHaveProperty("permissionPolicy");
+  });
+
   it("injects the bb thread id into the shell env and drops invalid keys", () => {
     expect(
       buildOmpSessionParams({

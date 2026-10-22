@@ -2,7 +2,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { interactionRequestPayloadSchema } from "@get-bb/plugin-sdk/provider-bridge";
+import {
+  approvalInteractionOutcomeSchema,
+  interactionRequestPayloadSchema,
+} from "@get-bb/plugin-sdk/provider-bridge";
 import {
   OMP_EXTENSION_UI_KIND,
   OMP_EDITOR_TEXT_STATE_KIND,
@@ -45,6 +48,12 @@ const interactionSchema = z.object({
   }),
 });
 
+const approvalInteractionSchema = interactionSchema.extend({
+  params: interactionSchema.shape.params.extend({
+    payload: approvalInteractionOutcomeSchema.shape.payload,
+  }),
+});
+
 const askQuestions = [
   {
     id: "language",
@@ -63,6 +72,14 @@ const askQuestions = [
     multi: true,
   },
 ];
+
+function extensionUiPayload(request: InteractionUiRequest) {
+  return interactionSchema.parse(request).params.payload;
+}
+
+function approvalPayload(request: InteractionUiRequest) {
+  return approvalInteractionSchema.parse(request).params.payload;
+}
 
 function coordinatorHarness() {
   const interactions: InteractionUiRequest[] = [];
@@ -149,7 +166,7 @@ describe("native OMP extension UI coordinator", () => {
     harness.handle({ id: "editor", method: "editor", title: "Edit", prefill: "draft", promptStyle: true });
     harness.handle({ id: "ask", method: "ask", questions: askQuestions, timeout: 500 });
     const coordinatorId = harness.states[0]!.coordinatorId;
-    expect(harness.interactions[0]!.params.payload.data).toEqual({
+    expect(extensionUiPayload(harness.interactions[0]!).data).toEqual({
       requestId: "omp-ui-1",
       lifecycle: { coordinatorId, sequence: 1 },
       method: "select",
@@ -158,7 +175,7 @@ describe("native OMP extension UI coordinator", () => {
       timeout: 250,
       expiresAt: 1_250,
     });
-    expect(harness.interactions[1]!.params.payload.data).toEqual({
+    expect(extensionUiPayload(harness.interactions[1]!).data).toEqual({
       requestId: "omp-ui-2",
       lifecycle: { coordinatorId, sequence: 2 },
       method: "editor",
@@ -188,7 +205,7 @@ describe("native OMP extension UI coordinator", () => {
     harness.handle({ id: "long-title", title, ...request });
     expect(harness.respond).not.toHaveBeenCalled();
     expect(harness.interactions).toHaveLength(1);
-    const payload = harness.interactions[0]!.params.payload;
+    const payload = extensionUiPayload(harness.interactions[0]!);
     expect(payload.title.length).toBeLessThanOrEqual(160);
     expect(payload.data.detail).toBe(title);
     expect(interactionRequestPayloadSchema.safeParse(payload).success).toBe(true);
@@ -210,7 +227,7 @@ describe("native OMP extension UI coordinator", () => {
     harness.handle({ id: "oversize", timeout: 1_000, ...request });
     expect(harness.respond).not.toHaveBeenCalled();
     expect(harness.interactions).toHaveLength(1);
-    const payload = harness.interactions[0]!.params.payload;
+    const payload = extensionUiPayload(harness.interactions[0]!);
     const serialized = JSON.stringify(payload.data);
     expect(Buffer.byteLength(serialized, "utf8")).toBeLessThanOrEqual(64 * 1024);
     expect(payload.data.lifecycle).toBeDefined();
@@ -429,6 +446,272 @@ describe("native OMP extension UI coordinator", () => {
     coordinator.handle({ scope: {}, request: { id: "input", method: "input", title: "Value" }, threadId: "thr_ui", providerThreadId: "omp_ui", respond });
     expect(respond).toHaveBeenCalledExactlyOnceWith("input", { cancelled: true });
     expect(coordinator.handleRuntimeResponse({ id: "omp-ui-1", result: { kind: "request_answer", value: "late" } })).toBe(false);
+  });
+});
+
+describe("native OMP tool approvals", () => {
+  const sessionOption = "Approve the deployment target (write + exec) for this session";
+
+  it("uses a native tool-use approval and preserves the entire unbounded prompt", () => {
+    const harness = coordinatorHarness();
+    const title = `Allow tool: bash\n${"Command: printf '😀 approval details'\\n\n".repeat(3_000)}Final detail`;
+    harness.handle({
+      id: "original-approval-id",
+      method: "select",
+      title,
+      options: ["Approve", "Deny"],
+    });
+    expect(harness.respond).not.toHaveBeenCalled();
+    expect(harness.interactions).toHaveLength(1);
+    const interaction = harness.interactions[0]!;
+    const payload = approvalPayload(interaction);
+    expect(interaction).toMatchObject({
+      jsonrpc: "2.0",
+      method: "interaction/request",
+      params: { threadId: "thr_ui", providerThreadId: "omp_ui", turnId: null },
+    });
+    expect(payload).toEqual({
+      kind: "approval",
+      subject: {
+        kind: "tool_use",
+        itemId: expect.any(String),
+        tool: "bash",
+        presentation: {
+          icon: { glyph: "wrench" },
+          label: { pending: "bash", completed: "bash" },
+          title: "Allow tool: bash",
+        },
+      },
+      reason: title,
+      availableDecisions: ["allow_once", "deny"],
+    });
+    expect(payload.subject.itemId).toContain("original-approval-id");
+    expect(payload.subject.itemId).not.toBe("original-approval-id");
+    expect(Buffer.byteLength(payload.reason!, "utf8")).toBeGreaterThan(64 * 1024);
+    expect(harness.states.at(-1)!.pendingRequestIds).toEqual([interaction.id]);
+  });
+
+  it.each([
+    { decision: "allow_once", session: false, expected: "Approve" },
+    { decision: "allow_once", session: true, expected: "Approve" },
+    { decision: "allow_for_session", session: true, expected: sessionOption },
+    { decision: "deny", session: false, expected: "Deny" },
+    { decision: "deny", session: true, expected: "Deny" },
+  ])("maps $decision with session=$session to its exact original option", ({ decision, session, expected }) => {
+    const harness = coordinatorHarness();
+    harness.handle({
+      id: "native-approval",
+      method: "select",
+      title: "Allow tool: bash\nCommand: deploy",
+      options: session ? ["Approve", sessionOption, "Deny"] : ["Approve", "Deny"],
+    });
+    const interaction = harness.interactions[0]!;
+    expect(approvalPayload(interaction).availableDecisions).toEqual(
+      session ? ["allow_once", "allow_for_session", "deny"] : ["allow_once", "deny"],
+    );
+    const result = { decision, ...(decision === "deny" ? {} : { grantedPermissions: null }) };
+    expect(harness.coordinator.handleRuntimeResponse({ id: interaction.id, result })).toBe(true);
+    expect(harness.respond).toHaveBeenCalledExactlyOnceWith("native-approval", { value: expected });
+    expect(harness.states.at(-1)!.pendingRequestIds).toEqual([]);
+    expect(harness.coordinator.handleRuntimeResponse({ id: interaction.id, result })).toBe(false);
+  });
+
+  it("fails closed when a session approval was not offered by OMP", () => {
+    const harness = coordinatorHarness();
+    harness.handle({ id: "per-call", method: "select", title: "Allow tool: critical", options: ["Approve", "Deny"] });
+    const interaction = harness.interactions[0]!;
+    expect(approvalPayload(interaction).availableDecisions).not.toContain("allow_for_session");
+    expect(harness.coordinator.handleRuntimeResponse({
+      id: interaction.id,
+      result: { decision: "allow_for_session", grantedPermissions: null },
+    })).toBe(true);
+    expect(harness.respond).toHaveBeenCalledExactlyOnceWith("per-call", { cancelled: true });
+  });
+
+  it.each([
+    { result: undefined },
+    { result: null },
+    { result: {} },
+    { result: { decision: "allow_once" } },
+    { result: { decision: "allow_for_session" } },
+    { result: { decision: "allow_once", grantedPermissions: "all" } },
+    { result: { decision: "allow_always", grantedPermissions: null } },
+    { result: { decision: "deny_always" } },
+    { result: { cancelled: true } },
+    { result: { kind: "request_answer", value: "Approve" } },
+    { result: { kind: "request_answer", value: null } },
+    { result: { kind: "request_answer", value: { cancelled: true } } },
+    { result: { kind: "user_answer", answers: {} } },
+    { result: { kind: "plugin_submitted" } },
+    { error: { message: "interaction cancelled" } },
+    { result: { decision: "allow_once", grantedPermissions: null }, error: { message: "failed" } },
+  ])("cancels malformed, unsupported, dismissed, or failed approval responses: %j", (response) => {
+    const harness = coordinatorHarness();
+    harness.handle({ id: "approval", method: "select", title: "Allow tool: bash", options: ["Approve", sessionOption, "Deny"] });
+    const interaction = harness.interactions[0]!;
+    expect(harness.coordinator.handleRuntimeResponse({ id: interaction.id, ...response })).toBe(true);
+    expect(harness.respond).toHaveBeenCalledExactlyOnceWith("approval", { cancelled: true });
+    expect(harness.coordinator.handleRuntimeResponse({
+      id: interaction.id,
+      result: { decision: "allow_once", grantedPermissions: null },
+    })).toBe(false);
+  });
+
+  it.each([
+    { title: "Pick a response", options: ["Approve", "Deny"] },
+    { title: "Other dialog\nAllow tool: bash", options: ["Approve", "Deny"] },
+    { title: " Allow tool: bash", options: ["Approve", "Deny"] },
+    { title: "allow tool: bash", options: ["Approve", "Deny"] },
+    { title: "Allow tool:bash", options: ["Approve", "Deny"] },
+    { title: "Allow tool: ", options: ["Approve", "Deny"] },
+    { title: "Allow tool: \t", options: ["Approve", "Deny"] },
+    { title: "Allow tool: bash", options: ["Deny", "Approve"] },
+    { title: "Allow tool: bash", options: ["Approve"] },
+    { title: "Allow tool: bash", options: ["Approve once", "Deny"] },
+    { title: "Allow tool: bash", options: ["Approve", "Approve bash for this session"] },
+    { title: "Allow tool: bash", options: ["Approve", "Approve  for this session", "Deny"] },
+    { title: "Allow tool: bash", options: ["Approve", "Approve   for this session", "Deny"] },
+    { title: "Allow tool: bash", options: ["Approve", "Approve bash for this Session", "Deny"] },
+    { title: "Allow tool: bash", options: ["Approve", "Approve bash for this session\n", "Deny"] },
+    { title: "Allow tool: bash", options: ["Approve", "Always Approve bash", "Deny"] },
+    { title: "Allow tool: bash", options: ["Approve", "Approve file for this session", "Approve directory for this session", "Deny"] },
+    { title: "Allow tool: bash", options: ["Approve", sessionOption, "Always Approve file", "Deny"] },
+  ])("keeps ordinary, nonexact, cached, and persistent selects generic: %j", (request) => {
+    const harness = coordinatorHarness();
+    harness.handle({ id: "generic-select", method: "select", ...request });
+    const interaction = harness.interactions[0]!;
+    const payload = extensionUiPayload(interaction);
+    expect(payload.kind).toBe(OMP_EXTENSION_UI_KIND);
+    expect(payload.data).toMatchObject({ method: "select", options: request.options });
+    const value = request.options.find((option) => option.startsWith("Always Approve")) ?? request.options.at(-1)!;
+    expect(harness.coordinator.handleRuntimeResponse({
+      id: interaction.id,
+      result: { kind: "request_answer", value },
+    })).toBe(true);
+    expect(harness.respond).toHaveBeenCalledExactlyOnceWith("generic-select", { value });
+  });
+
+  it("keeps an approval-titled non-select dialog generic", () => {
+    const harness = coordinatorHarness();
+    harness.handle({ id: "confirm", method: "confirm", title: "Allow tool: bash", message: "Proceed?" });
+    expect(extensionUiPayload(harness.interactions[0]!).data).toMatchObject({ method: "confirm", message: "Proceed?" });
+    harness.coordinator.handleRuntimeResponse({
+      id: harness.interactions[0]!.id,
+      result: { kind: "request_answer", value: true },
+    });
+    expect(harness.respond).toHaveBeenCalledExactlyOnceWith("confirm", { confirmed: true });
+  });
+
+  it("cancels retiring-scope approvals and ignores late decisions after native request-id reuse", () => {
+    const harness = coordinatorHarness();
+    const replacementScope = {};
+    const replacementRespond = vi.fn();
+    const request = { id: "reused-approval", method: "select", title: "Allow tool: bash", options: ["Approve", sessionOption, "Deny"] };
+    harness.handle(request);
+    harness.handle(request, replacementScope, replacementRespond);
+    const [retired, replacement] = harness.interactions;
+    expect(approvalPayload(retired!).subject.itemId).not.toBe(approvalPayload(replacement!).subject.itemId);
+    harness.coordinator.cancelPendingForScope(harness.scope);
+    harness.coordinator.cancelPendingForScope(harness.scope);
+    expect(harness.respond).toHaveBeenCalledExactlyOnceWith("reused-approval", { cancelled: true });
+    expect(replacementRespond).not.toHaveBeenCalled();
+    expect(harness.states.at(-1)!.pendingRequestIds).toEqual([replacement!.id]);
+    expect(harness.coordinator.handleRuntimeResponse({
+      id: retired!.id,
+      result: { decision: "allow_once", grantedPermissions: null },
+    })).toBe(false);
+    expect(harness.coordinator.handleRuntimeResponse({
+      id: replacement!.id,
+      result: { decision: "allow_for_session", grantedPermissions: null },
+    })).toBe(true);
+    expect(replacementRespond).toHaveBeenCalledExactlyOnceWith("reused-approval", { value: sessionOption });
+  });
+
+  it("honors OMP cancellation only in its original scope and ignores late approval replies", () => {
+    const harness = coordinatorHarness();
+    const otherScope = {};
+    const otherRespond = vi.fn();
+    const request = { id: "shared-native-id", method: "select", title: "Allow tool: bash", options: ["Approve", "Deny"] };
+    harness.handle(request);
+    harness.handle(request, otherScope, otherRespond);
+    const [cancelled, current] = harness.interactions;
+    harness.handle({ id: "cancel-frame", method: "cancel", targetId: request.id });
+    expect(harness.respond).not.toHaveBeenCalled();
+    expect(otherRespond).not.toHaveBeenCalled();
+    expect(harness.states.at(-1)!.pendingRequestIds).toEqual([current!.id]);
+    expect(harness.coordinator.handleRuntimeResponse({
+      id: cancelled!.id,
+      result: { decision: "allow_once", grantedPermissions: null },
+    })).toBe(false);
+    expect(harness.coordinator.handleRuntimeResponse({
+      id: current!.id,
+      result: { decision: "deny" },
+    })).toBe(true);
+    expect(otherRespond).toHaveBeenCalledExactlyOnceWith(request.id, { value: "Deny" });
+  });
+
+  it("keeps concurrent same-name approvals synthetic and routes decisions by UI request, not tool call", () => {
+    const harness = coordinatorHarness();
+    harness.handle({
+      id: "native-first",
+      method: "select",
+      title: "Allow tool: bash\nCommand: first",
+      options: ["Approve", "Deny"],
+      toolCallId: "timeline-second",
+    });
+    harness.handle({
+      id: "native-second",
+      method: "select",
+      title: "Allow tool: bash\nCommand: second",
+      options: ["Approve", sessionOption, "Deny"],
+      toolCallId: "timeline-first",
+    });
+    const [first, second] = harness.interactions;
+    const firstPayload = approvalPayload(first!);
+    const secondPayload = approvalPayload(second!);
+    expect(firstPayload.subject).toMatchObject({ kind: "tool_use", tool: "bash" });
+    expect(secondPayload.subject).toMatchObject({ kind: "tool_use", tool: "bash" });
+    expect(firstPayload.subject.itemId).toContain("native-first");
+    expect(secondPayload.subject.itemId).toContain("native-second");
+    expect(firstPayload.subject.itemId).not.toBe(secondPayload.subject.itemId);
+    for (const payload of [firstPayload, secondPayload]) {
+      expect(payload.subject.itemId).not.toMatch(/^timeline-/u);
+      expect(payload.subject).not.toHaveProperty("command");
+      expect(payload.subject).not.toHaveProperty("toolCallId");
+    }
+    expect(firstPayload.reason).toBe("Allow tool: bash\nCommand: first");
+    expect(secondPayload.reason).toBe("Allow tool: bash\nCommand: second");
+    harness.coordinator.handleRuntimeResponse({
+      id: second!.id,
+      result: { decision: "allow_for_session", grantedPermissions: null },
+    });
+    harness.coordinator.handleRuntimeResponse({
+      id: first!.id,
+      result: { decision: "allow_once", grantedPermissions: null },
+    });
+    expect(harness.respond.mock.calls).toEqual([
+      ["native-second", { value: sessionOption }],
+      ["native-first", { value: "Approve" }],
+    ]);
+  });
+
+  it("cancels an approval if sending its native interaction fails", () => {
+    const respond = vi.fn();
+    const coordinator = createExtensionUiCoordinator({
+      sendInteractionRequest: () => { throw new Error("disconnected"); },
+    });
+    coordinator.handle({
+      scope: {},
+      request: { id: "approval", method: "select", title: "Allow tool: bash", options: ["Approve", "Deny"] },
+      threadId: "thr_ui",
+      providerThreadId: "omp_ui",
+      respond,
+    });
+    expect(respond).toHaveBeenCalledExactlyOnceWith("approval", { cancelled: true });
+    expect(coordinator.handleRuntimeResponse({
+      id: "omp-ui-1",
+      result: { decision: "allow_once", grantedPermissions: null },
+    })).toBe(false);
   });
 });
 
@@ -896,7 +1179,7 @@ describe("native OMP extension UI bridge", () => {
     } }));
   }
 
-  async function waitForInteractionRequest(threadId: string): Promise<InteractionUiRequest> {
+  async function waitForInteractionRequest(threadId: string): Promise<z.infer<typeof interactionSchema>> {
     const message = await harness.waitForMessage(
       (message) =>
         message.method === "interaction/request" &&
@@ -936,6 +1219,39 @@ describe("native OMP extension UI bridge", () => {
     expect(interaction.params.payload.data.detail).toBe(title);
     resolveInteraction(interaction.id, "Approve");
     expect(await extensionUiReplyOf(threadId)).toContain('"value":"Approve"');
+  }, 90_000);
+
+  it.each([
+    { decision: "allow_once", expected: "Approve" },
+    { decision: "allow_for_session", expected: "Approve the scripted command for this session" },
+    { decision: "deny", expected: "Deny" },
+  ])("round-trips a native $decision approval through the bridge", async ({ decision, expected }) => {
+    const threadId = "thr_ui_native_approval";
+    const providerThreadId = await startThread(threadId);
+    const title = `Allow tool: bash\n${"Command details\n".repeat(50)}`;
+    turnStart(threadId, providerThreadId, {
+      method: "select",
+      title,
+      options: ["Approve", "Approve the scripted command for this session", "Deny"],
+    });
+    const interaction = approvalInteractionSchema.parse(await harness.waitForMessage(
+      (message) =>
+        message.method === "interaction/request" &&
+        JSON.stringify(message.params ?? {}).includes(threadId),
+      `the native approval for ${threadId}`,
+    ));
+    expect(interaction.params.payload).toMatchObject({
+      kind: "approval",
+      subject: { kind: "tool_use", tool: "bash" },
+      reason: title,
+      availableDecisions: ["allow_once", "allow_for_session", "deny"],
+    });
+    handleLine(JSON.stringify({
+      jsonrpc: "2.0",
+      id: interaction.id,
+      result: { decision, ...(decision === "deny" ? {} : { grantedPermissions: null }) },
+    }));
+    expect(await extensionUiReplyOf(threadId)).toContain(JSON.stringify({ value: expected }).slice(1, -1));
   }, 90_000);
 
   it("maps a boolean answer to confirmed for a native confirm dialog", async () => {

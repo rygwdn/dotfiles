@@ -1,6 +1,4 @@
 import { createHash, randomUUID } from "node:crypto";
-import { homedir } from "node:os";
-import { isAbsolute, join, resolve } from "node:path";
 import { z } from "zod";
 import {
   ZERO_TOKEN_USAGE,
@@ -25,6 +23,11 @@ import {
   type ThreadEventTokenUsageBreakdown,
 } from "@get-bb/plugin-sdk/provider-bridge";
 import { toCanonicalOmpModelId } from "./model-list.js";
+import {
+  classifyTypedOmpTool,
+  ompToolPresentation,
+  type ClassifiedOmpTool,
+} from "./tool-classification.js";
 import { ompVisibilityMetadata } from "./visibility.js";
 import { runSettlementError } from "./bridge/run-settlement.js";
 import { createOmpNoticeDeltas } from "./bridge/extension-notices.js";
@@ -55,6 +58,8 @@ const ompEventTypeSchema = z
       "auto_retry_start",
       "auto_retry_end",
       "bb_compaction_end",
+      "cache_warming_start",
+      "cache_warming_end",
       "bb_compaction_start",
       "bb_extension_ui_state",
       "bb_rpc_response_error",
@@ -232,6 +237,26 @@ const ompAutoRetryEndEventSchema = z.object({
   finalError: z.string().optional(),
 });
 
+const ompCacheWarmingStartEventSchema = z.object({
+  type: z.literal("cache_warming_start"),
+  phase: z.enum(["streaming", "idle"]),
+  provider: z.string(),
+  model: z.string(),
+});
+const ompCacheWarmingEndEventSchema = ompCacheWarmingStartEventSchema.extend({
+  type: z.literal("cache_warming_end"),
+  outcome: z.enum(["hit", "miss", "error", "aborted"]),
+  usage: z.object({
+    input: z.number().nonnegative(),
+    output: z.number().nonnegative(),
+    cacheRead: z.number().nonnegative(),
+    cacheWrite: z.number().nonnegative(),
+    totalTokens: z.number().nonnegative(),
+    cost: z.object({ total: z.number().nonnegative() }).passthrough(),
+  }).passthrough().optional(),
+  warmingStopReason: z.string().optional(),
+});
+
 const ompRetryFallbackAppliedEventSchema = z.object({
   type: z.literal("retry_fallback_applied"),
   from: z.string(),
@@ -292,6 +317,8 @@ const ompToolExecutionEndEventSchema = z
   })
   .passthrough();
 
+const ompFailedToolResultSchema = z.object({ isError: z.literal(true) });
+
 const ompBashResultSchema = z.object({
   details: z.object({
     exitCode: z.number().int().optional().catch(undefined),
@@ -311,29 +338,6 @@ const ompRpcResponseErrorSchema = z.object({
   code: z.string().optional(),
 });
 
-const ompReadArgsSchema = z.object({
-  path: z.string().refine((path) => path.trim().length > 0),
-});
-
-const ompImageContentBlockSchema = z.object({
-  type: z.literal("image"),
-  data: z.string().trim().min(1),
-  mimeType: z.string().regex(/^image\/[^\s/]+$/),
-});
-
-const ompToolResultContentSchema = z.object({
-  content: z.array(z.unknown()),
-});
-
-function hasOmpImageContent(result: unknown): boolean {
-  const parsed = ompToolResultContentSchema.safeParse(result);
-  return (
-    parsed.success &&
-    parsed.data.content.some(
-      (block) => ompImageContentBlockSchema.safeParse(block).success,
-    )
-  );
-}
 
 const ompToolExecutionUpdateEventSchema = z
   .object({
@@ -389,9 +393,6 @@ type OmpToolExecutionUpdateEvent = z.infer<
 const OMP_EMPTY_BASH_OUTPUT_PLACEHOLDERS = ["(no output)"] as const;
 const OMP_COMMAND_TOOL_NAMES = new Set(["bash"]);
 const OMP_FILE_CHANGE_TOOL_NAMES = new Set(["edit", "write"]);
-const OMP_IMAGE_READ_PATH_PATTERN = /\.(?:png|jpe?g|gif|webp|bmp)$/i;
-const OMP_UNICODE_SPACE_PATTERN = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
-const URL_SCHEME_PATTERN = /^[a-z][a-z\d+.-]*:\/\//i;
 
 
 function classifyOmpToolUse(
@@ -457,37 +458,6 @@ function classifyOmpToolUse(
   return { type: "tool", tool: toolName, args };
 }
 
-function resolveOmpImageReadPath(
-  toolName: string,
-  args: unknown,
-  sessionCwd: string | undefined,
-): string | null {
-  if (toolName !== "read") {
-    return null;
-  }
-  const parsed = ompReadArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    return null;
-  }
-  let path = parsed.data.path.replace(OMP_UNICODE_SPACE_PATTERN, " ");
-  if (path.startsWith("@")) {
-    path = path.slice(1);
-  }
-  if (path === "~" || path.startsWith("~/")) {
-    path = join(homedir(), path.slice(2));
-  }
-  if (URL_SCHEME_PATTERN.test(path)) {
-    return null;
-  }
-  const absolutePath = isAbsolute(path)
-    ? resolve(path)
-    : sessionCwd !== undefined && isAbsolute(sessionCwd)
-      ? resolve(sessionCwd, path)
-      : null;
-  return absolutePath !== null && OMP_IMAGE_READ_PATH_PATTERN.test(absolutePath)
-    ? absolutePath
-    : null;
-}
 
 function classifyOmpToolResultFallback(toolName: string): DeltaItemShape {
   if (OMP_FILE_CHANGE_TOOL_NAMES.has(toolName)) {
@@ -574,7 +544,10 @@ const MAX_STARTED_TOOL_SHAPES = 1024;
 
 interface StartedOmpTool {
   shape: DeltaItemShape;
-  deferredImageReadPath: string | null;
+  args: unknown;
+  intent?: string;
+  presentation?: ClassifiedOmpTool["presentation"];
+  deferred: boolean;
 }
 
 interface OmpAssistantStream {
@@ -591,6 +564,7 @@ interface OmpAssistantStreams {
   cardIds: Set<string>;
   nextRetry: number;
   retry?: { id: string; localTurn: boolean };
+  cacheWarming: Map<string, string>;
   activeMessageId?: string;
   snapshotHandled: boolean;
   messages: Map<string, OmpAssistantStream>;
@@ -650,6 +624,7 @@ export function createOmpDeltaTranslator(
         nextCard: 0,
         cardIds: new Set(),
         nextRetry: 0,
+        cacheWarming: new Map(),
         messages: new Map(),
       };
       parents.set(parent, streams);
@@ -809,7 +784,7 @@ export function createOmpDeltaTranslator(
     context: OmpDeltaTranslationContext | undefined,
     toolCallId: string,
   ): string {
-    return `${context?.threadId ?? ""} ${toolCallId}`;
+    return `${context?.threadId ?? ""} ${JSON.stringify([context?.parentToolCallId ?? "", toolCallId])}`;
   }
 
   function rememberStartedToolShape(key: string, started: StartedOmpTool): void {
@@ -1112,6 +1087,51 @@ export function createOmpDeltaTranslator(
         streams.snapshotHandled = false;
         lastUsageByThreadId.delete(context?.threadId ?? "");
         return [{ kind: "turn.open" }];
+      }
+
+      case "cache_warming_start": {
+        const parsed = ompCacheWarmingStartEventSchema.safeParse(event);
+        if (!parsed.success) return unexpectedSdkEventDeltas(event, context);
+        if (parsed.data.phase === "idle") return [];
+        const streams = assistantStreams(context);
+        const key = JSON.stringify([parsed.data.provider, parsed.data.model]);
+        if (streams.cacheWarming.has(key)) return [];
+        const id = `cache-warming:${streams.generation}:${randomUUID()}`;
+        streams.cacheWarming.set(key, id);
+        return createOmpNoticeDeltas({
+          severity: "info",
+          message: `Warming cache for ${parsed.data.provider}/${parsed.data.model}`,
+        }, { activeTurn: true, id, status: "inProgress" }).map((delta) =>
+          delta.kind === "item.open"
+            ? { ...delta, key: { ...delta.key, ...parentRefField } }
+            : delta);
+      }
+
+      case "cache_warming_end": {
+        const parsed = ompCacheWarmingEndEventSchema.safeParse(event);
+        if (!parsed.success) return unexpectedSdkEventDeltas(event, context);
+        const { phase, provider, model, outcome, usage, warmingStopReason } = parsed.data;
+        const streams = assistantStreams(context);
+        const key = JSON.stringify([provider, model]);
+        const id = phase === "streaming" ? streams.cacheWarming.get(key) : undefined;
+        if (phase === "streaming") streams.cacheWarming.delete(key);
+        if (!id && outcome !== "error") return [];
+        const billed = usage
+          ? `Billed usage: ${usage.totalTokens} tokens (input ${usage.input}, output ${usage.output}, cache read ${usage.cacheRead}, cache write ${usage.cacheWrite}); cost $${usage.cost.total}`
+          : undefined;
+        return createOmpNoticeDeltas({
+          severity: outcome === "error" ? "warning" : "info",
+          message: `Cache warming ${outcome} for ${provider}/${model}`,
+          ...((billed || warmingStopReason) ? { instructions: [billed, warmingStopReason].filter(Boolean).join("\n") } : {}),
+        }, {
+          // Warming never owns a turn: only the notice item is completed.
+          activeTurn: id !== undefined || (context?.activeTurn ?? streams.turnOpen),
+          id: id ?? `cache-warming:${streams.generation}:${randomUUID()}`,
+          status: outcome === "error" ? "failed" : "completed",
+        }).map((delta) =>
+          delta.kind === "item.close"
+            ? { ...delta, key: { ...delta.key, ...parentRefField } }
+            : delta);
       }
 
       case "auto_retry_start": {
@@ -1519,24 +1539,27 @@ export function createOmpDeltaTranslator(
         if (!ompEvent.success) {
           return unexpectedSdkEventDeltas(event, context);
         }
-        const shape = classifyOmpToolUse(
+        const classified: ClassifiedOmpTool = classifyTypedOmpTool(
           ompEvent.data.toolName,
           ompEvent.data.args,
-          context?.cwd,
-        );
-        const deferredImageReadPath = resolveOmpImageReadPath(
-          ompEvent.data.toolName,
-          ompEvent.data.args,
-          context?.cwd,
-        );
+          { cwd: context?.cwd },
+        ) ?? { item: classifyOmpToolUse(ompEvent.data.toolName, ompEvent.data.args, context?.cwd) };
+        const shape = classified.item;
+        const presentation = ompToolPresentation(classified, ompEvent.data.toolName, ompEvent.data.intent);
         rememberStartedToolShape(
           toolShapeKey(context, ompEvent.data.toolCallId),
-          { shape, deferredImageReadPath },
+          {
+            shape,
+            args: ompEvent.data.args,
+            intent: ompEvent.data.intent,
+            presentation,
+            deferred: classified.deferred === true,
+          },
         );
         const shapeKey = toolShapeKey(context, ompEvent.data.toolCallId);
         const preview = pendingToolPreviews.get(shapeKey);
         pendingToolPreviews.delete(shapeKey);
-        if (deferredImageReadPath !== null) {
+        if (classified.deferred) {
           return [];
         }
         const deltas: ThreadDelta[] = [
@@ -1547,18 +1570,7 @@ export function createOmpDeltaTranslator(
               ...parentRefField,
             },
             item: shape,
-            ...(ompEvent.data.intent
-              ? {
-                  presentation: {
-                    icon: { glyph: "wrench" },
-                    label: {
-                      pending: ompEvent.data.toolName,
-                      completed: ompEvent.data.toolName,
-                    },
-                    title: ompEvent.data.intent,
-                  },
-                }
-              : {}),
+            ...(presentation ? { presentation } : {}),
             noTurnFallback: noTurnFallbackFor(ompEvent.data, context),
           },
         ];
@@ -1585,14 +1597,21 @@ export function createOmpDeltaTranslator(
         const started = startedToolShapes.get(shapeKey);
         startedToolShapes.delete(shapeKey);
         pendingToolPreviews.delete(shapeKey);
-        const deferredImageReadPath = started?.deferredImageReadPath ?? null;
-        let terminalShape: DeltaItemShape =
-          deferredImageReadPath !== null &&
-          !ompEvent.data.isError &&
-          hasOmpImageContent(ompEvent.data.result)
-            ? { type: "imageView", path: deferredImageReadPath }
-            : (started?.shape ??
-              classifyOmpToolResultFallback(ompEvent.data.toolName));
+        const failed = ompEvent.data.isError === true ||
+          ompFailedToolResultSchema.safeParse(ompEvent.data.result).success;
+        const classified = started?.deferred || !started
+          ? classifyTypedOmpTool(ompEvent.data.toolName, started?.args, {
+              result: ompEvent.data.result,
+              ended: true,
+              failed,
+              cwd: context?.cwd,
+            })
+          : undefined;
+        let terminalShape: DeltaItemShape = classified?.item ??
+          started?.shape ?? classifyOmpToolResultFallback(ompEvent.data.toolName);
+        const presentation = classified
+          ? ompToolPresentation(classified, ompEvent.data.toolName, started?.intent)
+          : started?.presentation;
         if (
           terminalShape.type === "tool" &&
           ompEvent.data.result !== undefined
@@ -1602,7 +1621,7 @@ export function createOmpDeltaTranslator(
         const bashResult = terminalShape.type === "command"
           ? ompBashResultSchema.safeParse(ompEvent.data.result) : undefined;
         const exitCode = (bashResult?.success ? bashResult.data.details.exitCode : undefined) ??
-          (ompEvent.data.isError ? 1 : 0);
+          (failed ? 1 : 0);
         if (terminalShape.type === "command") {
           const durationMs = bashResult?.success ? bashResult.data.details.wallTimeMs : undefined;
           terminalShape = {
@@ -1617,19 +1636,20 @@ export function createOmpDeltaTranslator(
         };
         const noTurnFallback = noTurnFallbackFor(ompEvent.data, context);
         const deferredOpen: ThreadDelta[] =
-          deferredImageReadPath === null
-            ? []
-            : [{ kind: "item.open", key, item: terminalShape, noTurnFallback }];
+          started?.deferred
+            ? [{ kind: "item.open", key, item: terminalShape, noTurnFallback, ...(presentation ? { presentation } : {}) }]
+            : [];
         return [
           ...deferredOpen,
           {
             kind: "item.close",
             key,
-            status: ompEvent.data.isError ? "failed" : "completed",
+            status: failed ? "failed" : "completed",
             resultText,
             exitCode,
             ...(aggregatedOutput === undefined ? {} : { aggregatedOutput }),
             item: terminalShape,
+            ...(presentation ? { presentation } : {}),
             noTurnFallback,
           },
         ];
@@ -1654,7 +1674,7 @@ export function createOmpDeltaTranslator(
           }
           return [];
         }
-        if (started.deferredImageReadPath !== null) return [];
+        if (started.deferred) return [];
         return [
           toolPreviewDelta(parsed.data, started.shape, text, context),
         ];
@@ -1668,7 +1688,7 @@ export function createOmpDeltaTranslator(
         const started = startedToolShapes.get(
           toolShapeKey(context, ompEvent.data.toolCallId),
         );
-        if ((started?.deferredImageReadPath ?? null) !== null) {
+        if (started?.deferred) {
           return [];
         }
         if (OMP_COMMAND_TOOL_NAMES.has(ompEvent.data.toolName)) {

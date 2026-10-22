@@ -12,6 +12,7 @@ import {
   BRIDGE_NOTIFICATION_METHODS,
   PROVIDER_BRIDGE_PROTOCOL_VERSION,
   THREAD_DELTA_GRAMMAR_V3,
+  LOCAL_WORKFLOW_TASK_TYPE,
   THREAD_DELTA_NOTIFICATION_METHOD,
   buildShellEnvOverrides,
   bridgeRequestEnvelopeSchema,
@@ -25,7 +26,7 @@ import {
   providerInstallationStatusParamsSchema,
   providerMaintenanceParamsSchema,
   isStandaloneBuiltinCompactCommand,
-  modelListParamsSchema,
+  modelListParamsSchema as sdkModelListParamsSchema,
   runBridgeRequest,
   skillsConfigureParamsSchema,
   threadDiscardParamsSchema,
@@ -37,6 +38,7 @@ import {
   turnStartParamsSchema,
   turnSteerParamsSchema,
   type BridgeToolCallRequest,
+  type DeltaBackgroundTaskShape,
   type InitializeResult,
   type ThreadDelta,
   type ThreadEventContextWindowUsage,
@@ -73,6 +75,7 @@ import {
   getOmpInstallGate,
   getOmpProviderInstallationRun,
   getOmpProviderInstallationStatus,
+  getOmpProviderUsage,
   ompHealthResult,
   resetOmpInstallGateForTests,
 } from "./provider-maintenance.js";
@@ -88,6 +91,7 @@ import {
   ompGoalUpdatedSchema,
   type OmpGoal,
   type OmpAvailableCommand,
+  type OmpBtwRecord,
   type OmpRpcSessionOptions,
   type ToolCallForwarder,
 } from "./rpc-session.js";
@@ -102,6 +106,10 @@ import {
   createOmpSubagentCoordinator,
   type OmpSubagentCoordinator,
 } from "./subagents.js";
+
+const modelListParamsSchema = sdkModelListParamsSchema.extend({
+  envVars: z.record(z.string(), z.string()).optional(),
+});
 
 const ompCommandSchema = z.discriminatedUnion("method", [
   z.object({
@@ -229,6 +237,32 @@ interface LocalPromptPresentation {
   acceptedIntoTurn: boolean;
 }
 
+interface NativeControlTurn {
+  providerTurnId: string;
+  parentRef: string;
+  label: string;
+  closed: boolean;
+  pendingItem?: {
+    providerItemId: string;
+    item: Extract<ThreadDelta, { kind: "item.open" }>["item"];
+  };
+}
+
+interface BtwCommandStart {
+  question: string;
+  recordId?: string;
+  control: NativeControlTurn;
+  recordKey?: string;
+}
+
+interface BtwPresentation {
+  record: OmpBtwRecord;
+  providerItemId: string;
+  control: NativeControlTurn;
+  answer: string;
+  terminal: boolean;
+}
+
 interface ThreadSession {
   session: OmpRpcSession;
   todos: OmpTodoCoordinator;
@@ -246,11 +280,17 @@ interface ThreadSession {
   };
   pickerModel: { provider: string; id: string } | undefined;
   chosenSessionControls: OmpSessionControls;
-  reportedSessionControls?: OmpSessionControls;
+  reportedSessionControls?: OmpSessionControls & {
+    slowModeSupported: boolean;
+    slowModeScope?: "session" | "global";
+  };
   pendingToolCallScopes: Set<object>;
   pendingPromptPresentations: Set<LocalPromptPresentation>;
   localCommandTurn?: LocalCommandTurn;
-  btwTerminalRecords?: Set<string>;
+  btwStarts?: Set<BtwCommandStart>;
+  btwPresentations?: Map<string, BtwPresentation>;
+  btwRunning?: BtwPresentation;
+  nativeControlTurns?: Set<NativeControlTurn>;
 }
 
 type ThreadPickerSelection = Pick<ThreadSession, "pickerOptions" | "chosenSessionControls"> &
@@ -407,6 +447,7 @@ async function closeThreadSession(args: {
     return;
   }
   threadSession.subagents.stop(args.message);
+  interruptNativeControlTurns(args.threadId, threadSession, args.message);
   threadSession.closing = true;
   resolveThreadToolCalls(threadSession, args.message);
   extensionUi.cancelPendingForScope(threadSession);
@@ -442,7 +483,7 @@ function sendThreadDeltas(
     return;
   }
   for (const delta of deltas) {
-    if (delta.kind === "turn.open" && !delta.parentRef) activeTurnThreads.add(threadId);
+    if (delta.kind === "turn.open" && !delta.parentRef && !delta.providerTurnId) activeTurnThreads.add(threadId);
     else if (
       (delta.kind === "turn.boundary" && !delta.providerTurnId) ||
       delta.kind === "session.reset" ||
@@ -608,13 +649,18 @@ function publishNativeConfiguration(threadId: string, threadSession: ThreadSessi
     lines.push(`Fast: omp ${state.fastModeEnabled ? "enabled" : "disabled"} (bb selected ${pickers.fastModeEnabled ? "enabled" : "disabled"}); active: ${state.fastModeActive ? "yes" : "no"}`);
   }
   const controls = threadSession.session.getSessionControls();
-  if (!isDeepStrictEqual(threadSession.reportedSessionControls, controls)) {
+  const reportedControls = {
+    ...controls,
+    slowModeSupported: state.slowModeSupported,
+    slowModeScope: state.slowModeScope,
+  };
+  if (!isDeepStrictEqual(threadSession.reportedSessionControls, reportedControls)) {
     sendThreadDeltas(threadId, [{
       kind: "extension.state",
       extensionKind: "bb/session-options",
-      payload: { options: buildOmpLiveSessionOptions(controls) },
+      payload: { options: buildOmpLiveSessionOptions(controls, state) },
     }]);
-    threadSession.reportedSessionControls = { ...controls };
+    threadSession.reportedSessionControls = reportedControls;
   }
   const baseline = threadSession.session.getInitialSessionControls();
   const labels: Record<keyof OmpSessionControls, string> = {
@@ -624,6 +670,7 @@ function publishNativeConfiguration(threadId: string, threadSession: ThreadSessi
     autoCompactionEnabled: "Auto-compaction",
     autoRetryEnabled: "Auto-retry",
     cacheWarmingMode: "Cache warming",
+    slowModeEnabled: "Slow mode",
   };
   for (const key of Object.keys(labels) as (keyof OmpSessionControls)[]) {
     const value = controls[key];
@@ -654,12 +701,14 @@ function publishLocalCommandResult(args: CurrentThreadSessionArgs & {
   resultText: string;
   status?: "completed" | "failed" | "interrupted";
   providerItemId?: string;
+  providerTurnId?: string;
+  parentRef?: string;
   deferBoundary?: boolean;
   filePath?: string;
 }): void {
   const threadSession = getCurrentThreadSession(args);
   if (!threadSession) return;
-  const ownsTurn = !activeTurnThreads.has(args.threadId);
+  const ownsTurn = args.providerTurnId === undefined && !activeTurnThreads.has(args.threadId);
   let deferBoundary = false;
   if (ownsTurn && args.deferBoundary) {
     let localTurn: LocalCommandTurn | undefined;
@@ -678,7 +727,11 @@ function publishLocalCommandResult(args: CurrentThreadSessionArgs & {
     ...(ownsTurn ? [{ kind: "turn.open" } as const] : []),
     {
       kind: "item.close",
-      key: { providerItemId: args.providerItemId ?? `omp-command:${randomUUID()}` },
+      key: {
+        providerItemId: args.providerItemId ?? `omp-command:${randomUUID()}`,
+        ...(args.parentRef === undefined ? {} : { parentRef: args.parentRef }),
+      },
+      ...(args.providerTurnId === undefined ? {} : { providerTurnId: args.providerTurnId }),
       item: { type: "tool", tool: args.tool, args: args.commandArgs ?? {} },
       status: args.status ?? "completed",
       resultText: stripOmpAnsi(args.resultText),
@@ -696,6 +749,125 @@ function publishLocalCommandResult(args: CurrentThreadSessionArgs & {
       ? [{ kind: "turn.boundary", status: "completed" } as const]
       : []),
   ]);
+}
+
+function nativeControlBackground(
+  control: NativeControlTurn,
+  status: "pending" | "completed" | "failed" | "interrupted",
+  summary?: string,
+): DeltaBackgroundTaskShape {
+  return {
+    type: "backgroundTask", familyId: control.parentRef, taskType: LOCAL_WORKFLOW_TASK_TYPE,
+    description: control.label, workflowName: control.label, status,
+    taskStatus: status === "pending" ? "running" : status === "interrupted" ? "stopped" : status,
+    skipTranscript: false,
+    ...(summary === undefined ? {} : { summary }),
+  };
+}
+
+function finishNativeControlTurn(
+  threadId: string,
+  threadSession: ThreadSession,
+  control: NativeControlTurn,
+  status: "completed" | "failed" | "interrupted",
+  summary: string,
+): void {
+  if (control.closed) return;
+  control.closed = true;
+  threadSession.nativeControlTurns?.delete(control);
+  sendThreadDeltas(threadId, [
+    {
+      kind: "item.close",
+      key: { providerItemId: control.parentRef },
+      item: { type: "delegation", childRef: control.parentRef, label: control.label, background: true, summary },
+      status,
+    },
+    {
+      kind: "item.close",
+      key: { providerItemId: `${control.parentRef}:status` },
+      item: nativeControlBackground(control, status, summary),
+      status,
+    },
+    { kind: "turn.boundary", providerTurnId: control.providerTurnId, status },
+  ]);
+}
+
+function interruptNativeControlTurns(threadId: string, threadSession: ThreadSession, message: string): void {
+  for (const control of threadSession.nativeControlTurns ?? []) {
+    if (control.pendingItem) {
+      sendThreadDeltas(threadId, [{
+        kind: "item.close", providerTurnId: control.providerTurnId,
+        key: { providerItemId: control.pendingItem.providerItemId, parentRef: control.parentRef },
+        item: control.pendingItem.item.type === "command"
+          ? { ...control.pendingItem.item, aggregatedOutput: message } : control.pendingItem.item,
+        status: "interrupted", resultText: message,
+      }]);
+    }
+    finishNativeControlTurn(threadId, threadSession, control, "interrupted", message);
+  }
+}
+
+function publishBtwRecord(
+  threadId: string,
+  threadSession: ThreadSession,
+  record: OmpBtwRecord,
+): void {
+  const latest = record.followUps?.at(-1) ?? record;
+  const key = JSON.stringify([record.id, record.followUps?.length ?? 0]);
+  const presentations = threadSession.btwPresentations ??= new Map<string, BtwPresentation>();
+  let presentation = presentations.get(key);
+  if (presentation?.terminal) return;
+  if (!presentation) {
+    const start = [...threadSession.btwStarts ?? []].find((pending) =>
+      pending.recordKey === key || (pending.recordKey === undefined &&
+        pending.question === latest.question && (pending.recordId === undefined || pending.recordId === record.id)),
+    );
+    if (start) start.recordKey = key;
+    presentation = {
+      record,
+      providerItemId: `omp-btw:${key}`,
+      control: start?.control ?? beginScopedLocalCommand({ threadId, threadSession }, "omp-btw", `Side question: ${latest.question}`),
+      answer: latest.answer,
+      terminal: false,
+    };
+    presentations.set(key, presentation);
+    if (presentation.control.closed) return;
+    const item = { type: "tool" as const, tool: "btw", args: { recordId: record.id, question: latest.question } };
+    presentation.control.pendingItem = { providerItemId: presentation.providerItemId, item };
+  }
+  presentation.record = record;
+  if (latest.status === "running") {
+    threadSession.btwRunning = presentation;
+    return;
+  }
+  presentation.terminal = true;
+  presentation.answer = latest.answer;
+  if (threadSession.btwRunning === presentation) threadSession.btwRunning = undefined;
+  const status = latest.status === "error" ? "failed"
+    : latest.status === "complete" ? "completed" : "interrupted";
+  const resultText = stripOmpAnsi([
+    `Topic: ${record.id}`,
+    `Question: ${latest.question}`,
+    latest.answer,
+    latest.error,
+    ...(latest.status === "cancelled" || latest.status === "interrupted"
+      ? [`Side question ${latest.status}.`] : []),
+  ].filter(Boolean).join("\n\n"));
+  sendThreadDeltas(threadId, [{
+    kind: "item.close",
+    providerTurnId: presentation.control.providerTurnId,
+    key: { providerItemId: presentation.providerItemId, parentRef: presentation.control.parentRef },
+    item: { type: "tool", tool: "btw", args: { recordId: record.id, question: latest.question } },
+    status,
+    resultText,
+    presentation: {
+      icon: { glyph: "MessageCircle" },
+      label: { pending: "Answering side question", completed: "Side question" },
+      title: latest.question,
+      detail: `Topic: ${record.id}`,
+    },
+  }]);
+  finishNativeControlTurn(threadId, threadSession, presentation.control, status, resultText);
 }
 
 function createOnOmpEvent(
@@ -729,30 +901,24 @@ function createOnOmpEvent(
       }
       return;
     }
-    if (event.type === "btw_delta") return;
+    if (event.type === "btw_delta") {
+      const parsed = z.object({ recordId: z.string(), delta: z.string() }).parse(event);
+      const presentation = threadSession.btwRunning;
+      if (presentation && !presentation.terminal && !presentation.control.closed && presentation.record.id === parsed.recordId) {
+        presentation.answer += parsed.delta;
+        const answer = stripOmpAnsi(presentation.answer);
+        const control = presentation.control;
+        sendThreadDeltas(args.threadId, [{
+          kind: "item.progress",
+          key: { providerItemId: `${control.parentRef}:status` },
+          snapshot: nativeControlBackground(control, "pending", answer),
+          flush: true,
+        }]);
+      }
+      return;
+    }
     if (event.type === "btw_record") {
-      const record = ompBtwRecordSchema.parse(event.record);
-      const latest = record.followUps?.at(-1) ?? record;
-      if (latest.status === "running") return;
-      const key = JSON.stringify([record.id, record.followUps?.length ?? 0]);
-      const seen = threadSession.btwTerminalRecords ??= new Set<string>();
-      if (seen.has(key)) return;
-      seen.add(key);
-      publishLocalCommandResult({
-        ...args,
-        tool: "btw",
-        commandArgs: { question: latest.question },
-        providerItemId: `omp-btw:${key}`,
-        status: latest.status === "error" ? "failed"
-          : latest.status === "complete" ? "completed" : "interrupted",
-        resultText: [
-          `Question: ${latest.question}`,
-          latest.answer,
-          latest.error,
-          ...(latest.status === "cancelled" || latest.status === "interrupted"
-            ? [`Side question ${latest.status}.`] : []),
-        ].filter(Boolean).join("\n\n"),
-      });
+      publishBtwRecord(args.threadId, threadSession, ompBtwRecordSchema.parse(event.record));
       return;
     }
     if (event.type === "goal_updated") {
@@ -816,6 +982,7 @@ function createOnExtensionUiReset(args: CurrentThreadSessionArgs): () => void {
     const threadSession = getCurrentThreadSession(args);
     if (!threadSession) return;
     activeTurnThreads.delete(args.threadId);
+    extensionUi.cancelPendingForScope(threadSession);
     extensionUi.resetStatus({
       scope: threadSession,
       threadId: args.threadId,
@@ -829,7 +996,11 @@ function createOnSessionDone(
 ): (error?: unknown, turnHandled?: boolean) => void {
   return (error?: unknown, turnHandled = false) => {
     if (error instanceof OmpRpcChildExitedError) {
-      getCurrentThreadSession(args)?.subagents.stop("OMP process exited");
+      const threadSession = getCurrentThreadSession(args);
+      if (threadSession) {
+        threadSession.subagents.stop("OMP process exited");
+        interruptNativeControlTurns(args.threadId, threadSession, "OMP process exited");
+      }
     }
     if (error && turnHandled) {
       const threadSession = getCurrentThreadSession(args);
@@ -928,7 +1099,7 @@ async function handleRequest(
       await handleProviderHealth(request.id, request.params);
       break;
     case "provider/usage":
-      sendResult(request.id, { supported: false });
+      sendResult(request.id, await getOmpProviderUsage(request.params));
       break;
     case "provider/installation/status":
       sendResult(
@@ -1017,7 +1188,7 @@ function toOmpSessionParams(
 
 async function handleModelList(
   id: string | number,
-  params: { cwd?: string; providerOptions?: unknown },
+  params: z.infer<typeof modelListParamsSchema>,
 ): Promise<void> {
   const gate = await getOmpInstallGate();
   if (!gate.ok) {
@@ -1033,7 +1204,10 @@ async function handleModelList(
     return;
   }
   try {
-    const catalog = await getOmpCatalog(params.cwd ?? process.cwd());
+    const catalog = await getOmpCatalog(
+      params.cwd ?? process.cwd(),
+      buildShellEnvOverrides(params.envVars),
+    );
     // The plugin server re-registers the provider with new bridgeOptions when
     // a filter setting changes; they arrive here as providerOptions.
     const filter = parseOmpModelFilter(
@@ -1210,7 +1384,9 @@ const OMP_BRIDGE_COMMANDS = [
     inputHint: "cancel <id> | steer <id> <message>",
   },
   { name: "goal", description: "Manage OMP's persistent objective", inputHint: "<objective> | show | pause | resume | drop" },
-  { name: "btw", description: "Ask an OMP side question without interrupting the main run", inputHint: "<question>" },
+  { name: "btw", description: "Ask an OMP side question without interrupting the main run", inputHint: "[question|cancel|history|follow <recordId> <question>]" },
+  { name: "omp-bash", description: "Run a shell command in the OMP session or abort running shell commands", inputHint: "<command>|abort" },
+  { name: "omp-queue", description: "Inspect or edit OMP's native queued messages", inputHint: "[remove <n>|promote <n>|restore]" },
   { name: "login", description: "List OMP sign-in providers or start OAuth sign-in", inputHint: "[provider]" },
   { name: "logout", description: "List OMP accounts or sign out a stored account", inputHint: "[provider] [credential-id]" },
   { name: "export-html", description: "Export the OMP session as an HTML file", inputHint: "[path]" },
@@ -1279,6 +1455,7 @@ async function buildSessionOptions(args: {
     cwd: args.params.cwd,
     ...(args.params.fastModeEnabled === undefined ? {} : { fastModeEnabled: args.params.fastModeEnabled }),
     ...(args.params.sessionControls === undefined ? {} : { sessionControls: args.params.sessionControls }),
+    ...(args.params.permissionPolicy === undefined ? {} : { permissionPolicy: args.params.permissionPolicy }),
     ...(model ? { model } : {}),
     ...(args.params.modelPreset ? {
       modelPreset: args.params.modelPreset,
@@ -1422,6 +1599,18 @@ async function rebuildThreadSession(
   params: OmpSessionParams,
   selection: ThreadPickerSelection,
 ): Promise<ThreadSession> {
+  if (
+    previous.construction.permissionPolicy?.permissionMode !==
+    params.permissionPolicy?.permissionMode
+  ) {
+    // A watched-overlay rewrite has no acknowledgement. Fence the old process
+    // (and cancel its approvals) before the replacement can load the new mode.
+    await closeThreadSession({
+      threadId,
+      message: "OMP permission mode changed while a request was pending",
+    });
+    await previous.session.waitForExit();
+  }
   let replacement: ThreadSession;
   try {
     replacement = await constructOmpThreadSession(
@@ -1436,7 +1625,7 @@ async function rebuildThreadSession(
     }
     throw error;
   }
-  retireReplacedOmpChild(previous);
+  if (!previous.closing) retireReplacedOmpChild(previous);
   return replacement;
 }
 
@@ -1679,6 +1868,9 @@ async function reconcileTurnOptions(
   const turnOptions = buildOmpTurnOptions(options);
   const construction = threadSession.construction;
   const previousPickers = threadSession.pickerOptions;
+  const permissionPolicy = turnOptions.permissionPolicy ?? construction.permissionPolicy;
+  const permissionModeChanged =
+    permissionPolicy?.permissionMode !== construction.permissionPolicy?.permissionMode;
   const shellEnvOverrides =
     options.envVars !== undefined
       ? { BB_THREAD_ID: threadId, ...buildShellEnvOverrides(options.envVars) }
@@ -1714,12 +1906,14 @@ async function reconcileTurnOptions(
   );
   if (
     !environmentChanged &&
+    !permissionModeChanged &&
     changedModelRequest === undefined &&
     !thinkingPickerChanged &&
     !fastPickerChanged &&
     !controlsChanged
   ) {
     threadSession.pickerOptions = turnOptions;
+    construction.permissionPolicy = permissionPolicy;
     threadSession.chosenSessionControls = chosenSessionControls;
     publishNativeConfiguration(threadId, threadSession);
     return threadSession;
@@ -1743,11 +1937,12 @@ async function reconcileTurnOptions(
   }
   const state = await threadSession.session.getState();
   const currentModel = state.model ?? threadSession.constructionModel;
-  if (environmentChanged || presetChanged) {
+  if (environmentChanged || presetChanged || permissionModeChanged) {
     const nativeModel = currentModel?.provider && currentModel.id
       ? `${currentModel.provider}/${currentModel.id}` : construction.model;
     const nextConstruction: OmpSessionParams = {
       ...construction,
+      permissionPolicy,
       ...(shellEnvOverrides === undefined ? {} : { shellEnvOverrides }),
       ...(nextPreset ? {
         modelPreset: nextPreset,
@@ -1779,9 +1974,11 @@ async function reconcileTurnOptions(
       params: {
         threadId,
         providerThreadId: replacement.providerThreadId,
-        reason: presetChanged
-          ? "Model preset changed; the OMP session was restarted to apply it."
-          : "Execution environment changed; the OMP session was rebuilt to apply it.",
+        reason: permissionModeChanged
+          ? "Permission mode changed; the OMP session was restarted to apply it."
+          : presetChanged
+            ? "Model preset changed; the OMP session was restarted to apply it."
+            : "Execution environment changed; the OMP session was rebuilt to apply it.",
         contextLost: false,
       },
     });
@@ -1812,6 +2009,7 @@ async function reconcileTurnOptions(
     await threadSession.session.setFastMode(turnOptions.fastModeEnabled);
   }
   await threadSession.session.applySessionControls(requestedControls);
+  construction.permissionPolicy = permissionPolicy;
   threadSession.pickerOptions = turnOptions;
   threadSession.pickerModel = nextModel ?? threadSession.pickerModel;
   threadSession.chosenSessionControls = chosenSessionControls;
@@ -1920,28 +2118,262 @@ async function handleOmpAgentCommand(args: {
   return true;
 }
 
-function handleOmpLocalCommand(args: {
+interface OmpLocalCommandArgs {
   threadId: string;
   threadSession: ThreadSession;
   text: string;
   images: readonly ImageContent[];
   clientRequestId: TurnStartParams["clientRequestId"];
-}): boolean {
-  const command = /^\/(btw|login|logout|export-html)(?:\s+([\s\S]*))?$/u.exec(args.text.trim());
+}
+
+function beginScopedLocalCommand(
+  args: Pick<OmpLocalCommandArgs, "threadId" | "threadSession"> & { clientRequestId?: TurnStartParams["clientRequestId"] },
+  prefix: string,
+  label: string,
+): NativeControlTurn {
+  const parentRef = `${prefix}:${randomUUID()}`;
+  const control: NativeControlTurn = { providerTurnId: `${parentRef}:transcript`, parentRef, label, closed: false };
+  (args.threadSession.nativeControlTurns ??= new Set()).add(control);
+  const ownsTurn = !activeTurnThreads.has(args.threadId);
+  // A scoped turn is not automatically a child in BB. A real background card
+  // must own it, or its turn/started would replace a concurrent native root.
+  sendThreadDeltas(args.threadId, [
+    ...(args.clientRequestId ? [{ kind: "input.accepted", clientRequestId: args.clientRequestId } as const] : []),
+    ...(ownsTurn ? [{ kind: "turn.open" } as const] : []),
+    {
+      kind: "item.open", key: { providerItemId: `${parentRef}:status` }, attach: "currentOrLast",
+      item: nativeControlBackground(control, "pending"),
+    },
+    {
+      kind: "item.open", key: { providerItemId: parentRef }, attach: "currentOrLast",
+      item: { type: "delegation", childRef: parentRef, label, background: true },
+    },
+    { kind: "turn.open", providerTurnId: control.providerTurnId, parentRef },
+    ...(ownsTurn ? [{ kind: "turn.boundary", status: "completed" } as const] : []),
+  ]);
+  return control;
+}
+
+function handleOmpBtwCommand(args: OmpLocalCommandArgs): boolean {
+  const match = /^\/btw(?:\s+([\s\S]*))?$/u.exec(args.text.trim());
+  if (!match) return false;
+  const value = match[1]?.trim() ?? "";
+  const usage = "Usage: /btw <question> | /btw cancel | /btw history | /btw follow <recordId> <question>";
+  if (args.images.length > 0) throw new Error("/btw does not accept image attachments");
+  if (!value) throw new Error(usage);
+  const follow = /^follow\s+(\S+)\s+([\s\S]+)$/u.exec(value);
+  if (/^(?:cancel|history)\s/u.test(value) || (/^follow(?:\s|$)/u.test(value) && !follow)) {
+    throw new Error(usage);
+  }
+  const operation = value === "cancel" || value === "history" ? value : "ask";
+  const question = follow?.[2]?.trim() ?? value;
+  const recordId = follow?.[1];
+  const scope = { threadId: args.threadId, sessionSerial: args.threadSession.sessionSerial };
+  const control = operation === "ask"
+    ? beginScopedLocalCommand(args, "omp-btw", `Side question: ${question}`) : undefined;
+  const start = control ? { question, control, ...(recordId ? { recordId } : {}) } : undefined;
+  if (start) (args.threadSession.btwStarts ??= new Set()).add(start);
+  else sendThreadDeltas(args.threadId, [{ kind: "input.accepted", clientRequestId: args.clientRequestId }]);
+  void (async () => {
+    const session = args.threadSession.session;
+    if (operation === "ask") {
+      const record = await session.askBtw(question, recordId);
+      if (getCurrentThreadSession(scope)) publishBtwRecord(args.threadId, args.threadSession, record);
+      return;
+    }
+    const resultText = operation === "cancel"
+      ? await session.cancelBtw() ? "Side question cancelled." : "No side question is running."
+      : (await session.getBtwHistory()).map((record) => [
+        `Topic: ${record.id}`,
+        ...[record, ...record.followUps ?? []].map((turn, index) => [
+          `${index === 0 ? "Question" : `Follow-up ${index}`} (${turn.status}): ${turn.question}`,
+          turn.answer,
+          turn.error,
+        ].filter(Boolean).join("\n\n")),
+      ].join("\n\n")).join("\n\n---\n\n") || "No OMP side-question history.";
+    publishLocalCommandResult({
+      ...scope, tool: "btw",
+      commandArgs: { operation }, resultText,
+    });
+  })().catch((error: unknown) => {
+    if (control?.closed) return;
+    const message = error instanceof Error ? error.message : String(error);
+    publishLocalCommandResult({
+      ...scope, tool: "btw", status: "failed",
+      ...(control ? { providerTurnId: control.providerTurnId, parentRef: control.parentRef } : {}),
+      commandArgs: { operation, ...(operation === "ask" ? { question, ...(recordId ? { recordId } : {}) } : {}) },
+      resultText: message,
+    });
+    if (control && getCurrentThreadSession(scope)) {
+      finishNativeControlTurn(args.threadId, args.threadSession, control, "failed", message);
+    }
+  }).finally(() => {
+    if (start) args.threadSession.btwStarts?.delete(start);
+  });
+  return true;
+}
+
+function handleOmpBashCommand(args: OmpLocalCommandArgs): boolean {
+  const match = /^\/omp-bash(?:\s+([\s\S]*))?$/u.exec(args.text.trim());
+  if (!match) return false;
+  const command = match[1]?.trim() ?? "";
+  if (!command) throw new Error("Usage: /omp-bash <command> | /omp-bash abort");
+  if (args.images.length > 0) throw new Error("/omp-bash does not accept image attachments");
+  const scope = { threadId: args.threadId, sessionSerial: args.threadSession.sessionSerial };
+  const control = command === "abort" ? undefined : beginScopedLocalCommand(args, "omp-bash", `OMP shell: ${command}`);
+  const key = {
+    providerItemId: `omp-user-bash:${randomUUID()}`,
+    ...(control ? { parentRef: control.parentRef } : {}),
+  };
+  const cwd = args.threadSession.cwd;
+  if (control) control.pendingItem = { providerItemId: key.providerItemId, item: { type: "command", command, cwd } };
+  else sendThreadDeltas(args.threadId, [{ kind: "input.accepted", clientRequestId: args.clientRequestId }]);
+  void (async () => {
+    if (command === "abort") {
+      await args.threadSession.session.abortBash();
+      publishLocalCommandResult({
+        ...scope, tool: "omp-bash", commandArgs: { operation: "abort" },
+        resultText: "Cancellation requested for all running OMP user shell commands.",
+      });
+      return;
+    }
+    const result = await args.threadSession.session.bash(command);
+    if (!control || control.closed || !getCurrentThreadSession(scope)) return;
+    const output = stripOmpAnsi([
+      result.output,
+      ...(result.cancelled ? ["Shell command cancelled."] : []),
+      ...(result.timedOut ? ["Shell command timed out."] : []),
+      ...(result.truncated ? [`Output truncated.${result.artifactId ? ` Full output: ${result.artifactId}` : ""}`] : []),
+      ...(result.images?.length ? [`OMP recorded ${result.images.length} image(s); this command card displays text only.`] : []),
+    ].filter(Boolean).join("\n\n"));
+    const status = result.cancelled ? "interrupted"
+      : result.timedOut || (result.exitCode !== undefined && result.exitCode !== 0) ? "failed" : "completed";
+    sendThreadDeltas(args.threadId, [{
+      kind: "item.close", providerTurnId: control.providerTurnId, key,
+      item: {
+        type: "command", command, cwd: result.workingDir ?? cwd, aggregatedOutput: output,
+        ...(result.exitCode === undefined ? {} : { exitCode: result.exitCode }),
+      },
+      status,
+      aggregatedOutput: output,
+      ...(result.exitCode === undefined ? {} : { exitCode: result.exitCode }),
+    }]);
+    finishNativeControlTurn(args.threadId, args.threadSession, control, status, [
+      output,
+      ...(result.exitCode === undefined ? [] : [`Exit code: ${result.exitCode}`]),
+    ].filter(Boolean).join("\n\n"));
+  })().catch((error: unknown) => {
+    if (!getCurrentThreadSession(scope)) return;
+    const message = stripOmpAnsi(error instanceof Error ? error.message : String(error));
+    if (command === "abort") {
+      publishLocalCommandResult({
+        ...scope, tool: "omp-bash", status: "failed",
+        commandArgs: { operation: "abort" }, resultText: message,
+      });
+    } else if (control && !control.closed) {
+      sendThreadDeltas(args.threadId, [{
+        kind: "item.close", providerTurnId: control.providerTurnId, key, status: "failed",
+        item: { type: "command", command, cwd, aggregatedOutput: message },
+        aggregatedOutput: message,
+      }]);
+      finishNativeControlTurn(args.threadId, args.threadSession, control, "failed", message);
+    }
+  });
+  return true;
+}
+
+function handleOmpQueueCommand(args: OmpLocalCommandArgs): boolean {
+  const match = /^\/omp-queue(?:\s+([\s\S]*))?$/u.exec(args.text.trim());
+  if (!match) return false;
+  const value = match[1]?.trim() ?? "";
+  const edit = /^(remove|promote)\s+([1-9]\d*)$/u.exec(value);
+  if (value !== "" && value !== "restore" && (!edit || !Number.isSafeInteger(Number(edit[2])))) {
+    throw new Error("Usage: /omp-queue | /omp-queue remove <n> | /omp-queue promote <n> | /omp-queue restore");
+  }
+  if (args.images.length > 0) throw new Error("/omp-queue does not accept image attachments");
+  const scope = { threadId: args.threadId, sessionSerial: args.threadSession.sessionSerial };
+  const operation = edit?.[1] ?? (value || "list");
+  const index = edit ? Number(edit[2]) : undefined;
+  sendThreadDeltas(args.threadId, [{ kind: "input.accepted", clientRequestId: args.clientRequestId }]);
+  void (async () => {
+    const session = args.threadSession.session;
+    let resultText: string;
+    if (operation === "restore") {
+      const restored = await session.abortAndRestoreQueue();
+      if (!getCurrentThreadSession(scope)) return;
+      const messages = [...restored.steering, ...restored.followUp];
+      const text = messages.map((message) => message.text).join("\n\n");
+      if (text) {
+        sendThreadDeltas(args.threadId, [{
+          kind: "extension.state", extensionKind: OMP_EDITOR_TEXT_STATE_KIND,
+          payload: { requestId: randomUUID(), text },
+        }]);
+      }
+      const imageCount = messages.reduce((count, message) => count + (message.images?.length ?? 0), 0);
+      resultText = [
+        messages.length > 0 ? `Restored ${messages.length} native queued message(s) to bb's composer as text; nothing was resubmitted.`
+          : "OMP's native queue is empty; there is no queued text to restore.",
+        ...(restored.imagesDropped ? ["Warning: OMP dropped images from the restored queue response."] : []),
+        ...(imageCount > 0 ? [`Warning: ${imageCount} image(s) were not restored to bb's text composer.`] : []),
+        ...(restored.truncated ? ["Warning: OMP truncated the restored queue; only the returned oldest-first text is available."] : []),
+      ].join("\n\n");
+    } else {
+      const queues = (await session.getState()).queuedMessages ?? { steering: [], followUp: [] };
+      const rows = [
+        ...queues.steering.map((message) => ({ queue: "steering" as const, message })),
+        ...queues.followUp.map((message) => ({ queue: "followUp" as const, message })),
+      ];
+      if (index === undefined) {
+        resultText = rows.length === 0 ? "OMP's native queue is empty." : [
+          "OMP native queued messages (not bb's pending queue):",
+          ...rows.map((row, offset) => `${offset + 1}. [${row.queue === "followUp" ? "follow-up" : "steering"}] ${row.message}`),
+          "Use /omp-queue remove <n>, /omp-queue promote <n>, or /omp-queue restore.",
+        ].join("\n");
+      } else {
+        const selected = rows[index - 1];
+        if (!selected) throw new Error(rows.length === 0 ? "OMP's native queue is empty."
+          : `No OMP queued message ${index}; choose an index from 1 to ${rows.length}.`);
+        if (operation === "promote" && selected.queue !== "followUp") {
+          throw new Error(`OMP queued message ${index} is already in the steering queue; only follow-ups can be promoted.`);
+        }
+        if (rows.slice(0, index - 1).some((row) => row.queue === selected.queue && row.message === selected.message)) {
+          throw new Error("OMP can only edit the first identical message in a queue; choose that earlier index first.");
+        }
+        const changed = operation === "remove"
+          ? await session.removeQueuedMessage(selected.message, selected.queue)
+          : await session.promoteQueuedMessage(selected.message);
+        if (!changed) throw new Error("That OMP queued message was already delivered or removed; list /omp-queue again.");
+        resultText = operation === "remove" ? `Removed OMP queued message ${index} from ${selected.queue}.`
+          : `Promoted OMP queued message ${index} to the end of the steering queue.`;
+      }
+    }
+    publishLocalCommandResult({
+      ...scope, tool: "omp-queue", commandArgs: { operation, ...(index === undefined ? {} : { index }) }, resultText,
+    });
+  })().catch((error: unknown) => {
+    publishLocalCommandResult({
+      ...scope, tool: "omp-queue", commandArgs: { operation, ...(index === undefined ? {} : { index }) },
+      status: "failed", resultText: error instanceof Error ? error.message : String(error),
+    });
+  });
+  return true;
+}
+
+function handleOmpLocalCommand(args: OmpLocalCommandArgs): boolean {
+  if (handleOmpBtwCommand(args) || handleOmpBashCommand(args) || handleOmpQueueCommand(args)) return true;
+  const command = /^\/(login|logout|export-html)(?:\s+([\s\S]*))?$/u.exec(args.text.trim());
   if (!command?.[1]) return false;
   const operation = command[1];
   const value = command[2]?.trim() ?? "";
   const words = value ? value.split(/\s+/u) : [];
   if (args.images.length > 0) throw new Error(`/${operation} does not accept image attachments`);
-  if (operation === "btw" && !value) throw new Error("Usage: /btw <question>");
   if (operation === "login" && words.length > 1) throw new Error("Usage: /login [provider]");
   if (operation === "logout" && (words.length > 2 ||
     (words[1] !== undefined && (!/^-?\d+$/u.test(words[1]) || !Number.isSafeInteger(Number(words[1])))))) {
     throw new Error("Usage: /logout [provider] [credential-id]");
   }
   const scope = { threadId: args.threadId, sessionSerial: args.threadSession.sessionSerial };
-  const commandArgs = operation === "btw" ? { question: value }
-    : operation === "export-html" ? (value ? { outputPath: value } : {})
+  const commandArgs = operation === "export-html" ? (value ? { outputPath: value } : {})
     : {
       ...(words[0] === undefined ? {} : { providerId: words[0] }),
       ...(words[1] === undefined ? {} : { credentialId: Number(words[1]) }),
@@ -1951,10 +2383,6 @@ function handleOmpLocalCommand(args: {
   // open, nor keep a synthetic turn open across a concurrent main run.
   void (async () => {
     const session = args.threadSession.session;
-    if (operation === "btw") {
-      await session.askBtw(value);
-      return; // The terminal btw_record contains the authoritative side answer.
-    }
     let resultText: string;
     if ((operation === "login" || operation === "logout") && words[0] === undefined) {
       const providers = await session.getLoginProviders();
@@ -2016,29 +2444,6 @@ async function handleTurnStart(
     sendError(id, -32000, "No active omp session");
     return;
   }
-  const controlInput = extractOmpPromptInput(params.input);
-  try {
-    if (controlInput && await handleOmpAgentCommand({
-      threadId: params.threadId, threadSession: liveSession, text: controlInput.text,
-      clientRequestId: params.clientRequestId, steer: false,
-    })) {
-      sendResult(id, { threadId: params.threadId });
-      return;
-    }
-    if (controlInput && (await handleOmpGoalCommand({
-      threadId: params.threadId, threadSession: liveSession, text: controlInput.text,
-      images: controlInput.images, clientRequestId: params.clientRequestId, steer: false,
-    }) || handleOmpLocalCommand({
-      threadId: params.threadId, threadSession: liveSession, text: controlInput.text,
-      images: controlInput.images, clientRequestId: params.clientRequestId,
-    }))) {
-      sendResult(id, { threadId: params.threadId });
-      return;
-    }
-  } catch (error) {
-    sendOmpError(id, error);
-    return;
-  }
   let threadSession: ThreadSession;
   try {
     threadSession = await reconcileTurnOptions(
@@ -2046,6 +2451,29 @@ async function handleTurnStart(
       liveSession,
       params.options,
     );
+  } catch (error) {
+    sendOmpError(id, error);
+    return;
+  }
+  const controlInput = extractOmpPromptInput(params.input);
+  try {
+    if (controlInput && await handleOmpAgentCommand({
+      threadId: params.threadId, threadSession, text: controlInput.text,
+      clientRequestId: params.clientRequestId, steer: false,
+    })) {
+      sendResult(id, { threadId: params.threadId });
+      return;
+    }
+    if (controlInput && (await handleOmpGoalCommand({
+      threadId: params.threadId, threadSession, text: controlInput.text,
+      images: controlInput.images, clientRequestId: params.clientRequestId, steer: false,
+    }) || handleOmpLocalCommand({
+      threadId: params.threadId, threadSession, text: controlInput.text,
+      images: controlInput.images, clientRequestId: params.clientRequestId,
+    }))) {
+      sendResult(id, { threadId: params.threadId });
+      return;
+    }
   } catch (error) {
     sendOmpError(id, error);
     return;
@@ -2074,8 +2502,8 @@ async function handleTurnSteer(
   id: string | number,
   params: TurnSteerParams,
 ): Promise<void> {
-  const threadSession = sessions.get(params.threadId);
-  if (!threadSession || threadSession.closing) {
+  const liveSession = sessions.get(params.threadId);
+  if (!liveSession || liveSession.closing) {
     sendError(id, -32000, "No active omp session");
     return;
   }
@@ -2085,34 +2513,50 @@ async function handleTurnSteer(
     return;
   }
   const { text, images } = input;
-  if (threadSession.session.getIsCompacting()) {
-    sendError(id, -32000, "Cannot steer while context compaction is active");
-    return;
-  }
   try {
+    const threadSession = await reconcileTurnOptions(
+      params.threadId,
+      liveSession,
+      params.options,
+    );
+    if (threadSession.session.getIsCompacting()) {
+      sendError(id, -32000, "Cannot steer while context compaction is active");
+      return;
+    }
+    const continuingTurn = threadSession === liveSession;
     if (await handleOmpAgentCommand({
       threadId: params.threadId, threadSession, text,
-      clientRequestId: params.clientRequestId, steer: true,
+      clientRequestId: params.clientRequestId, steer: continuingTurn,
     })) {
       sendResult(id, { threadId: params.threadId });
       return;
     }
     if (await handleOmpGoalCommand({
       threadId: params.threadId, threadSession, text, images,
-      clientRequestId: params.clientRequestId, steer: true,
+      clientRequestId: params.clientRequestId, steer: continuingTurn,
     }) || handleOmpLocalCommand({
       threadId: params.threadId, threadSession, text, images, clientRequestId: params.clientRequestId,
     })) {
       sendResult(id, { threadId: params.threadId });
       return;
     }
-    await threadSession.session.steer(
-      text,
-      images.length > 0 ? images : undefined,
-    );
-    sendThreadDeltas(params.threadId, [
-      { kind: "input.accepted", clientRequestId: params.clientRequestId },
-    ]);
+    if (continuingTurn) {
+      await threadSession.session.steer(
+        text,
+        images.length > 0 ? images : undefined,
+      );
+      sendThreadDeltas(params.threadId, [
+        { kind: "input.accepted", clientRequestId: params.clientRequestId },
+      ]);
+    } else {
+      // Rebuilding interrupted the old run; the steering message must start a
+      // run on the continued conversation, not sit in an idle child's queue.
+      await startOmpPrompt(threadSession, params.threadId, text, images, () =>
+        sendThreadDeltas(params.threadId, [
+          { kind: "input.accepted", clientRequestId: params.clientRequestId },
+        ]),
+      );
+    }
     sendResult(id, { threadId: params.threadId });
   } catch (error) {
     sendOmpError(id, error);

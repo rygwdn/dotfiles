@@ -45,6 +45,8 @@ function host(threadId: string, initialAgents: OmpHubAgent[]) {
     .mockResolvedValue(makeThreadResponse({ id: threadId, providerId: "omp" }));
   const details = vi.fn<PluginBrowserBbSdk["threads"]["timelineTurnSummaryDetails"]>()
     .mockResolvedValue({ rows: [] });
+  const send = vi.fn<PluginBrowserBbSdk["threads"]["send"]>()
+    .mockResolvedValue({ ok: true, delivery: "sent" });
   const list = vi.fn<PluginBrowserBbSdk["threads"]["events"]["list"]>().mockImplementation(async ({ types }) => {
     if (types?.includes("item/started")) {
       return agents.map((item, index) => ({
@@ -87,6 +89,7 @@ function host(threadId: string, initialAgents: OmpHubAgent[]) {
     },
     threads: {
       get,
+      send,
       events: { list },
       timelineTurnSummaryDetails: details,
       tabs: { get: async () => ({ revision: 1, tabs: [] }) },
@@ -96,6 +99,7 @@ function host(threadId: string, initialAgents: OmpHubAgent[]) {
     sdk,
     get,
     details,
+    send,
     setAgents(next: OmpHubAgent[]) { agents = next; },
     changed() {
       for (const listener of [...listeners]) {
@@ -223,7 +227,7 @@ describe("omp Hub", () => {
     const view = renderHub("hub-params", fixture.sdk, { agentId: selected.id });
     await view.findByText("Newest captured reply");
     expect(view.getByText("Read-only conversation")).toBeDefined();
-    expect(view.queryByRole("textbox")).toBeNull();
+    expect(view.getByRole("textbox", { name: "Message to agent Selected" })).toBeDefined();
     expect(view.queryByText("Another agent’s private transcript")).toBeNull();
     fireEvent.click(view.getByRole("button", { name: "Load earlier messages" }));
     await view.findByText("Earlier captured reply");
@@ -235,6 +239,128 @@ describe("omp Hub", () => {
     expect(view.getByText("Earlier captured reply")).toBeDefined();
     fireEvent.click(view.getByRole("button", { name: "All agents" }));
     expect(view.getByRole("button", { name: "View agent Other" })).toBeDefined();
+  });
+
+  it.each(["roster", "conversation"] as const)("shows controls only for running agents in the %s", async (surface) => {
+    const running = agent("Running");
+    const finished = [
+      agent("Completed", { status: "completed" }),
+      agent("Failed", { status: "failed" }),
+      agent("Aborted", { status: "aborted" }),
+      agent("Pending", { status: "pending" }),
+    ];
+    const threadId = `hub-agent-visibility-${surface}`;
+    const fixture = host(threadId, [running, ...finished]);
+    const view = renderHub(threadId, fixture.sdk, surface === "conversation" ? { agentId: running.id } : null);
+    await view.findByRole("group", { name: "Controls for agent Running" });
+    expect(view.getByRole("button", { name: "Cancel agent Running" })).toBeDefined();
+    expect(view.getByRole("textbox", { name: "Message to agent Running" })).toBeDefined();
+    expect(view.getByRole("button", { name: "Steer agent Running" })).toBeDefined();
+    for (const item of finished) {
+      expect(view.queryByRole("group", { name: `Controls for agent ${item.id}` })).toBeNull();
+    }
+    if (surface === "roster") {
+      const summary = view.getByRole("button", { name: "View agent Running" });
+      expect(summary.querySelector("button, input")).toBeNull();
+    }
+
+    fixture.setAgents([{ ...running, status: "completed" }, ...finished]);
+    await act(async () => fixture.changed());
+    await vi.waitFor(() => expect(view.queryByRole("group", { name: "Controls for agent Running" })).toBeNull());
+    expect(view.queryByRole("button", { name: "Cancel agent Running" })).toBeNull();
+    expect(view.queryByRole("textbox")).toBeNull();
+    expect(fixture.send).not.toHaveBeenCalled();
+  });
+
+  it.each(["pending", "completed", "failed", "aborted"] as const)("does not offer controls in a %s agent conversation", async (status) => {
+    const selected = agent("Finished", { status });
+    const threadId = `hub-agent-hidden-${status}`;
+    const fixture = host(threadId, [selected]);
+    const view = renderHub(threadId, fixture.sdk, { agentId: selected.id });
+    await view.findByText("Read-only conversation");
+    expect(view.queryByRole("group", { name: "Controls for agent Finished" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Cancel agent Finished" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Steer agent Finished" })).toBeNull();
+    expect(view.queryByRole("textbox")).toBeNull();
+  });
+
+  it.each(["roster", "conversation"] as const)("sends exact cancel and steer commands through the parent thread from the %s", async (surface) => {
+    const selected = agent("Worker.Child");
+    const threadId = `hub-agent-commands-${surface}`;
+    const fixture = host(threadId, [selected]);
+    const view = renderHub(threadId, fixture.sdk, surface === "conversation" ? { agentId: selected.id } : null);
+    const cancel = await view.findByRole("button", { name: "Cancel agent Worker.Child" });
+    await act(async () => { fireEvent.click(cancel); });
+    expect(fixture.send).toHaveBeenNthCalledWith(1, {
+      threadId,
+      mode: "steer-if-active",
+      input: [{ type: "text", text: "/omp-agent cancel Worker.Child", mentions: [] }],
+    });
+    // Sending a command is not proof that the agent has stopped.
+    expect(view.getByRole("group", { name: "Controls for agent Worker.Child" })).toBeDefined();
+    const message = view.getByRole("textbox", { name: "Message to agent Worker.Child" }) as HTMLInputElement;
+    const steer = view.getByRole("button", { name: "Steer agent Worker.Child" }) as HTMLButtonElement;
+    expect(steer.disabled).toBe(true);
+    fireEvent.change(message, { target: { value: "   " } });
+    fireEvent.submit(view.getByRole("form", { name: "Steer agent Worker.Child" }));
+    expect(steer.disabled).toBe(true);
+    expect(fixture.send).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(message, { target: { value: "  Focus on the cancellation path  " } });
+    await act(async () => { fireEvent.click(steer); });
+    expect(fixture.send).toHaveBeenNthCalledWith(2, {
+      threadId,
+      mode: "steer-if-active",
+      input: [{ type: "text", text: "/omp-agent steer Worker.Child Focus on the cancellation path", mentions: [] }],
+    });
+    expect(message.value).toBe("");
+    expect(steer.disabled).toBe(true);
+    if (surface === "roster") {
+      expect(view.getByRole("button", { name: "View agent Worker.Child" })).toBeDefined();
+    }
+  });
+
+  it.each(["cancel", "steer"] as const)("shows SDK %s errors without discarding the message or hiding the controls", async (action) => {
+    const selected = agent("Worker");
+    const threadId = `hub-agent-error-${action}`;
+    const fixture = host(threadId, [selected]);
+    fixture.send.mockRejectedValueOnce(new Error("Parent thread unavailable"));
+    const view = renderHub(threadId, fixture.sdk, { agentId: selected.id });
+    const message = await view.findByRole("textbox", { name: "Message to agent Worker" }) as HTMLInputElement;
+    fireEvent.change(message, { target: { value: "Keep this instruction" } });
+    const button = view.getByRole("button", { name: action === "cancel" ? "Cancel agent Worker" : "Steer agent Worker" }) as HTMLButtonElement;
+    await act(async () => { fireEvent.click(button); });
+    expect(view.getByRole("alert").textContent).toBe("Parent thread unavailable");
+    expect(message.value).toBe("Keep this instruction");
+    expect(button.disabled).toBe(false);
+    expect(view.getByRole("group", { name: "Controls for agent Worker" })).toBeDefined();
+
+    await act(async () => { fireEvent.click(button); });
+    expect(fixture.send).toHaveBeenCalledTimes(2);
+    expect(view.queryByRole("alert")).toBeNull();
+    expect(message.value).toBe(action === "steer" ? "" : "Keep this instruction");
+  });
+
+  it("disables both commands while a send is pending", async () => {
+    const threadId = "hub-agent-pending-send";
+    const fixture = host(threadId, [agent("Worker")]);
+    const pendingSend = Promise.withResolvers<{ ok: true; delivery: "sent" }>();
+    fixture.send.mockReturnValueOnce(pendingSend.promise);
+    const view = renderHub(threadId, fixture.sdk);
+    const message = await view.findByRole("textbox", { name: "Message to agent Worker" }) as HTMLInputElement;
+    const cancel = view.getByRole("button", { name: "Cancel agent Worker" }) as HTMLButtonElement;
+    const steer = view.getByRole("button", { name: "Steer agent Worker" }) as HTMLButtonElement;
+    fireEvent.change(message, { target: { value: "A new instruction" } });
+    fireEvent.click(steer);
+    expect(message.disabled).toBe(true);
+    expect(cancel.disabled).toBe(true);
+    expect(steer.disabled).toBe(true);
+    fireEvent.submit(view.getByRole("form", { name: "Steer agent Worker" }));
+    expect(fixture.send).toHaveBeenCalledTimes(1);
+    await act(async () => { pendingSend.resolve({ ok: true, delivery: "sent" }); });
+    expect(cancel.disabled).toBe(false);
+    expect(message.disabled).toBe(false);
+    expect(message.value).toBe("");
   });
 
   it("hides internal services, opens local URLs, reads logs, and confirms killing", async () => {

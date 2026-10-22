@@ -7,6 +7,7 @@ export interface OmpSessionControls {
   autoCompactionEnabled?: boolean;
   autoRetryEnabled?: boolean;
   cacheWarmingMode?: "off" | "streaming" | "idle";
+  slowModeEnabled?: boolean;
 }
 
 export const OMP_SESSION_OPTIONS: NonNullable<AvailableModel["sessionOptions"]> = [
@@ -87,8 +88,12 @@ export const OMP_SESSION_OPTIONS: NonNullable<AvailableModel["sessionOptions"]> 
 
 export function buildOmpLiveSessionOptions(
   controls: OmpSessionControls,
+  nativeState: {
+    slowModeSupported?: boolean;
+    slowModeScope?: "session" | "global";
+  } = {},
 ): NonNullable<AvailableModel["sessionOptions"]> {
-  return OMP_SESSION_OPTIONS.map((option) => {
+  const options = OMP_SESSION_OPTIONS.map((option) => {
     const value = controls[option.id as keyof OmpSessionControls];
     if (value === undefined || option.type !== "select") return option;
     return {
@@ -97,6 +102,28 @@ export function buildOmpLiveSessionOptions(
       values: option.values.filter(({ id }) => id !== "native"),
     };
   });
+  if (nativeState.slowModeSupported) {
+    const global = nativeState.slowModeScope === "global";
+    options.push({
+      id: "slowModeEnabled",
+      label: global ? "Slow mode — global, affects every omp session" : "Slow mode",
+      description: global
+        ? "Changing slow mode affects every omp session, not just this thread."
+        : nativeState.slowModeScope === "session"
+          ? "Control slow mode for this omp session only."
+          : "Control slow mode for the active omp model.",
+      type: "select",
+      value: controls.slowModeEnabled === undefined
+        ? "native"
+        : controls.slowModeEnabled ? "on" : "off",
+      values: [
+        { id: "native", label: "Native" },
+        { id: "on", label: "Enabled" },
+        { id: "off", label: "Disabled" },
+      ],
+    });
+  }
+  return options;
 }
 
 function parseSelection<T extends string>(
@@ -115,7 +142,7 @@ function parseSelection<T extends string>(
 
 function parseEnabled(
   options: Record<string, string | boolean> | undefined,
-  id: "autoCompactionEnabled" | "autoRetryEnabled",
+  id: "autoCompactionEnabled" | "autoRetryEnabled" | "slowModeEnabled",
 ): boolean | undefined {
   const value = parseSelection(options, id, ["on", "off"] as const);
   return value === undefined ? undefined : value === "on";
@@ -139,6 +166,7 @@ export function parseOmpSessionControls(
   ] as const);
   const autoCompactionEnabled = parseEnabled(options, "autoCompactionEnabled");
   const autoRetryEnabled = parseEnabled(options, "autoRetryEnabled");
+  const slowModeEnabled = parseEnabled(options, "slowModeEnabled");
   const cacheWarmingMode = parseSelection(options, "cacheWarmingMode", [
     "off",
     "streaming",
@@ -152,5 +180,6 @@ export function parseOmpSessionControls(
   }
   if (autoRetryEnabled !== undefined) controls.autoRetryEnabled = autoRetryEnabled;
   if (cacheWarmingMode !== undefined) controls.cacheWarmingMode = cacheWarmingMode;
+  if (slowModeEnabled !== undefined) controls.slowModeEnabled = slowModeEnabled;
   return controls;
 }

@@ -22,7 +22,9 @@ const OMP_AGENT_COMMAND = {
   description: "Cancel or message a running OMP subagent",
   inputHint: "cancel <id> | steer <id> <message>",
 };
-const REQUIRED_BRIDGE_COMMAND_NAMES = ["omp-agent", "btw", "login", "logout", "export-html", "goal"];
+const REQUIRED_BRIDGE_COMMAND_NAMES = [
+  "omp-agent", "btw", "omp-bash", "omp-queue", "login", "logout", "export-html", "goal",
+];
 const INITIAL_OMP_COMMANDS = [
   {
     name: "rename",
@@ -226,6 +228,9 @@ describe("OMP thread metadata through the bb bridge", () => {
       { name: "empty-hint", description: "" },
     ]));
     const hintOf = (name: string) => commands?.find((command) => command.name === name)?.inputHint;
+    expect(hintOf("btw")).toBe("[question|cancel|history|follow <recordId> <question>]");
+    expect(hintOf("omp-bash")).toBe("<command>|abort");
+    expect(hintOf("omp-queue")).toBe("[remove <n>|promote <n>|restore]");
     // bb can't complete arguments, so subcommands a hint doesn't already name are listed in it.
     expect(hintOf("rename")).toBe("<title> (show)");
     expect(hintOf("todo")).toBe("<subcommand> (edit|done)");

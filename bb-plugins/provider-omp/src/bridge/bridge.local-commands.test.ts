@@ -340,14 +340,16 @@ describe("OMP local commands through the bb bridge", () => {
       tool.status === "completed",
     ), since);
     const sideDeltas = harness.deltasOf(threadId).slice(since);
-    expect(sideDeltas).toContainEqual({ kind: "input.accepted", clientRequestId });
-    expect(sideDeltas.filter((delta) => delta.kind === "turn.boundary" || delta.kind === "turn.open")).toEqual([]);
+    expect(sideDeltas).toContainEqual(expect.objectContaining({ kind: "input.accepted", clientRequestId }));
+    expect(sideDeltas.filter((delta) =>
+      (delta.kind === "turn.boundary" || delta.kind === "turn.open") && !delta.providerTurnId,
+    )).toEqual([]);
     expect(assistantText(sideDeltas)).toBe("");
     const steered = await submit(threadId, providerThreadId, "finish after answering BTW", "turn/steer");
     await harness.waitForTurnBoundary(threadId, steered.since);
     const allDeltas = harness.deltasOf(threadId);
-    expect(allDeltas.filter((delta) => delta.kind === "turn.open")).toHaveLength(1);
-    expect(allDeltas.filter((delta) => delta.kind === "turn.boundary")).toEqual([
+    expect(allDeltas.filter((delta) => delta.kind === "turn.open" && !delta.providerTurnId)).toHaveLength(1);
+    expect(allDeltas.filter((delta) => delta.kind === "turn.boundary" && !delta.providerTurnId)).toEqual([
       expect.objectContaining({ status: "completed" }),
     ]);
     expect(assistantText(allDeltas)).toContain("Steered: finish after answering BTW");
@@ -359,9 +361,10 @@ describe("OMP local commands through the bb bridge", () => {
     ]);
   }, 90_000);
 
-  it("keeps running BTW records and deltas out of the main run and renders only the terminal side answer", async () => {
+  it("streams BTW deltas into an open side card, settles admission promptly, and replaces streamed text with the terminal record", async () => {
     const releaseFile = join(harness.workspaceDir, "release-btw");
     vi.stubEnv("FAKE_OMP_BTW_RELEASE_FILE", releaseFile);
+    vi.stubEnv("FAKE_OMP_BTW_DELTAS", JSON.stringify(["Partial ", "BTW streamed answer."]));
     const threadId = "thr_local_btw";
     const providerThreadId = await start(threadId);
     const question = "Where should the side answer appear?";
@@ -372,21 +375,41 @@ describe("OMP local commands through the bb bridge", () => {
       threadId, providerThreadId, title: "BTW delivery barrier",
     });
     expect(renamed.error).toBeUndefined();
-    expect(harness.deltasOf(threadId).slice(since).filter((delta) =>
-      delta.kind === "turn.open" || delta.kind === "turn.boundary",
-    )).toEqual([]);
-    expect(toolCloses(harness.deltasOf(threadId).slice(since), "btw")).toEqual([]);
+    const pending = harness.deltasOf(threadId).slice(since);
+    expect(pending.filter((delta) => delta.kind === "turn.open" && !delta.parentRef)).toHaveLength(1);
+    expect(pending.filter((delta) => delta.kind === "turn.boundary" && !delta.providerTurnId)).toHaveLength(1);
+    expect(pending.filter((delta) => delta.kind === "turn.boundary" && delta.providerTurnId)).toEqual([]);
+    const opens = pending.filter((delta) => delta.kind === "item.open" && objectSchema.parse(delta.item).type === "backgroundTask");
+    expect(opens).toHaveLength(1);
+    expect(objectSchema.parse(opens[0]?.item)).toMatchObject({ status: "pending", taskStatus: "running" });
+    const progress = pending.filter((delta) => delta.kind === "item.progress");
+    expect(progress.map((delta) => objectSchema.parse(delta.snapshot).summary)).toEqual(["Partial ", "Partial BTW streamed answer."]);
+    expect(progress.map((delta) => delta.key)).toEqual([opens[0]?.key, opens[0]?.key]);
+    expect(toolCloses(pending, "btw")).toEqual([]);
     writeFileSync(releaseFile, "continue", "utf8");
-    await harness.waitForTurnBoundary(threadId, since);
+    await harness.waitForDelta(threadId, (delta) => toolCloses([delta], "btw").length > 0, since);
     const deltas = harness.deltasOf(threadId).slice(since);
     expect(toolCloses(deltas, "btw")).toEqual([
       expect.objectContaining({ status: "completed", resultText: expect.stringContaining(`Side answer: ${question}`) }),
     ]);
     expect(toolCloses(deltas, "btw")[0]?.resultText).toContain(question);
-    expect(JSON.stringify(deltas)).not.toContain("Partial BTW answer that must not leak.");
-    expect(deltas.filter((delta) => delta.kind === "turn.open")).toHaveLength(1);
-    expect(deltas.filter((delta) => delta.kind === "turn.boundary")).toHaveLength(1);
-    expect(deltas).toContainEqual({ kind: "input.accepted", clientRequestId });
+    expect(toolCloses(deltas, "btw")[0]?.resultText).not.toContain("Partial BTW streamed answer.");
+    const closed = deltas.find((delta) => toolCloses([delta], "btw").length > 0);
+    const childTurn = pending.find((delta) => delta.kind === "turn.open" && delta.providerTurnId);
+    expect(closed?.providerTurnId).toEqual(childTurn?.providerTurnId);
+    expect(objectSchema.parse(closed?.key).parentRef).toEqual(childTurn?.parentRef);
+    const finalTask = deltas.find((delta) => delta.kind === "item.close" && objectSchema.parse(delta.item).type === "backgroundTask");
+    expect(finalTask?.key).toEqual(opens[0]?.key);
+    expect(objectSchema.parse(finalTask?.item)).toMatchObject({
+      status: "completed", summary: expect.stringContaining(`Side answer: ${question}`),
+    });
+    expect(objectSchema.parse(finalTask?.item).summary).not.toContain("Partial BTW streamed answer.");
+    expect(deltas.filter((delta) => delta.kind === "turn.open" && !delta.parentRef)).toHaveLength(1);
+    expect(deltas.filter((delta) => delta.kind === "turn.boundary" && !delta.providerTurnId)).toHaveLength(1);
+    expect(deltas.filter((delta) => delta.kind === "turn.open" && delta.providerTurnId)).toEqual([
+      expect.objectContaining({ parentRef: expect.any(String) }),
+    ]);
+    expect(deltas).toContainEqual(expect.objectContaining({ kind: "input.accepted", clientRequestId }));
     expect(readJsonLines(rpcLog).filter((command) => command.type === "btw")).toEqual([
       expect.objectContaining({ question }),
     ]);
@@ -403,7 +426,7 @@ describe("OMP local commands through the bb bridge", () => {
     const providerThreadId = await start(threadId);
     const question = `[${marker}] Explain the side failure`;
     const { since } = await submit(threadId, providerThreadId, `/btw ${question}`);
-    await harness.waitForTurnBoundary(threadId, since);
+    await harness.waitForDelta(threadId, (delta) => toolCloses([delta], "btw").length > 0, since);
     const tools = toolCloses(harness.deltasOf(threadId).slice(since), "btw");
     expect(tools).toEqual([
       expect.objectContaining({ status, resultText: expect.stringContaining(question) }),

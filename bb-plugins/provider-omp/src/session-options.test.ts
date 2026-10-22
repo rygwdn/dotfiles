@@ -37,6 +37,8 @@ describe("parseOmpSessionControls", () => {
     ["autoCompactionEnabled", "off", false],
     ["autoRetryEnabled", "on", true],
     ["autoRetryEnabled", "off", false],
+    ["slowModeEnabled", "on", true],
+    ["slowModeEnabled", "off", false],
     ["cacheWarmingMode", "off", "off"],
     ["cacheWarmingMode", "streaming", "streaming"],
     ["cacheWarmingMode", "idle", "idle"],
@@ -51,6 +53,7 @@ describe("parseOmpSessionControls", () => {
     "autoCompactionEnabled",
     "autoRetryEnabled",
     "cacheWarmingMode",
+    "slowModeEnabled",
   ])("omits %s when native is selected", (id) => {
     expect(parseOmpSessionControls({ [id]: "native" })).toEqual({});
   });
@@ -81,6 +84,8 @@ describe("parseOmpSessionControls", () => {
     ["steeringMode", true, "all, one-at-a-time"],
     ["autoCompactionEnabled", false, "on, off"],
     ["autoRetryEnabled", true, "on, off"],
+    ["slowModeEnabled", "enabled", "on, off"],
+    ["slowModeEnabled", false, "on, off"],
     ["cacheWarmingMode", "", "off, streaming, idle"],
   ] as const)("rejects invalid %s=%s with valid choices", (id, value, choices) => {
     expect(() => parseOmpSessionControls({ [id]: value })).toThrow(
@@ -247,5 +252,63 @@ describe("buildOmpLiveSessionOptions", () => {
       value: "native",
       values: expect.arrayContaining([{ id: "native", label: "Native" }]),
     });
+  });
+
+  it.each([undefined, false])(
+    "does not offer slow mode without native support (%s)",
+    (slowModeSupported) => {
+      expect(buildOmpLiveSessionOptions(
+        { slowModeEnabled: true },
+        { slowModeSupported, slowModeScope: "global" },
+      ).some(({ id }) => id === "slowModeEnabled")).toBe(false);
+    },
+  );
+
+  it.each([
+    { slowModeEnabled: undefined, value: "native" },
+    { slowModeEnabled: false, value: "off" },
+    { slowModeEnabled: true, value: "on" },
+  ])("keeps Native available alongside supported slow mode ($value)", ({
+    slowModeEnabled,
+    value,
+  }) => {
+    const option = buildOmpLiveSessionOptions(
+      { slowModeEnabled },
+      { slowModeSupported: true, slowModeScope: "session" },
+    ).find(({ id }) => id === "slowModeEnabled");
+    expect(option).toMatchObject({
+      type: "select",
+      value,
+      values: [
+        { id: "native", label: "Native" },
+        { id: "on", label: "Enabled" },
+        { id: "off", label: "Disabled" },
+      ],
+    });
+    expect(parseOmpSessionControls({ slowModeEnabled: "native" })).toEqual({});
+  });
+
+  it("warns in both the label and description when slow mode affects every omp session", () => {
+    const option = buildOmpLiveSessionOptions(
+      { slowModeEnabled: false },
+      { slowModeSupported: true, slowModeScope: "global" },
+    ).find(({ id }) => id === "slowModeEnabled");
+    expect(option?.label).toContain("global");
+    expect(option?.label).toContain("every omp session");
+    expect(option?.description).toContain("every omp session");
+  });
+
+  it("describes session-scoped slow mode without a global warning", () => {
+    const option = buildOmpLiveSessionOptions(
+      {},
+      { slowModeSupported: true, slowModeScope: "session" },
+    ).find(({ id }) => id === "slowModeEnabled");
+    expect(option?.description).toContain("this omp session only");
+    expect(option?.label).not.toContain("global");
+    expect(option?.description).not.toContain("every omp session");
+    expect(parseOmpSessionControls(Object.fromEntries(
+      buildOmpLiveSessionOptions({}, { slowModeSupported: true })
+        .map(({ id, value }) => [id, value]),
+    ))).toEqual({});
   });
 });

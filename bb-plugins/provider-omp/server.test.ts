@@ -75,7 +75,7 @@ describe("the omp plugin's model filter settings", () => {
       await host.harness.setSettings({ modelFilterMinIntelligence: 40 });
       await host.harness.setSettings({
         modelFilterMinContextWindow: 200,
-        modelFilterProviderDeny: " openrouter , example-router-* ,",
+        modelFilterProviderDeny: " openrouter , shopify-router-* ,",
       });
       expect(currentDeclaration(host).experimental_bridgeOptions).toMatchObject({
         modelFilter: { minIntelligence: null },
@@ -88,7 +88,7 @@ describe("the omp plugin's model filter settings", () => {
           latestPerFamily: true,
           minIntelligence: 40,
           minContextWindow: 200_000,
-          providerDeny: ["openrouter", "example-router-*"],
+          providerDeny: ["openrouter", "shopify-router-*"],
         },
       });
     } finally {

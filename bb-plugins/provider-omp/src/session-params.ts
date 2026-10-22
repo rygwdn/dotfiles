@@ -3,6 +3,7 @@ import {
   type DynamicTool,
   type InstructionMode,
   type ReasoningLevel,
+  type RuntimePermissionPolicy,
 } from "@get-bb/plugin-sdk/provider-bridge";
 import type { OmpModelPreset } from "./native-roots.js";
 import {
@@ -37,14 +38,19 @@ function toOmpThinkingLevel(
   }
 }
 
-interface OmpSessionOptions {
+export type OmpPermissionPolicy = Exclude<
+  RuntimePermissionPolicy,
+  { permissionMode: "auto" }
+>;
+
+type OmpSessionOptions = (RuntimePermissionPolicy | { permissionMode?: undefined }) & {
   model?: string | undefined;
   reasoningLevel?: ReasoningLevel | undefined;
   serviceTier?: string | undefined;
   sessionOptions?: Record<string, string | boolean> | undefined;
   instructions?: string | undefined;
   envVars?: Record<string, string> | undefined;
-}
+};
 
 interface BuildOmpSessionParamsArgs {
   threadId: string;
@@ -69,6 +75,7 @@ export interface OmpSessionParams {
   modelPreset?: OmpModelPreset;
   /** Native roles the preset overlay must clear when it leaves them unset. */
   effectiveModelRoles?: Record<string, string>;
+  permissionPolicy?: OmpPermissionPolicy;
   sessionControls?: OmpSessionControls;
   shellEnvOverrides: Record<string, string>;
   thinkingLevel?: OmpReasoningLevel | "auto" | "inherit";
@@ -77,6 +84,7 @@ export interface OmpSessionParams {
 export interface OmpTurnOptions {
   model: string | undefined;
   fastModeEnabled: boolean | undefined;
+  permissionPolicy?: OmpPermissionPolicy;
   sessionControls: OmpSessionControls;
   thinkingLevel: OmpReasoningLevel | undefined;
 }
@@ -87,10 +95,35 @@ function toOmpFastMode(serviceTier: string | undefined): boolean | undefined {
   return undefined;
 }
 
+function toOmpPermissionPolicy(
+  options: OmpSessionOptions,
+): OmpPermissionPolicy | undefined {
+  if (options.permissionMode === undefined) return undefined;
+  if (options.permissionMode === "auto") {
+    throw new Error("OMP does not support automatic approval review.");
+  }
+  // Bridge execution schemas validate this union at the JSON-RPC boundary.
+  return options.permissionMode === "full"
+    ? {
+        permissionMode: options.permissionMode,
+        permissionScope: options.permissionScope,
+        approvalReviewer: options.approvalReviewer,
+        permissionEscalation: options.permissionEscalation,
+      }
+    : {
+        permissionMode: options.permissionMode,
+        permissionScope: options.permissionScope,
+        approvalReviewer: options.approvalReviewer,
+        permissionEscalation: options.permissionEscalation,
+      };
+}
+
 export function buildOmpTurnOptions(options: OmpSessionOptions): OmpTurnOptions {
+  const permissionPolicy = toOmpPermissionPolicy(options);
   return {
     model: options.model ? options.model : undefined,
     fastModeEnabled: toOmpFastMode(options.serviceTier),
+    ...(permissionPolicy === undefined ? {} : { permissionPolicy }),
     sessionControls: parseOmpSessionControls(options.sessionOptions),
     thinkingLevel: toOmpThinkingLevel(options.reasoningLevel),
   };
@@ -103,9 +136,11 @@ export function buildOmpSessionParams(
   const thinkingLevel = toOmpThinkingLevel(args.options.reasoningLevel);
   const fastModeEnabled = toOmpFastMode(args.options.serviceTier);
   const sessionControls = parseOmpSessionControls(args.options.sessionOptions);
+  const permissionPolicy = toOmpPermissionPolicy(args.options);
   return {
     cwd: args.cwd,
     ...(fastModeEnabled === undefined ? {} : { fastModeEnabled }),
+    ...(permissionPolicy === undefined ? {} : { permissionPolicy }),
     ...(Object.keys(sessionControls).length > 0 ? { sessionControls } : {}),
     shellEnvOverrides: {
       BB_THREAD_ID: args.threadId,

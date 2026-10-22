@@ -1004,9 +1004,9 @@
       "int": 57.6
     },
     {
-      "id": "router/auto",
-      "name": "Router Auto",
-      "provider": "example-router-openai",
+      "id": "shopify/auto",
+      "name": "Shopify Auto",
+      "provider": "shopify-router-openai",
       "input": [
         "text",
         "image"
@@ -1025,9 +1025,9 @@
       }
     },
     {
-      "id": "router/cost-low",
-      "name": "Router Cost Saver",
-      "provider": "example-router-openai",
+      "id": "shopify/pareto-cost-low",
+      "name": "Shopify Cost Saver",
+      "provider": "shopify-router-openai",
       "input": [
         "text",
         "image"
@@ -1044,13 +1044,13 @@
       "identity": {
         "class": "unknown",
         "effort": "low",
-        "logicalId": "router/cost"
+        "logicalId": "shopify/pareto-cost"
       }
     },
     {
-      "id": "agent-alpha",
-      "name": "Agent Alpha",
-      "provider": "agent-alpha",
+      "id": "aquifer",
+      "name": "Aquifer",
+      "provider": "aquifer",
       "input": [
         "text"
       ],
@@ -1068,9 +1068,9 @@
       }
     },
     {
-      "id": "agent-beta",
-      "name": "Agent Beta",
-      "provider": "agent-beta",
+      "id": "river",
+      "name": "River",
+      "provider": "river",
       "input": [
         "text"
       ],

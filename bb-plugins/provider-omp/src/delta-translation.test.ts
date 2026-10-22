@@ -1490,7 +1490,7 @@ describe("omp delta translation equivalence", () => {
     expect(started.item.changes[0]?.diff).toContain("+++ b/src/app.ts");
   });
 
-  it("tool_execution_start with read args preserves structured tool arguments", () => {
+  it("defers read classification and preserves unrecognized results and arguments", () => {
     const harness = createHarness();
     harness.translate(loadFixture("agent-start.json"));
 
@@ -1501,18 +1501,23 @@ describe("omp delta translation equivalence", () => {
       args: { path: "src/app.ts", offset: 1, limit: 20 },
     });
 
-    expect(events).toContainEqual(
+    expect(events).toEqual([]);
+    const completedEvents = harness.translate({
+      type: "tool_execution_end",
+      toolCallId: "tool-read-1",
+      toolName: "read",
+      result: { content: [{ type: "text", text: "unlocated resource" }] },
+    });
+
+    expect(completedEvents).toContainEqual(
       expect.objectContaining({
-        type: "item/started",
+        type: "item/completed",
         item: expect.objectContaining({
           type: "toolCall",
           tool: "read",
-          status: "pending",
-          arguments: expect.objectContaining({
-            path: "src/app.ts",
-            offset: 1,
-            limit: 20,
-          }),
+          status: "completed",
+          arguments: { path: "src/app.ts", offset: 1, limit: 20 },
+          result: { content: [{ type: "text", text: "unlocated resource" }] },
         }),
       }),
     );

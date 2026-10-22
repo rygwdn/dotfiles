@@ -19,6 +19,7 @@ import {
 import { todoPhasesSchema } from "./todos.js";
 import { ompSessionStatsSchema, type OmpSessionStats } from "./session-stats.js";
 import type { OmpSessionControls } from "../session-options.js";
+import type { OmpPermissionPolicy } from "../session-params.js";
 import {
   ensureForkLocalThreadStorageLink,
   ensureLocalThreadStorageLink,
@@ -39,6 +40,7 @@ export interface OmpRpcSessionOptions {
   thinkingLevel?: string;
   fastModeEnabled?: boolean;
   sessionControls?: OmpSessionControls;
+  permissionPolicy?: OmpPermissionPolicy;
   additionalSkillPaths?: readonly string[];
   shellEnvOverrides?: Record<string, string>;
   dynamicTools?: readonly DynamicToolDefinition[];
@@ -93,7 +95,7 @@ export const ompBtwRecordSchema = btwTurnSchema.extend({
   leafId: z.string().nullable(),
   followUps: z.array(btwTurnSchema).optional(),
 });
-type OmpBtwRecord = z.infer<typeof ompBtwRecordSchema>;
+export type OmpBtwRecord = z.infer<typeof ompBtwRecordSchema>;
 const loginProvidersSchema = z.array(z.object({
   id: z.string(),
   name: z.string(),
@@ -165,6 +167,29 @@ const hostToolCallSchema = z.object({
 const queueUpdateSchema = z.object({
   steering: z.array(z.string()),
   followUp: z.array(z.string()),
+});
+
+const imageContentSchema = z.object({
+  type: z.literal("image"),
+  data: z.string(),
+  mimeType: z.string(),
+});
+const bashResultSchema = z.object({
+  output: z.string(),
+  exitCode: z.number().int().optional(),
+  cancelled: z.boolean(),
+  timedOut: z.boolean().optional(),
+  truncated: z.boolean(),
+  artifactId: z.string().optional(),
+  workingDir: z.string().optional(),
+  images: z.array(imageContentSchema).optional(),
+});
+export type OmpBashResult = z.infer<typeof bashResultSchema>;
+const restoredQueueSchema = z.object({
+  steering: z.array(z.object({ text: z.string(), images: z.array(imageContentSchema).optional() })),
+  followUp: z.array(z.object({ text: z.string(), images: z.array(imageContentSchema).optional() })),
+  imagesDropped: z.boolean().optional(),
+  truncated: z.boolean().optional(),
 });
 
 interface PendingPrompt {
@@ -267,6 +292,9 @@ const sessionStateSchema = z.object({
   thinkingLevel: ompThinkingLevelSchema.optional(),
   fastModeEnabled: z.boolean().optional(),
   fastModeActive: z.boolean().optional(),
+  slowModeSupported: z.boolean().default(false),
+  slowModeEnabled: z.boolean().default(false),
+  slowModeScope: z.enum(["session", "global"]).optional(),
   steeringMode: z.enum(["all", "one-at-a-time"]).optional(),
   followUpMode: z.enum(["all", "one-at-a-time"]).optional(),
   interruptMode: z.enum(["immediate", "wait"]).optional(),
@@ -275,6 +303,7 @@ const sessionStateSchema = z.object({
   isCompacting: z.boolean(),
   isSettled: z.boolean().optional(),
   queuedMessageCount: z.number().optional(),
+  queuedMessages: queueUpdateSchema.extend({ liveSteered: z.number().optional() }).optional(),
   sessionFile: z.string().optional(),
   todoPhases: todoPhasesSchema.optional(),
   goal: goalModeStateSchema.nullable().optional(),
@@ -295,6 +324,7 @@ export class OmpRpcSession {
   private readonly pendingPromptAcks = new Set<string>();
   private readonly hostCalls = new Map<string, AbortController>();
   private readonly pendingInputConsumptions: PendingInputConsumption[] = [];
+  private readonly pendingQueuePromotions = new Set<PendingInputConsumption>();
   private lastObservedQueues: Record<OmpInputQueue, string[]> = {
     followUp: [],
     steering: [],
@@ -491,6 +521,11 @@ export class OmpRpcSession {
       ...(state.interruptMode === undefined ? {} : { interruptMode: state.interruptMode }),
       ...(state.autoCompactionEnabled === undefined ? {} : { autoCompactionEnabled: state.autoCompactionEnabled }),
     };
+    if (state.slowModeSupported) {
+      this.liveSessionControls.slowModeEnabled = state.slowModeEnabled;
+    } else {
+      delete this.liveSessionControls.slowModeEnabled;
+    }
     // Preserve the user's native defaults before startup applies BB's choices.
     this.initialSessionControls ??= { ...this.liveSessionControls };
     this.liveModel = state.model;
@@ -524,9 +559,64 @@ export class OmpRpcSession {
     return z.object({ commands: ompAvailableCommandsSchema }).parse(data).commands;
   }
 
-  async askBtw(question: string): Promise<OmpBtwRecord> {
-    const data = await this.requireChild().requestOk({ type: "btw", question });
-    return z.object({ record: ompBtwRecordSchema }).parse(data).record;
+  async askBtw(question: string, recordId?: string): Promise<OmpBtwRecord> {
+    try {
+      const data = await this.requireChild().requestOk({
+        type: "btw", question, ...(recordId === undefined ? {} : { recordId }),
+      });
+      return z.object({ record: ompBtwRecordSchema }).parse(data).record;
+    } finally {
+      // A cancellation while starting can emit the authoritative terminal
+      // record before rejecting this request. Deliver that record first.
+      await this.deliveryChain;
+    }
+  }
+
+  async cancelBtw(recordId?: string): Promise<boolean> {
+    const data = await this.requireChild().requestOk({
+      type: "btw_cancel", ...(recordId === undefined ? {} : { recordId }),
+    });
+    return z.object({ cancelled: z.boolean() }).parse(data).cancelled;
+  }
+
+  async getBtwHistory(): Promise<OmpBtwRecord[]> {
+    const data = await this.requireChild().requestOk({ type: "get_btw_history" });
+    return z.object({ records: z.array(ompBtwRecordSchema) }).parse(data).records;
+  }
+
+  async bash(command: string): Promise<OmpBashResult> {
+    const data = await this.requireChild().requestOk({ type: "bash", command }, NO_REQUEST_TIMEOUT);
+    return bashResultSchema.parse(data);
+  }
+
+  async abortBash(): Promise<void> {
+    await this.requireChild().requestOk({ type: "abort_bash" });
+  }
+
+  async removeQueuedMessage(message: string, queue: OmpInputQueue): Promise<boolean> {
+    const data = await this.requireChild().requestOk({ type: "remove_queued_message", message, queue });
+    return z.object({ removed: z.boolean() }).parse(data).removed;
+  }
+
+  async promoteQueuedMessage(message: string): Promise<boolean> {
+    const pending = this.pendingInputConsumptions.find(
+      (entry) => entry.queue === "followUp" && entry.queuedText === message,
+    );
+    if (pending) this.pendingQueuePromotions.add(pending);
+    try {
+      const data = await this.requireChild().requestOk({ type: "promote_queued_message", message });
+      return z.object({ promoted: z.boolean() }).parse(data).promoted;
+    } finally {
+      if (pending) this.pendingQueuePromotions.delete(pending);
+    }
+  }
+
+  async abortAndRestoreQueue(): Promise<z.infer<typeof restoredQueueSchema>> {
+    if (this.activity) this.activity.interrupted = true;
+    if (this.isCompacting) this.compactionInterrupted = true;
+    const data = await this.requireChild().requestOk({ type: "abort_and_restore_queue" });
+    await this.deliveryChain;
+    return restoredQueueSchema.parse(data);
   }
 
   async getLoginProviders(): Promise<z.infer<typeof loginProvidersSchema>> {
@@ -665,8 +755,24 @@ export class OmpRpcSession {
     this.liveSessionControls.cacheWarmingMode = cacheWarmingResultSchema.parse(data).mode;
   }
 
+  async setSlowMode(enabled: boolean): Promise<void> {
+    if (!this.liveState?.slowModeSupported) {
+      throw new Error(
+        "Slow mode is not supported by the active OMP model. Choose Native or select a model that supports slow mode.",
+      );
+    }
+    await this.requireChild().requestOk({ type: "set_slow_mode", enabled });
+    await this.getState();
+  }
+
   async applySessionControls(controls: OmpSessionControls): Promise<void> {
     const current = this.liveSessionControls;
+    if (controls.slowModeEnabled !== undefined) {
+      if (!this.liveState?.slowModeSupported ||
+          controls.slowModeEnabled !== current.slowModeEnabled) {
+        await this.setSlowMode(controls.slowModeEnabled);
+      }
+    }
     if (controls.steeringMode !== undefined && controls.steeringMode !== current.steeringMode) {
       await this.setSteeringMode(controls.steeringMode);
     }
@@ -818,6 +924,10 @@ export class OmpRpcSession {
     return this.lastKnownLeafId ?? undefined;
   }
 
+  async waitForExit(): Promise<void> {
+    await this.child?.waitForExit();
+  }
+
   kill(): void {
     this.closed = true;
     this.cancelHostCalls();
@@ -919,19 +1029,26 @@ export class OmpRpcSession {
   }
 
   /**
-   * Skills and model presets share one per-child overlay. Arrays need the user's
+   * Skills, model presets, and approvals share one per-child overlay. Arrays need the user's
    * effective skill directories carried over; omitted preset roles need null
    * tombstones so lower config layers cannot keep them assigned.
    */
   private async writeConfigOverlay(env: Readonly<Record<string, string | undefined>>): Promise<string | null> {
     const extra = this.options.additionalSkillPaths ?? [];
     const preset = this.options.modelPreset;
-    if (extra.length === 0 && !preset) return null;
+    const permissionPolicy = this.options.permissionPolicy;
+    if (extra.length === 0 && !preset && !permissionPolicy) return null;
     const overlay: {
       skills?: { customDirectories: string[] };
       modelRoles?: Record<string, string | null>;
       defaultThinkingLevel?: string;
+      tools?: { approvalMode: "yolo" | "write" };
     } = {};
+    if (permissionPolicy) {
+      overlay.tools = {
+        approvalMode: permissionPolicy.permissionMode === "full" ? "yolo" : "write",
+      };
+    }
     if (extra.length > 0) {
       const existing = await resolveOmpCustomSkillDirectories({ homeDir: homedir(), cwd: this.options.cwd, env });
       overlay.skills = { customDirectories: [...new Set([...existing, ...extra.map((dir) => resolve(dir))])] };
@@ -1288,6 +1405,21 @@ export class OmpRpcSession {
     if (event.type !== "queue_update") return;
     const parsed = queueUpdateSchema.safeParse(event);
     if (!parsed.success) return;
+    if (this.pendingQueuePromotions.size > 0) {
+      const addedSteering = listMultisetDifference(parsed.data.steering, this.lastObservedQueues.steering);
+      const removedFollowUp = listMultisetDifference(this.lastObservedQueues.followUp, parsed.data.followUp);
+      for (const text of addedSteering) {
+        const removedIndex = removedFollowUp.indexOf(text);
+        if (removedIndex < 0) continue;
+        const pending = [...this.pendingQueuePromotions].find((entry) => entry.queuedText === text);
+        if (!pending) continue;
+        // Only an observed atomic queue move is promotion, not a concurrent
+        // follow-up consumption that happened before the RPC could promote it.
+        pending.queue = "steering";
+        this.pendingQueuePromotions.delete(pending);
+        removedFollowUp.splice(removedIndex, 1);
+      }
+    }
     this.observeQueue("steering", parsed.data.steering);
     this.observeQueue("followUp", parsed.data.followUp);
   }
@@ -1312,6 +1444,7 @@ export class OmpRpcSession {
     const index = this.pendingInputConsumptions.indexOf(pending);
     if (index === -1) return;
     this.pendingInputConsumptions.splice(index, 1);
+    this.pendingQueuePromotions.delete(pending);
     pending.resolve();
   }
 
@@ -1319,6 +1452,7 @@ export class OmpRpcSession {
     const index = this.pendingInputConsumptions.indexOf(pending);
     if (index === -1) return;
     this.pendingInputConsumptions.splice(index, 1);
+    this.pendingQueuePromotions.delete(pending);
     pending.reject(error);
   }
 

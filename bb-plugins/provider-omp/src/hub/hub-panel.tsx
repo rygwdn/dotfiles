@@ -8,6 +8,7 @@ import {
   ompAgentsStateSchema,
   type OmpHubAgent,
 } from "../hub-contract.js";
+import { AgentControls } from "./agent-controls.js";
 import { AgentConversation } from "./agent-conversation.js";
 import { useHubSelection } from "./hub-navigation.js";
 import { OmpServices } from "./service-panel.js";
@@ -150,7 +151,7 @@ function ThreadHub({ threadId, params }: PluginThreadPanelProps) {
         ) : agents.length === 0 ? (
           <p className="text-xs text-muted-foreground">No subagents have been delegated in this thread.</p>
         ) : (
-          <AgentTree nodes={tree} onSelect={selectAgent} />
+          <AgentTree threadId={threadId} nodes={tree} onSelect={selectAgent} />
         )}
         {roster?.truncated ? (
           <p className="text-xs text-muted-foreground">Showing the newest {OMP_AGENTS_ROSTER_LIMIT} agents.</p>
@@ -161,7 +162,7 @@ function ThreadHub({ threadId, params }: PluginThreadPanelProps) {
   );
 }
 
-function AgentTree({ nodes, onSelect }: { nodes: AgentTreeNode[]; onSelect: (id: string) => void }) {
+function AgentTree({ threadId, nodes, onSelect }: { threadId: string; nodes: AgentTreeNode[]; onSelect: (id: string) => void }) {
   return (
     <ul className="min-w-0 space-y-2">
       {nodes.map(({ agent, children }) => (
@@ -174,9 +175,10 @@ function AgentTree({ nodes, onSelect }: { nodes: AgentTreeNode[]; onSelect: (id:
           >
             <AgentSummary agent={agent} />
           </button>
+          <AgentControls threadId={threadId} agent={agent} />
           {children.length > 0 ? (
             <div className="ml-2 min-w-0 border-l border-border pl-2">
-              <AgentTree nodes={children} onSelect={onSelect} />
+              <AgentTree threadId={threadId} nodes={children} onSelect={onSelect} />
             </div>
           ) : null}
         </li>

@@ -153,6 +153,7 @@ it(
     const overlay: unknown = JSON.parse(readFileSync(configLogPath, "utf8"));
     expect(overlay).toEqual({
       skills: { customDirectories: [join(harness.workspaceDir, "user-skills"), bbRoot] },
+      tools: { approvalMode: "yolo" },
     });
   },
   SETTINGS_PROCESS_TEST_TIMEOUT_MS,

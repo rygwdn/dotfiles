@@ -169,6 +169,8 @@ let turnCounter = 0;
 let model = MODELS[0];
 let thinkingLevel = "medium";
 let fastModeEnabled = process.env.FAKE_OMP_FAST_MODE_ENABLED === "1";
+let slowModeSupported = process.env.FAKE_OMP_SLOW_MODE_SUPPORTED === "1";
+let slowModeScope = process.env.FAKE_OMP_SLOW_MODE_SCOPE ?? "session";
 let configuredThinkingLevel;
 let goalState = JSON.parse(process.env.FAKE_OMP_GOAL_STATE ?? "null");
 const nativeSessionControls = {
@@ -178,6 +180,7 @@ const nativeSessionControls = {
   autoCompactionEnabled: true,
   autoRetryEnabled: true,
   cacheWarmingMode: "off",
+  slowModeEnabled: false,
   ...JSON.parse(process.env.FAKE_OMP_SESSION_CONTROLS ?? "{}"),
 };
 let tokens = 0;
@@ -229,6 +232,7 @@ function newestNonemptySession(dir) {
               entry.type === "message" &&
               (entry.message?.role === "assistant" ||
                 entry.message?.role === "toolResult" ||
+                entry.message?.role === "bashExecution" ||
                 (entry.message?.role === "user" &&
                   messageText(entry.message.content).trim().length > 0)),
           )
@@ -565,7 +569,18 @@ function promptResult(command, outcome, sessionSettled) {
 function admitNativeLocalCommand(command) {
   const text = command.message.trim();
   let output;
-  if (text === "/help") {
+  if (text.startsWith("/native-queue ")) {
+    const queues = JSON.parse(text.slice("/native-queue ".length));
+    for (const [queue, messages] of [[steering, queues.steering ?? []], [followUp, queues.followUp ?? []]]) {
+      queue.splice(0, queue.length, ...messages.map((message) => ({
+        type: "fixture",
+        message: typeof message === "string" ? message : message.text,
+        ...(typeof message === "object" && message.images ? { images: message.images } : {}),
+        queued: true,
+      })));
+    }
+    output = "Native queue populated.";
+  } else if (text === "/help") {
     output = "\u001b[1;36mNative OMP help\u001b[0m\n/help /todo /handoff";
   } else if (text.startsWith("/todo append ")) {
     const task = text.slice("/todo append ".length).trim();
@@ -601,6 +616,7 @@ function admitNativeLocalCommand(command) {
     event({ type: "command_output", text: output });
     if (text === "/local-command-error") respondError(command.id, command.type, "local admission failed");
     else respond(command.id, command.type, { agentInvoked: false });
+    if (text.startsWith("/native-queue ")) setTimeout(queueUpdate, 0);
   };
   if (text === "/handoff delayed") setTimeout(complete, 30);
   else complete();
@@ -608,6 +624,10 @@ function admitNativeLocalCommand(command) {
 }
 
 let btwCounter = 0;
+let btwHistorySessionFile;
+let btwRecords = [];
+let runningBtw;
+const bashRuns = new Set();
 let loginCounter = 0;
 const fakeLogoutAccounts = [
   { credentialId: 7, provider: "account-test", label: "Primary account", detail: "primary@example.test", type: "oauth", active: true },
@@ -620,32 +640,113 @@ const fakeLoginProviders = [
   { id: "oauth-error", name: "Failing OAuth", available: true },
 ];
 
+function loadBtwRecords() {
+  if (btwHistorySessionFile === sessionFile && btwRecords.length > 0) return btwRecords;
+  if (btwHistorySessionFile !== sessionFile || btwRecords.length === 0) {
+    const file = sessionFile ? join(sessionFile.replace(/\.jsonl$/u, ""), "btw-fixture.json") : undefined;
+    btwRecords = file && existsSync(file) ? JSON.parse(readFileSync(file, "utf8"))
+      : JSON.parse(process.env.FAKE_OMP_BTW_HISTORY ?? "[]");
+    for (const record of btwRecords) {
+      const latest = record.followUps?.at(-1) ?? record;
+      if (latest.status === "running") latest.status = "interrupted";
+    }
+    btwHistorySessionFile = sessionFile;
+    btwCounter = Math.max(btwCounter, btwRecords.length);
+  }
+  return btwRecords;
+}
+
+function saveBtwRecord(record) {
+  const index = btwRecords.findIndex((previous) => previous.id === record.id);
+  if (index < 0) btwRecords.push(record);
+  else btwRecords[index] = record;
+  if (sessionFile) {
+    const root = sessionFile.replace(/\.jsonl$/u, "");
+    mkdirSync(root, { recursive: true });
+    writeFileSync(join(root, "btw-fixture.json"), JSON.stringify(btwRecords), "utf8");
+  }
+}
+
+function finishBtw(running, patch) {
+  if (runningBtw !== running) return;
+  Object.assign(running.record.followUps?.at(-1) ?? running.record, patch, { updatedAt: Date.now() });
+  runningBtw = undefined;
+  saveBtwRecord(running.record);
+  event({ type: "btw_record", record: running.record });
+  if (process.env.FAKE_OMP_DUPLICATE_BTW_RECORD === "1") event({ type: "btw_record", record: running.record });
+}
+
 async function runBtw(command) {
+  if (runningBtw) { respondError(command.id, command.type, "A /btw question is still running; cancel it first"); return; }
+  const records = loadBtwRecords();
+  const previous = command.recordId === undefined ? undefined : records.find((record) => record.id === command.recordId);
+  if (command.recordId !== undefined && !previous) {
+    respondError(command.id, command.type, `Unknown /btw topic: ${command.recordId}`);
+    return;
+  }
   const now = Date.now();
-  const record = {
-    id: `btw-${++btwCounter}`, leafId, question: command.question,
-    answer: "", status: "running", createdAt: now, updatedAt: now,
-  };
+  const turn = { question: command.question, answer: "", status: "running", createdAt: now, updatedAt: now };
+  const record = previous
+    ? { ...previous, followUps: [...previous.followUps ?? [], turn] }
+    : { id: `btw-${++btwCounter}`, leafId, ...turn };
+  const running = { record };
+  runningBtw = running;
+  saveBtwRecord(record);
   event({ type: "btw_record", record });
+  if (process.env.FAKE_OMP_BTW_CANCEL_DURING_START === "1") {
+    finishBtw(running, { status: "cancelled" });
+    respondError(command.id, command.type, "Side question cancelled while starting");
+    return;
+  }
   respond(command.id, command.type, { record });
-  event({ type: "btw_delta", recordId: record.id, delta: "Partial BTW answer that must not leak." });
+  for (const delta of JSON.parse(process.env.FAKE_OMP_BTW_DELTAS ?? '["Partial BTW answer that must not leak."]')) {
+    const latest = record.followUps?.at(-1) ?? record;
+    latest.answer += delta;
+    event({ type: "btw_delta", recordId: record.id, delta });
+  }
   const releaseFile = process.env.FAKE_OMP_BTW_RELEASE_FILE;
   if (releaseFile) {
-    while (!existsSync(releaseFile)) await sleep(10);
+    while (runningBtw === running && !existsSync(releaseFile)) await sleep(10);
   } else {
     await sleep(20);
   }
   const status = command.question.includes("[error]") ? "error"
     : command.question.includes("[cancelled]") ? "cancelled"
       : command.question.includes("[interrupted]") ? "interrupted" : "complete";
-  event({
-    type: "btw_record",
-    record: {
-      ...record, status, updatedAt: Date.now(),
-      answer: `Side answer: ${command.question}`,
-      ...(status === "error" ? { error: "scripted BTW failure" } : {}),
-    },
+  finishBtw(running, {
+    status,
+    answer: process.env.FAKE_OMP_BTW_ANSWER ?? `Side answer: ${command.question}`,
+    ...(status === "error" ? { error: "scripted BTW failure" } : {}),
   });
+}
+
+async function runBash(command) {
+  if (command.command === "[rpc-error]") {
+    respondError(command.id, command.type, "scripted user shell RPC failure");
+    return;
+  }
+  const run = { cancelled: false };
+  bashRuns.add(run);
+  const releaseFile = process.env.FAKE_OMP_BASH_RELEASE_FILE;
+  if (releaseFile) {
+    while (!run.cancelled && !existsSync(releaseFile)) await sleep(10);
+  } else {
+    await sleep(20);
+  }
+  bashRuns.delete(run);
+  const output = `Executed by OMP: ${command.command}`;
+  const result = {
+    output,
+    exitCode: run.cancelled ? 130 : 0,
+    cancelled: run.cancelled,
+    truncated: false,
+    totalLines: 1, totalBytes: Buffer.byteLength(output),
+    outputLines: 1, outputBytes: Buffer.byteLength(output),
+    workingDir: process.cwd(),
+    ...JSON.parse(process.env.FAKE_OMP_BASH_RESULT ?? "{}"),
+  };
+  appendEntry("message", { message: { role: "bashExecution", command: command.command, ...result, timestamp: Date.now() } });
+  respond(command.id, command.type, result);
 }
 
 function openDialog(spec, run) {
@@ -1302,6 +1403,9 @@ function state() {
     model, thinkingLevel, isStreaming, isCompacting,
     fastModeEnabled,
     fastModeActive: fastModeEnabled && process.env.FAKE_OMP_FAST_MODE_INACTIVE !== "1",
+    slowModeSupported,
+    slowModeEnabled: slowModeSupported && nativeSessionControls.slowModeEnabled,
+    ...(slowModeSupported ? { slowModeScope } : {}),
     steeringMode: nativeSessionControls.steeringMode,
     followUpMode: nativeSessionControls.followUpMode,
     interruptMode: nativeSessionControls.interruptMode,
@@ -1309,7 +1413,11 @@ function state() {
     autoCompactionEnabled: nativeSessionControls.autoCompactionEnabled,
     messageCount: branchEntries().filter((entry) => entry.type === "message").length,
     queuedMessageCount: followUp.length + steering.length,
-    queue: { steering: steering.map((item) => item.message), followUp: followUp.map((item) => item.message) },
+    queuedMessages: {
+      steering: steering.map((item) => item.message),
+      followUp: followUp.filter((item) => item.queued).map((item) => item.message),
+      liveSteered: 0,
+    },
     contextUsage: { tokens, contextWindow: model.contextWindow, percent: 0 },
     todoPhases,
     goal: goalState,
@@ -1503,6 +1611,15 @@ async function handle(command) {
       nativeSessionControls.cacheWarmingMode = command.mode;
       respond(id, type, { mode: nativeSessionControls.cacheWarmingMode });
       return;
+    case "set_slow_mode":
+      if (!slowModeSupported) {
+        respondError(id, type, "Slow mode is not supported by the active model.");
+        return;
+      }
+      nativeSessionControls.slowModeEnabled = command.enabled;
+      if (command.enabled && slowModeScope === "session") fastModeEnabled = false;
+      respond(id, type, { enabled: nativeSessionControls.slowModeEnabled });
+      return;
     case "goal": {
       if (command.op === "create") {
         if (goalState?.enabled || goalState?.goal.status === "paused") {
@@ -1578,6 +1695,44 @@ async function handle(command) {
       respond(id, type);
       startPump();
       return;
+    case "remove_queued_message": {
+      if (process.env.FAKE_OMP_QUEUE_EDIT_FAILURE === "1") { respondError(id, type, "scripted queue edit failure"); return; }
+      const queue = command.queue === "steering" ? steering : followUp;
+      const index = queue.findIndex((item) => item.message === command.message);
+      const [removed] = index < 0 ? [] : queue.splice(index, 1);
+      queueUpdate();
+      respond(id, type, { removed: removed !== undefined, ...(removed?.images ? { images: removed.images } : {}) });
+      return;
+    }
+    case "promote_queued_message": {
+      if (process.env.FAKE_OMP_QUEUE_EDIT_FAILURE === "1") { respondError(id, type, "scripted queue edit failure"); return; }
+      const index = followUp.findIndex((item) => item.message === command.message);
+      const [promoted] = index < 0 ? [] : followUp.splice(index, 1);
+      if (promoted) steering.push(promoted);
+      queueUpdate();
+      respond(id, type, { promoted: promoted !== undefined });
+      const releaseFile = process.env.FAKE_OMP_PROMOTE_RELEASE_FILE;
+      const run = activeRun;
+      if (promoted && releaseFile && run?.releaseHold) {
+        while (!run.aborted && !existsSync(releaseFile)) await sleep(10);
+        if (!run.aborted) run.releaseHold?.("steer");
+      }
+      return;
+    }
+    case "abort_and_restore_queue": {
+      const restored = { steering: [], followUp: [] };
+      for (const [name, queue] of [["steering", steering], ["followUp", followUp]]) {
+        restored[name] = queue.splice(0).map((item) => ({
+          text: item.message, ...(item.images ? { images: item.images } : {}),
+        }));
+      }
+      queueUpdate();
+      cancelRun();
+      if (pumpTask) await pumpTask;
+      isStreaming = false;
+      respond(id, type, { ...restored, ...JSON.parse(process.env.FAKE_OMP_RESTORE_QUEUE_FLAGS ?? "{}") });
+      return;
+    }
     case "abort_and_prompt":
       cancelRun();
       if (pumpTask) await pumpTask;
@@ -1618,6 +1773,22 @@ async function handle(command) {
     }
     case "btw":
       await runBtw(command);
+      return;
+    case "btw_cancel": {
+      const cancelled = runningBtw !== undefined && (command.recordId === undefined || command.recordId === runningBtw.record.id);
+      if (cancelled) finishBtw(runningBtw, { status: "cancelled" });
+      respond(id, type, { cancelled });
+      return;
+    }
+    case "get_btw_history":
+      respond(id, type, { records: loadBtwRecords().toSorted((a, b) => b.createdAt - a.createdAt) });
+      return;
+    case "bash":
+      await runBash(command);
+      return;
+    case "abort_bash":
+      for (const run of bashRuns) run.cancelled = true;
+      respond(id, type);
       return;
     case "get_login_providers":
       respond(id, type, { providers: fakeLoginProviders.map((provider) => ({
@@ -1810,6 +1981,14 @@ if (process.env.FAKE_OMP_NATIVE_EVENTS_FILE && !args.includes("--no-session")) {
       }
       if (frame.type === "config_update" && frame.sessionControls) {
         Object.assign(nativeSessionControls, frame.sessionControls);
+      }
+      if (frame.type === "config_update") {
+        if (typeof frame.slowModeSupported === "boolean") {
+          slowModeSupported = frame.slowModeSupported;
+        }
+        if (frame.slowModeScope === "session" || frame.slowModeScope === "global") {
+          slowModeScope = frame.slowModeScope;
+        }
       }
       event(frame);
     }

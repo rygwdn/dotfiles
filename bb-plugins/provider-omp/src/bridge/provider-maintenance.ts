@@ -1,10 +1,15 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { z } from "zod";
 import {
   type ProviderHealthResult,
   type ProviderInstallationCommand,
   type ProviderInstallationRunResult,
   type ProviderInstallationStatus,
+  type ProviderMaintenanceParams,
+  type ProviderUsage,
+  type ProviderUsageResult,
+  type ProviderUsageWindow,
   experimental_downloadedInstallerCommand as downloadedInstallerCommand,
   experimental_compareVersions as compareVersions,
   experimental_formatCommand as formatCommand,
@@ -18,6 +23,7 @@ export const OMP_MINIMUM_SUPPORTED_VERSION = "18.10.0";
 const OMP_INSTALL_URL = "https://omp.sh/install";
 const OMP_INSTALL_DOCS = "https://github.com/can1357/oh-my-pi#install";
 const VERSION_PROBE_TIMEOUT_MS = 15_000;
+const USAGE_PROBE_TIMEOUT_MS = 30_000;
 const INSTALL_GATE_TTL_MS = 30_000;
 
 type OmpVersionProbe =
@@ -80,6 +86,166 @@ export function describeOmpVersionProbeFailure(error: unknown): string {
     return `exited with ${String(failed.code)}`;
   }
   return error instanceof Error ? error.message : String(error);
+}
+
+const ompUsageOutputSchema = z.object({
+  reports: z.array(z.object({
+    provider: z.string().min(1),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    limits: z.array(z.object({
+      label: z.string(),
+      scope: z.object({
+        accountId: z.string().optional(),
+        projectId: z.string().optional(),
+        orgId: z.string().optional(),
+        modelId: z.string().optional(),
+        tier: z.string().optional(),
+      }),
+      window: z.object({
+        label: z.string(),
+        resetsAt: z.number().optional(),
+      }).optional(),
+      amount: z.object({
+        unit: z.string(),
+        used: z.number().optional(),
+        limit: z.number().optional(),
+        usedFraction: z.number().optional(),
+        remainingFraction: z.number().optional(),
+      }),
+    })),
+  })),
+  accountsWithoutUsage: z.array(z.unknown()).optional(),
+});
+
+type OmpUsageReport = z.infer<typeof ompUsageOutputSchema>["reports"][number];
+type OmpUsageAmount = OmpUsageReport["limits"][number]["amount"];
+
+function usageMetadata(report: OmpUsageReport, key: string): string | null {
+  const value = report.metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+/** Match OMP's resolveUsedFraction precedence; unknown usage is not zero usage. */
+function usageFraction(amount: OmpUsageAmount): number | undefined {
+  if (amount.usedFraction !== undefined) return amount.usedFraction;
+  if (amount.used !== undefined && amount.limit !== undefined && amount.limit > 0) {
+    return amount.used / amount.limit;
+  }
+  if (amount.unit === "percent" && amount.used !== undefined) return amount.used / 100;
+  if (amount.remainingFraction !== undefined) return Math.max(0, 1 - amount.remainingFraction);
+  return undefined;
+}
+
+function usageCost(amount: OmpUsageAmount): ProviderUsageWindow["cost"] {
+  if (amount.unit !== "usd" || amount.used === undefined || amount.limit === undefined ||
+      amount.used < 0 || amount.limit <= 0) return undefined;
+  const usedUsdCents = Math.round(amount.used * 100);
+  const limitUsdCents = Math.round(amount.limit * 100);
+  return Number.isSafeInteger(usedUsdCents) && Number.isSafeInteger(limitUsdCents) && limitUsdCents > 0
+    ? { usedUsdCents, limitUsdCents }
+    : undefined;
+}
+
+/** Flatten account quotas, never combining unrelated providers, accounts, or windows. */
+export function mapOmpProviderUsage(value: unknown): ProviderUsage {
+  const parsed = ompUsageOutputSchema.safeParse(value);
+  if (!parsed.success) throw new Error("OMP usage returned malformed reports.");
+  const { reports, accountsWithoutUsage } = parsed.data;
+  const singleMetadata = (key: string): string | null => {
+    if (reports.length === 0 || (accountsWithoutUsage?.length ?? 0) > 0) return null;
+    const first = usageMetadata(reports[0]!, key);
+    return first !== null && reports.every((report) => usageMetadata(report, key) === first)
+      ? first
+      : null;
+  };
+  const windows: ProviderUsageWindow[] = [];
+  for (const [index, report] of reports.entries()) {
+    for (const limit of report.limits) {
+      const fraction = usageFraction(limit.amount);
+      // BB requires a numeric percentage: omit unquantified buckets instead of
+      // inventing a zero reading (unsupported endpoints still return ok).
+      if (fraction === undefined || !Number.isFinite(fraction)) continue;
+      const account = [
+        usageMetadata(report, "email"),
+        usageMetadata(report, "accountId"),
+        usageMetadata(report, "projectId"),
+        usageMetadata(report, "orgName") ?? usageMetadata(report, "orgId"),
+        limit.scope.accountId,
+        limit.scope.projectId,
+        limit.scope.orgId,
+      ].filter((part): part is string => Boolean(part));
+      const label = [...new Set([
+        report.provider,
+        ...(account.length > 0 ? account : [`account ${index + 1}`]),
+        usageMetadata(report, "planType"),
+        limit.scope.modelId,
+        limit.scope.tier,
+        limit.label,
+        limit.window?.label,
+      ].filter((part): part is string => Boolean(part)))].join(" · ");
+      const reset = limit.window?.resetsAt;
+      const resetDate = reset === undefined ? null : new Date(reset);
+      const cost = usageCost(limit.amount);
+      windows.push({
+        label,
+        usedPercent: Math.max(0, Math.min(100, fraction * 100)),
+        resetsAt: resetDate !== null && Number.isFinite(resetDate.getTime())
+          ? resetDate.toISOString()
+          : null,
+        ...(cost === undefined ? {} : { cost }),
+      });
+    }
+  }
+  return {
+    status: "ok",
+    accountEmail: singleMetadata("email"),
+    planLabel: singleMetadata("planType"),
+    windows,
+  };
+}
+
+export async function getOmpProviderUsage(
+  params: Pick<ProviderMaintenanceParams, "cwd"> = {},
+): Promise<ProviderUsageResult> {
+  let display = "omp usage --json";
+  try {
+    const launch = resolveOmpLaunch(process.env);
+    const args = [...launch.args, "usage", "--json"];
+    display = formatCommand(launch.command, args);
+    if ((await resolveExecutablePath(launch.command)) === null) {
+      return { supported: true, usage: { status: "not_installed" } };
+    }
+    const { stdout } = await execFileAsync(launch.command, args, {
+      cwd: params.cwd,
+      timeout: USAGE_PROBE_TIMEOUT_MS,
+      maxBuffer: 4 * 1024 * 1024,
+    });
+    let output: unknown;
+    try {
+      output = JSON.parse(stdout);
+    } catch {
+      throw new Error("OMP usage returned invalid JSON.");
+    }
+    return { supported: true, usage: mapOmpProviderUsage(output) };
+  } catch (error) {
+    const failed = error as { code?: unknown; killed?: unknown; signal?: unknown } | null;
+    const failure = failed?.killed === true
+      ? `timed out after ${USAGE_PROBE_TIMEOUT_MS / 1000} s`
+      : typeof failed?.signal === "string"
+        ? `was stopped by ${failed.signal} before it answered`
+        : failed?.code !== undefined
+          ? `exited with ${String(failed.code)}`
+          : error instanceof Error ? error.message : String(error);
+    return {
+      supported: true,
+      usage: {
+        status: "error",
+        message: `\`${display}\` ${failure}`,
+        accountEmail: null,
+        planLabel: null,
+      },
+    };
+  }
 }
 
 export async function getOmpProviderInstallationStatus(

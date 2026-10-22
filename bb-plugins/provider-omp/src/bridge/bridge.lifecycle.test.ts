@@ -320,7 +320,10 @@ it("release and resume preserve native history while replacing prompts and host 
   const sessionFile = sessionFileFor(providerThreadId);
   const initialHeader = sessionRecords(sessionFile).find((record) => record.type === "session");
   const initialFiles = scratchFiles();
-  expect(initialFiles).toEqual([expect.stringMatching(/^omp-append-.*\.md$/u)]);
+  expect(initialFiles).toEqual([
+    expect.stringMatching(/^omp-append-.*\.md$/u),
+    expect.stringMatching(/^omp-config-.*\.yml$/u),
+  ]);
   expect(readFileSync(join(experimental_scratchDirForTests(), initialFiles[0]!), "utf8")).toContain(oldInstructions);
   const turn = await harness.request((nextId += 1), "turn/start", {
     threadId,
@@ -360,7 +363,10 @@ it("release and resume preserve native history while replacing prompts and host 
   expect(sessionRecords(sessionFile).find((record) => record.type === "session")).toEqual(initialHeader);
   expect(readFileSync(sessionFile, "utf8")).toContain(sentinel);
   const resumedFiles = scratchFiles();
-  expect(resumedFiles).toEqual([expect.stringMatching(/^omp-append-.*\.md$/u)]);
+  expect(resumedFiles).toEqual([
+    expect.stringMatching(/^omp-append-.*\.md$/u),
+    expect.stringMatching(/^omp-config-.*\.yml$/u),
+  ]);
   const resumedPrompt = readFileSync(join(experimental_scratchDirForTests(), resumedFiles[0]!), "utf8");
   expect(resumedPrompt).toContain(newInstructions);
   expect(resumedPrompt).not.toContain(oldInstructions);
@@ -465,7 +471,10 @@ it("prompt scratch files are removed after release and failed construction witho
     options: { ...FULL_PERMISSION_OPTIONS, instructions: "be brief" },
     dynamicTools: [{ name: "bb_probe", description: "A bb tool.", inputSchema: { type: "object" } }],
   });
-  expect(scratchFiles()).toEqual([expect.stringMatching(/^omp-append-.*\.md$/u)]);
+  expect(scratchFiles()).toEqual([
+    expect.stringMatching(/^omp-append-.*\.md$/u),
+    expect.stringMatching(/^omp-config-.*\.yml$/u),
+  ]);
   await harness.request((nextId += 1), "thread/stop", {
     threadId: "thr_lc_scratch",
     providerThreadId: providerThreadIdFor("thr_lc_scratch"),

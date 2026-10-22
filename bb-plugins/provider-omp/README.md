@@ -36,13 +36,66 @@ to bb as `omp/prompt/settled`.
 
 OMP extension dialogs use native `extension_ui_request` and
 `extension_ui_response` frames. Model and thinking changes use native RPC on the
-live session. OMP runs with full permissions in bb threads.
+live session.
 
 Each thread stores its sessions in
 `~/.bb/omp-bridge-sessions/<sanitized-providerThreadId>/`. Thread IDs use the
 `omp_<UUID>` prefix. The bridge resumes with `--session-dir <dir> --continue`,
 which opens the newest non-empty session in that thread's directory or creates a
-fresh one there. Forked threads have separate storage directories.
+fresh one there. Sessions containing only user-run shell commands also count as
+non-empty. Forked threads have separate storage directories.
+
+## Permissions
+
+bb offers `full` and `accept-edits`; automatic approval review (`auto`) is not
+supported. The bridge applies the selected mode through a temporary per-process
+`--config` overlay, without changing your OMP config file:
+
+- `full` sets `tools.approvalMode: yolo`.
+- `accept-edits` sets `tools.approvalMode: write`: file edits can proceed without
+  approval, while bash and other non-read tools prompt according to OMP's policy.
+
+OMP's "Allow tool: X" approval dialogs become bb's native tool approvals, with
+approve once, approve for this session when OMP offers it, and deny choices.
+Changing permission mode restarts the OMP process and carries over the
+conversation.
+
+**`accept-edits` is not a workspace sandbox.** OMP's write tier is based on the
+tool, not the target path, so it does not prevent writes outside the workspace.
+
+## Tool rows and native controls
+
+File reads, directory listings, searches, web searches, web fetches and reasoning
+use bb's matching timeline rows. File-read and search rows do not retain result
+bodies because bb's SDK has no result-body field for those row types. Writes to
+`xd://` devices are tool dispatches, not file changes. Streaming cache warming
+appears as a progress notice; idle cache warming is silent unless it fails.
+
+These composer commands use OMP RPC directly, without a model round trip:
+
+| Command | Action |
+| --- | --- |
+| `/btw <question>` | Stream a side answer without interrupting the main run. |
+| `/btw cancel` | Cancel the running side question. |
+| `/btw history` | List side questions and their record IDs. |
+| `/btw follow <recordId> <question>` | Ask a follow-up on a previous side question. |
+| `/omp-bash <command>` | Run a shell command and record its output and exit code in the OMP session. |
+| `/omp-bash abort` | Request cancellation of all running OMP user shell commands. |
+| `/omp-queue` | List OMP's native queued messages, not bb's pending queue. |
+| `/omp-queue remove <n>` | Remove the numbered queued message. |
+| `/omp-queue promote <n>` | Move a follow-up to the end of OMP's steering queue. |
+| `/omp-queue restore` | Abort the run, remove OMP's queued messages and restore their text to bb's composer without resubmitting it. Images are not restored. |
+
+Side questions and user shell commands show pending background cards while they
+run. Shell command cards display text output only, even if OMP records images.
+
+The session options include **Slow mode** when the active model supports it.
+If OMP reports global scope, the option warns that changing it affects every OMP
+session, not just this thread.
+
+bb's provider usage view runs `omp usage --json` on the host to show available
+account limits and reset windows. This is separate from the thread's token and
+cost totals.
 
 ## Todos and subagents
 
@@ -104,6 +157,11 @@ intent, and any error or retry. Select an agent to read its conversation
 in the panel. The conversation comes from bb's saved nested transcript, so it
 is still there after the omp process restarts. Each delegation card's summary
 has a **Details** button that opens the Hub on that agent.
+
+Running agents also have **Cancel** and **Steer** controls in the tree and
+conversation view. They send the `/omp-agent` commands above, steering into the
+active turn when one is running.
+
 The bridge publishes the roster as `provider-omp/agents` extension state. It
 keeps the newest 64 agents and stays under 48 KiB, dropping the oldest agents
 first. Progress-only changes are sent at most once every 2 seconds.
@@ -149,6 +207,23 @@ below bb's editor. Component-factory widgets are not serialized by OMP RPC and
 cannot be displayed. `setTitle` remains ignored. Status, widget, notification,
 and title frames are fire-and-forget and never receive an extension UI answer.
 
+## Limitations
+
+- No plan mode: OMP RPC has no plan-mode API, and `--plan-yolo` is not equivalent.
+- Manual compaction is idle-only because bb's server does not accept it during
+  an active turn.
+- Native goal clearing is unavailable because bb only recognizes Codex's goal
+  state. Use `/goal drop`.
+- Model or reasoning changes made inside OMP appear in a status widget, but do
+  not move bb's pickers; bb has no bridge event for that update.
+- bb has no native requests for queue editing, delegation controls, compaction
+  instructions or todo editing. Use the slash commands instead (`/omp-queue`,
+  `/omp-agent`, OMP's `/compact` and `/todo`).
+- Extension `setTitle` is ignored. MCP passthrough is not applicable to this
+  native RPC bridge.
+
+See [omp RPC gaps](docs/omp-rpc-gaps.md) for the detailed protocol inventory.
+
 ## Configuration
 
 | Variable | Purpose |
@@ -189,6 +264,10 @@ description carries its price per million tokens, context window and score.
 A change applies to the picker within a couple of seconds; running threads are
 not interrupted.
 
+Model-list requests honour their environment overrides (`envVars`), including
+OMP profile/config selection. Reasoning effort choices come from each model's
+catalog capabilities rather than a fixed ladder.
+
 ## Model presets
 
 omp's `modelPresets` (in `~/.omp/agent/config.yml`, a project `.omp/config.yml`,
@@ -201,8 +280,8 @@ presets only (all models go under **More models**), or no presets.
 Picking a preset applies it to that thread only. The bridge writes the preset's
 roles into a temporary `--config` overlay for the thread's omp process, with
 `null` for roles the preset leaves out, so they don't fall back to your global
-roles. Your global config and other threads are untouched; omp's own
-`/modelpreset switch` is never used because it writes to global config.
+roles. Your config files and other threads are untouched; omp's own
+`/modelpreset switch` is never used because it can write global or project config.
 
 - Switching to a different preset restarts the thread's omp process with the new
   overlay. The conversation carries over.

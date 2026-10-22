@@ -1,5 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
+  isApprovalPendingInteractionResolution,
+  pendingInteractionResolutionSchema,
+  type ApprovalPendingInteractionPayload,
+} from "@get-bb/plugin-sdk/provider-bridge";
+import {
   OMP_EXTENSION_UI_KIND,
   OMP_EXTENSION_UI_LIMITS,
   OMP_STATUS_LIMITS,
@@ -27,11 +32,64 @@ const INTERACTIVE_METHODS: Record<string, true> = {
   ask: true,
 };
 
+interface OmpToolApproval {
+  tool: string;
+  reason: string;
+  sessionOption?: string;
+}
+
+function recognizeToolApproval(
+  request: OmpExtensionUiRequest,
+): OmpToolApproval | undefined {
+  if (
+    request.method !== "select" ||
+    (request.options.length !== 2 && request.options.length !== 3) ||
+    request.options[0] !== "Approve" ||
+    request.options.at(-1) !== "Deny"
+  ) {
+    return undefined;
+  }
+  const tool = /^Allow tool: ([^\r\n]+)(?:\r?\n|$)/u.exec(request.title)?.[1];
+  if (!tool?.trim()) return undefined;
+
+  const sessionOption =
+    request.options.length === 3 ? request.options[1] : undefined;
+  if (sessionOption !== undefined) {
+    const session = /^Approve ([^\r\n]+) for this session$/u.exec(sessionOption);
+    if (!session || session[0] !== sessionOption || !session[1]!.trim()) {
+      return undefined;
+    }
+  }
+  return { tool, reason: request.title, sessionOption };
+}
+
+function resolveToolApprovalResponse(
+  approval: OmpToolApproval,
+  response: RuntimeInteractionUiResponse,
+): OmpExtensionUiResponseFields {
+  if (response.error !== undefined) return { cancelled: true };
+  const parsed = pendingInteractionResolutionSchema.safeParse(response.result);
+  if (!parsed.success || !isApprovalPendingInteractionResolution(parsed.data)) {
+    return { cancelled: true };
+  }
+  switch (parsed.data.decision) {
+    case "allow_once":
+      return { value: "Approve" };
+    case "allow_for_session":
+      return approval.sessionOption === undefined
+        ? { cancelled: true }
+        : { value: approval.sessionOption };
+    case "deny":
+      return { value: "Deny" };
+  }
+}
+
 interface PendingExtensionUiRequest {
   scope: object;
   threadId: string;
   providerThreadId: string;
   request: OmpExtensionUiRequest;
+  approval?: OmpToolApproval;
   respond: (
     requestId: string | number,
     fields: OmpExtensionUiResponseFields,
@@ -393,34 +451,59 @@ export function createExtensionUiCoordinator(
       const request: OmpExtensionUiRequest = parsed.data;
       nextRequestId += 1;
       const interactionId = `omp-ui-${nextRequestId}`;
-      const fullTitle =
-        request.method === "ask"
-          ? request.questions.length === 1
-            ? request.questions[0]!.header?.trim() || "Question"
-            : "Questions"
-          : request.title;
-      const title = fullTitle.trim();
-      const titleTooLong = title.length > OMP_EXTENSION_UI_LIMITS.titleLength;
-      const envelopeTitle = titleTooLong
-        ? `${boundStatusText(title, OMP_EXTENSION_UI_LIMITS.titleLength - 1).text}…`
-        : title;
+      const approval = recognizeToolApproval(request);
       pending.set(interactionId, {
         scope: args.scope,
         threadId: args.threadId,
         providerThreadId: args.providerThreadId,
         request,
+        approval,
         respond: args.respond,
       });
       try {
-        const data = createBoundedExtensionUiPayload({
-          ...request,
-          requestId: interactionId,
-          lifecycle: { coordinatorId, sequence: nextRequestId },
-          ...(titleTooLong && request.method !== "ask" ? { detail: fullTitle } : {}),
-          ...("timeout" in request && request.timeout !== undefined
-            ? { expiresAt: Date.now() + Math.max(0, request.timeout) }
-            : {}),
-        });
+        let payload: InteractionUiRequest["params"]["payload"];
+        if (approval) {
+          payload = {
+            kind: "approval",
+            subject: {
+              kind: "tool_use",
+              // RPC supplies no tool-call linkage, including for same-name calls.
+              itemId: `omp-approval:${coordinatorId}:${nextRequestId}:${request.id}`,
+              tool: approval.tool,
+              presentation: {
+                icon: { glyph: "wrench" },
+                label: { pending: approval.tool, completed: approval.tool },
+                title: `Allow tool: ${approval.tool}`,
+              },
+            },
+            reason: approval.reason,
+            availableDecisions: approval.sessionOption === undefined
+              ? ["allow_once", "deny"]
+              : ["allow_once", "allow_for_session", "deny"],
+          } satisfies ApprovalPendingInteractionPayload;
+        } else {
+          const fullTitle =
+            request.method === "ask"
+              ? request.questions.length === 1
+                ? request.questions[0]!.header?.trim() || "Question"
+                : "Questions"
+              : request.title;
+          const title = fullTitle.trim();
+          const titleTooLong = title.length > OMP_EXTENSION_UI_LIMITS.titleLength;
+          const envelopeTitle = titleTooLong
+            ? `${boundStatusText(title, OMP_EXTENSION_UI_LIMITS.titleLength - 1).text}…`
+            : title;
+          const data = createBoundedExtensionUiPayload({
+            ...request,
+            requestId: interactionId,
+            lifecycle: { coordinatorId, sequence: nextRequestId },
+            ...(titleTooLong && request.method !== "ask" ? { detail: fullTitle } : {}),
+            ...("timeout" in request && request.timeout !== undefined
+              ? { expiresAt: Date.now() + Math.max(0, request.timeout) }
+              : {}),
+          });
+          payload = { kind: OMP_EXTENSION_UI_KIND, title: envelopeTitle, data };
+        }
         options.sendInteractionRequest({
           jsonrpc: "2.0",
           id: interactionId,
@@ -429,11 +512,7 @@ export function createExtensionUiCoordinator(
             providerThreadId: args.providerThreadId,
             threadId: args.threadId,
             turnId: null,
-            payload: {
-              kind: OMP_EXTENSION_UI_KIND,
-              title: envelopeTitle,
-              data,
-            },
+            payload,
           },
         });
       } catch (cause) {
@@ -458,6 +537,10 @@ export function createExtensionUiCoordinator(
       }
       pending.delete(String(response.id));
       publishState(entry);
+      if (entry.approval) {
+        entry.respond(entry.request.id, resolveToolApprovalResponse(entry.approval, response));
+        return true;
+      }
       const parsed = ompExtensionUiResolutionSchema.safeParse(response.result);
       entry.respond(
         entry.request.id,

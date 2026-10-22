@@ -83,20 +83,18 @@ describe("OMP native image read completion", () => {
         name: "image content without an image extension",
         result: { content: [imageBlock] },
         args: { path: join(workspace, "asset") },
-        opensAtStart: true,
+        imagePath: join(workspace, "asset"),
       },
       {
         name: "relative path without a session cwd",
         result: { content: [imageBlock] },
         args: { path: "asset.png" },
         cwd: undefined,
-        opensAtStart: true,
       },
       {
         name: "URL path",
         result: { content: [imageBlock] },
         args: { path: "file:///workspace/asset.png" },
-        opensAtStart: true,
       },
       {
         name: "missing path",

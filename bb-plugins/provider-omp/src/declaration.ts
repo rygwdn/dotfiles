@@ -33,7 +33,7 @@ export function ompProviderDeclaration(
       installUrl: "https://github.com/can1357/oh-my-pi",
       iconTint: { light: "#6D5DFB", dark: "#6D5DFB" },
     },
-    maintenance: { health: true, usage: false, installation: true },
+    maintenance: { health: true, usage: true, installation: true },
     // Non-BB environment (including OMP's retained PI_* settings) is inherited.
     env: {
       passthrough: [
@@ -51,7 +51,7 @@ export function ompProviderDeclaration(
       supportsManualCompaction: true,
       supportsThreadArchive: false,
       supportsThreadRename: true,
-      permissionModes: ["full"],
+      permissionModes: ["full", "accept-edits"],
       // The SDK's coarse ladder omits "minimal"; its descriptor below carries it.
       reasoningLevels: ["none", "low", "medium", "high", "xhigh", "max"],
     },

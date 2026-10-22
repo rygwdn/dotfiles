@@ -1,3 +1,4 @@
+import type { ApprovalPendingInteractionPayload } from "@get-bb/plugin-sdk/provider-bridge";
 import { z } from "zod";
 
 export const OMP_PLUGIN_ID = "provider-omp";
@@ -343,11 +344,13 @@ export interface InteractionUiRequest {
     providerThreadId: string;
     threadId: string;
     turnId: null;
-    payload: {
-      kind: typeof OMP_EXTENSION_UI_KIND;
-      title: string;
-      data: OmpExtensionUiPayloadData;
-    };
+    payload:
+      | {
+          kind: typeof OMP_EXTENSION_UI_KIND;
+          title: string;
+          data: OmpExtensionUiPayloadData;
+        }
+      | ApprovalPendingInteractionPayload;
   };
 }
 

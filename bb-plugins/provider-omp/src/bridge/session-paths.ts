@@ -90,7 +90,7 @@ export function findNewestOmpSessionFile(
           return false;
         }
         const message = record.message;
-        if (message.role === "assistant" || message.role === "toolResult") {
+        if (message.role === "assistant" || message.role === "toolResult" || message.role === "bashExecution") {
           return true;
         }
         if (message.role !== "user" && message.role !== "developer") return false;
