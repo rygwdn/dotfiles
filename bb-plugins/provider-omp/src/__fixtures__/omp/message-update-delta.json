@@ -1,0 +1,11 @@
+{
+  "type": "message_update",
+  "message": {
+    "role": "assistant"
+  },
+  "assistantMessageEvent": {
+    "type": "text_delta",
+    "contentIndex": 0,
+    "delta": "current"
+  }
+}
