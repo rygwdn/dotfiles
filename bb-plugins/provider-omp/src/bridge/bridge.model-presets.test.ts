@@ -14,10 +14,11 @@ const TIMEOUT_MS = 60_000;
 const identitySchema = z.object({ providerThreadId: z.string() });
 const launchSchema = z.object({ args: z.array(z.string()), threadId: z.string().nullable() });
 const overlaySchema = z.object({
+  memory: z.object({ backend: z.literal("off") }),
   skills: z.object({ customDirectories: z.array(z.string()) }).optional(),
   modelRoles: z.record(z.string(), z.string().nullable()).optional(),
   defaultThinkingLevel: z.string().optional(),
-  tools: z.object({ approvalMode: z.enum(["yolo", "write"]) }),
+  tools: z.object({ approvalMode: z.enum(["yolo", "write"]) }).optional(),
 });
 const rpcSchema = z.object({
   type: z.string(),
@@ -155,7 +156,7 @@ it("combines preset roles, omitted-role tombstones, thinking, and skills in one 
   expect(args.filter((arg) => arg === "--config")).toHaveLength(1);
   expect(flag(args, "--model")).toBe("fake-provider/fake-mini");
   expect(flag(args, "--thinking")).toBe("high");
-  expect(overlays()).toEqual([{
+  expect(overlays()).toEqual([{ memory: { backend: "off" }, 
     skills: { customDirectories: [join(harness.workspaceDir, "user-skills"), bbRoot] },
     modelRoles: { ...modelRoles, advisor: null, commit: null },
     defaultThinkingLevel: "low",
@@ -191,7 +192,7 @@ it.each([
   const [launch] = launches(threadId);
   expect(flag(launch!.args, "--model")).toBe(model);
   expect(flag(launch!.args, "--thinking")).toBe(expectedThinking);
-  expect(overlays()).toEqual([{
+  expect(overlays()).toEqual([{ memory: { backend: "off" }, 
     modelRoles,
     ...(thinking ? { defaultThinkingLevel: thinking } : {}),
     tools: { approvalMode: "yolo" },
@@ -223,7 +224,7 @@ it.each([false, true])("preserves colons in a catalog model id (thinking suffix:
   const [launch] = launches(threadId);
   expect(flag(launch!.args, "--model")).toBe(model);
   expect(flag(launch!.args, "--thinking")).toBe(withSuffix ? "xhigh" : "low");
-  expect(overlays()).toEqual([{
+  expect(overlays()).toEqual([{ memory: { backend: "off" }, 
     modelRoles: { default: selector }, defaultThinkingLevel: "low",
     tools: { approvalMode: "yolo" },
   }]);
@@ -274,7 +275,7 @@ it.each([
   expect(liveLaunches[1]!.args).toContain("--continue");
   expect(flag(liveLaunches[1]!.args, "--model")).toBe(model);
   expect(flag(liveLaunches[1]!.args, "--thinking")).toBe(thinking);
-  expect(overlays().at(-1)).toEqual({ modelRoles, defaultThinkingLevel: "auto", tools: { approvalMode: "yolo" } });
+  expect(overlays().at(-1)).toEqual({ memory: { backend: "off" },  modelRoles, defaultThinkingLevel: "auto", tools: { approvalMode: "yolo" } });
   expect(harness.deltasOf(threadId).filter((delta) => delta.kind === "provider.warning")).toEqual([]);
   expect(rpcCommands().filter((command) => command.type === "set_model")).toEqual([]);
 }, TIMEOUT_MS);
@@ -327,7 +328,7 @@ it.each(["fake-provider/fake-mini", "preset:quiet"])(
     expect(liveLaunches[1]!.args).toContain("--continue");
     expect(flag(liveLaunches[1]!.args, "--model")).toBe("fake-provider/fake-model");
     expect(flag(liveLaunches[1]!.args, "--thinking")).toBe("high");
-    expect(overlays().at(-1)).toEqual({
+    expect(overlays().at(-1)).toEqual({ memory: { backend: "off" }, 
       modelRoles: { ...intense, slow: null }, defaultThinkingLevel: "high",
       tools: { approvalMode: "yolo" },
     });
@@ -387,7 +388,7 @@ it("keeps a preset's role snapshot when a raw model is selected and the environm
   expect(launches(threadId)).toHaveLength(2);
   expect(flag(launches(threadId)[1]!.args, "--model")).toBe("fake-provider/fake-model");
   expect(flag(launches(threadId)[1]!.args, "--thinking")).toBe("low");
-  expect(overlays().at(-1)).toEqual({
+  expect(overlays().at(-1)).toEqual({ memory: { backend: "off" }, 
     modelRoles: { ...modelRoles, plan: null },
     defaultThinkingLevel: "high",
     tools: { approvalMode: "yolo" },
@@ -430,8 +431,8 @@ it("falls back to native model roles with a visible warning for an unknown prese
   expect(launches(threadId)).toHaveLength(2);
   expect(launches(threadId).every((launch) => flag(launch.args, "--model") === undefined)).toBe(true);
   expect(overlays()).toEqual([
-    { tools: { approvalMode: "yolo" } },
-    { tools: { approvalMode: "yolo" } },
+    { memory: { backend: "off" }, tools: { approvalMode: "yolo" } },
+    { memory: { backend: "off" }, tools: { approvalMode: "yolo" } },
   ]);
   expect(harness.deltasOf(threadId).filter((delta) => delta.kind === "provider.warning")).toHaveLength(2);
 }, TIMEOUT_MS);
@@ -475,7 +476,7 @@ it.each(["fake-provider/fake-model", "preset:selected"])(
     const args = launches(threadId)[1]!.args;
     expect(flag(args, "--model")).toBe(explicitPreset ? "fake-gateway/vendor/slash-model" : resumeModel);
     expect(flag(args, "--thinking")).toBe(explicitPreset ? "xhigh" : undefined);
-    expect(overlays().at(-1)).toEqual({
+    expect(overlays().at(-1)).toEqual({ memory: { backend: "off" }, 
       modelRoles: { ...(explicitPreset ? updatedRoles : originalRoles), plan: null },
       defaultThinkingLevel: explicitPreset ? "auto" : "high",
       tools: { approvalMode: "yolo" },
@@ -521,7 +522,7 @@ it("clears a stale preset snapshot when an explicit unknown preset falls back to
     options: { ...FULL_PERMISSION_OPTIONS, model: "preset:selected" },
   });
   expect(resumed.error, JSON.stringify(resumed)).toBeUndefined();
-  expect(overlays().at(-1)).toEqual({ tools: { approvalMode: "yolo" } });
+  expect(overlays().at(-1)).toEqual({ memory: { backend: "off" },  memory: { backend: "off" }, tools: { approvalMode: "yolo" } });
   expect(existsSync(snapshotPath)).toBe(false);
   expect(harness.deltasOf(threadId)).toContainEqual(expect.objectContaining({
     kind: "provider.warning",
@@ -552,7 +553,7 @@ it("carries a saved preset through relocation and a raw-model fork", async () =>
   expect(relocatedId).not.toBe(providerThreadId);
   const relocatedDir = flag(launches(threadId)[1]!.args, "--session-dir")!;
   expect(JSON.parse(readFileSync(join(relocatedDir, "bb-model-preset.json"), "utf8"))).toEqual(snapshot);
-  expect(overlays().at(-1)).toEqual({ modelRoles, tools: { approvalMode: "yolo" } });
+  expect(overlays().at(-1)).toEqual({ memory: { backend: "off" },  modelRoles, tools: { approvalMode: "yolo" } });
   const forkId = "thr_preset_saved_fork";
   const forked = await harness.request(4, "thread/fork", {
     threadId: forkId, sourceProviderThreadId: relocatedId, cwd: relocatedCwd, instructionMode: "append",
@@ -560,5 +561,5 @@ it("carries a saved preset through relocation and a raw-model fork", async () =>
   });
   expect(forked.error, JSON.stringify(forked)).toBeUndefined();
   expect(JSON.parse(readFileSync(snapshotFile(forkId), "utf8"))).toEqual(snapshot);
-  expect(overlays().at(-1)).toEqual({ modelRoles, tools: { approvalMode: "yolo" } });
+  expect(overlays().at(-1)).toEqual({ memory: { backend: "off" },  modelRoles, tools: { approvalMode: "yolo" } });
 }, TIMEOUT_MS);

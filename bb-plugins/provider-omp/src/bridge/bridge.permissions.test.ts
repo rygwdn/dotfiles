@@ -24,7 +24,8 @@ const TIMEOUT_MS = 60_000;
 const identitySchema = z.object({ providerThreadId: z.string() });
 const launchSchema = z.object({ args: z.array(z.string()), threadId: z.string().nullable() });
 const overlaySchema = z.object({
-  tools: z.object({ approvalMode: z.enum(["yolo", "write"]) }),
+  memory: z.object({ backend: z.literal("off") }),
+  tools: z.object({ approvalMode: z.enum(["yolo", "write"]) }).optional(),
   skills: z.object({ customDirectories: z.array(z.string()) }).optional(),
   modelRoles: z.record(z.string(), z.string().nullable()).optional(),
   defaultThinkingLevel: z.string().optional(),
@@ -150,10 +151,10 @@ it.each([
   expect(launch!.args).not.toContain("--yolo");
   expect(launch!.args).not.toContain("--auto-approve");
   expect(launch!.args).not.toContain("--approval-mode");
-  expect(overlays()).toEqual([{ tools: { approvalMode } }]);
+  expect(overlays()).toEqual([{ memory: { backend: "off" }, tools: { approvalMode } }]);
   const overlayPath = flag(launch!.args, "--config")!;
   expect(overlayPath).not.toBe(configPath);
-  expect(JSON.parse(readFileSync(overlayPath, "utf8"))).toEqual({ tools: { approvalMode } });
+  expect(JSON.parse(readFileSync(overlayPath, "utf8"))).toEqual({ memory: { backend: "off" }, tools: { approvalMode } });
   expect(readFileSync(configPath, "utf8")).toBe(originalConfig);
 }, TIMEOUT_MS);
 
@@ -174,6 +175,7 @@ it.each([
   await startThread(threadId, policy, { model: "preset:selected" });
   expect(launches(threadId)[0]!.args.filter((arg) => arg === "--config")).toHaveLength(1);
   expect(overlays()).toEqual([{
+    memory: { backend: "off" },
     tools: { approvalMode },
     skills: { customDirectories: [join(harness.workspaceDir, "user-skills"), bbRoot] },
     modelRoles: { ...modelRoles, advisor: null },
@@ -208,7 +210,9 @@ it("uses the requested policy on resume and fork rather than inheriting the sour
   });
   expect(forked.error, JSON.stringify(forked)).toBeUndefined();
   expect(launches(forkId)).toHaveLength(1);
-  expect(overlays().map((overlay) => overlay.tools.approvalMode)).toEqual(["yolo", "write", "yolo"]);
+  // The fork spawn itself carries only the memory-off overlay (BI-13); its policy
+  // applies on the forked thread's own rpc-ui launch.
+  expect(overlays().filter((overlay) => overlay.tools).map((overlay) => overlay.tools!.approvalMode)).toEqual(["yolo", "write", "yolo"]);
 }, TIMEOUT_MS);
 
 it.each([

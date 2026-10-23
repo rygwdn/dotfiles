@@ -338,3 +338,15 @@ Settings imported from other agents' configuration files, plugin- and
 extension-supplied skills, and per-skill include/ignore filters are outside bb's
 directory-root metadata. OMP's own loader remains authoritative for which skills
 the agent actually loads.
+
+## Memory
+
+Every omp process this bridge launches — thread sessions and forked sessions
+alike — runs with a `--config` overlay containing `memory: { backend: off }`,
+so OMP's native Mnemopi memory writes nothing for BB-hosted threads. Durable
+memory for BB-hosted agents is owned by the `memory-fork` plugin instead
+(scopes: global/project/bot; see its own documentation). Standalone omp runs on
+this machine are unaffected: they keep whatever memory backend your own OMP
+configuration selects. Because the native memory backend is off, OMP's
+`memory_edit` tool is unavailable in BB-hosted sessions; corrections go through
+the memory-fork CLI (`bb memory update` / `bb memory forget`) per its memory skill.

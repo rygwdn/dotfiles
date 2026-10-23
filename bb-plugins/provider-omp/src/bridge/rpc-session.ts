@@ -435,10 +435,8 @@ export class OmpRpcSession {
       ...promptFiles.args,
     ];
     const configOverlay = await this.writeConfigOverlay(env);
-    if (configOverlay) {
-      args.push("--config", configOverlay);
-      promptFiles.paths.push(configOverlay);
-    }
+    args.push("--config", configOverlay);
+    promptFiles.paths.push(configOverlay);
     if (this.options.model) {
       // The registry-derived provider/id selector also identifies custom providers.
       args.push("--model", `${this.options.model.provider}/${this.options.model.id}`);
@@ -944,10 +942,16 @@ export class OmpRpcSession {
     sourceThreadStorageDir?: string;
   }): Promise<void> {
     mkdirSync(args.targetDir, { recursive: true });
+    const overlayFile = join(args.targetDir, "bb-config-overlay.json");
+    writeFileSync(overlayFile, JSON.stringify({ memory: { backend: "off" } }), "utf8");
     const child = new OmpRpcChild({
       cwd: args.cwd,
       env: buildOmpChildEnv({ ...args.shellEnvOverrides, BB_THREAD_ID: args.recordThreadId }),
-      args: ["--mode", "rpc", "--cwd", args.cwd, "--fork", args.sourceFile, "--session-dir", args.targetDir],
+      args: [
+        "--mode", "rpc", "--cwd", args.cwd,
+        "--fork", args.sourceFile, "--session-dir", args.targetDir,
+        "--config", overlayFile,
+      ],
       onEvent: () => undefined,
       onExit: () => undefined,
       recordThreadId: args.recordThreadId,
@@ -1029,21 +1033,23 @@ export class OmpRpcSession {
   }
 
   /**
-   * Skills, model presets, and approvals share one per-child overlay. Arrays need the user's
-   * effective skill directories carried over; omitted preset roles need null
-   * tombstones so lower config layers cannot keep them assigned.
+   * Skills, model presets, approvals, and the memory cutover share one per-child overlay.
+   * Arrays need the user's effective skill directories carried over; omitted preset roles
+   * need null tombstones so lower config layers cannot keep them assigned. BB-hosted
+   * sessions always run with OMP's native memory backend off — durable memory is owned by
+   * the bb memory-fork plugin, not OMP's Mnemopi store (BI-11 §4).
    */
-  private async writeConfigOverlay(env: Readonly<Record<string, string | undefined>>): Promise<string | null> {
+  private async writeConfigOverlay(env: Readonly<Record<string, string | undefined>>): Promise<string> {
     const extra = this.options.additionalSkillPaths ?? [];
     const preset = this.options.modelPreset;
     const permissionPolicy = this.options.permissionPolicy;
-    if (extra.length === 0 && !preset && !permissionPolicy) return null;
     const overlay: {
+      memory?: { backend: "off" };
       skills?: { customDirectories: string[] };
       modelRoles?: Record<string, string | null>;
       defaultThinkingLevel?: string;
       tools?: { approvalMode: "yolo" | "write" };
-    } = {};
+    } = { memory: { backend: "off" } };
     if (permissionPolicy) {
       overlay.tools = {
         approvalMode: permissionPolicy.permissionMode === "full" ? "yolo" : "write",
