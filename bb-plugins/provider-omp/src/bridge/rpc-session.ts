@@ -1,4 +1,21 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+
+/**
+ * BI-11: hides OMP's native memory tools (memory_edit, recall, retain, reflect)
+ * in BB-hosted sessions. Durable memory there is owned by the bb memory-fork
+ * plugin; these native tools are declared but not wired to durable storage.
+ * Re-registering with exposure "hidden" is the supported withdrawal mechanism
+ * (extensions cannot unregister built-in tools). Loaded via the per-child
+ * config overlay's `extensions` array.
+ */
+const HIDE_DEAD_MEMORY_TOOLS_EXTENSION = `const DEAD_MEMORY_TOOLS = ["memory_edit", "recall", "retain", "reflect"];
+export default function hideDeadMemoryTools(pi) {
+  for (const name of DEAD_MEMORY_TOOLS) {
+    pi.registerTool({ name, exposure: "hidden" });
+  }
+}
+`;
+
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
@@ -434,9 +451,10 @@ export class OmpRpcSession {
       "--session-dir", this.options.sessionDir, "--continue",
       ...promptFiles.args,
     ];
-    const configOverlay = await this.writeConfigOverlay(env);
+    const { overlayFile: configOverlay, extensionFile } = await this.writeConfigOverlay(env);
     args.push("--config", configOverlay);
     promptFiles.paths.push(configOverlay);
+    promptFiles.paths.push(extensionFile);
     if (this.options.model) {
       // The registry-derived provider/id selector also identifies custom providers.
       args.push("--model", `${this.options.model.provider}/${this.options.model.id}`);
@@ -943,7 +961,12 @@ export class OmpRpcSession {
   }): Promise<void> {
     mkdirSync(args.targetDir, { recursive: true });
     const overlayFile = join(args.targetDir, "bb-config-overlay.json");
-    writeFileSync(overlayFile, JSON.stringify({ memory: { backend: "off" } }), "utf8");
+    const forkExtensionFile = join(args.targetDir, "bb-hide-dead-memory-tools.ts");
+    writeFileSync(forkExtensionFile, HIDE_DEAD_MEMORY_TOOLS_EXTENSION, "utf8");
+    writeFileSync(overlayFile, JSON.stringify({
+      memory: { backend: "off" },
+      extensions: [forkExtensionFile],
+    }), "utf8");
     const child = new OmpRpcChild({
       cwd: args.cwd,
       env: buildOmpChildEnv({ ...args.shellEnvOverrides, BB_THREAD_ID: args.recordThreadId }),
@@ -1039,17 +1062,26 @@ export class OmpRpcSession {
    * sessions always run with OMP's native memory backend off — durable memory is owned by
    * the bb memory-fork plugin, not OMP's Mnemopi store (BI-11 §4).
    */
-  private async writeConfigOverlay(env: Readonly<Record<string, string | undefined>>): Promise<string> {
+  private async writeConfigOverlay(
+    env: Readonly<Record<string, string | undefined>>,
+  ): Promise<{ overlayFile: string; extensionFile: string }> {
     const extra = this.options.additionalSkillPaths ?? [];
     const preset = this.options.modelPreset;
     const permissionPolicy = this.options.permissionPolicy;
+    // BI-11: hide dead native memory tools. BB sessions own durable memory via
+    // the bb memory-fork plugin; OMP's native memory tools are declared but not
+    // wired to durable storage here. Re-registering with exposure "hidden" is
+    // the supported withdrawal mechanism (tools cannot be unregistered).
+    const extensionFile = join(this.options.scratchDir, "bb-hide-dead-memory-tools.ts");
+    writeFileSync(extensionFile, HIDE_DEAD_MEMORY_TOOLS_EXTENSION, "utf8");
     const overlay: {
       memory?: { backend: "off" };
+      extensions?: string[];
       skills?: { customDirectories: string[] };
       modelRoles?: Record<string, string | null>;
       defaultThinkingLevel?: string;
       tools?: { approvalMode: "yolo" | "write" };
-    } = { memory: { backend: "off" } };
+    } = { memory: { backend: "off" }, extensions: [extensionFile] };
     if (permissionPolicy) {
       overlay.tools = {
         approvalMode: permissionPolicy.permissionMode === "full" ? "yolo" : "write",
@@ -1073,7 +1105,7 @@ export class OmpRpcSession {
     const file = join(this.options.scratchDir, `omp-config-${stamp}.yml`);
     // JSON is valid YAML, and avoids quoting rules for arbitrary paths/selectors.
     writeFileSync(file, JSON.stringify(overlay), "utf8");
-    return file;
+    return { overlayFile: file, extensionFile };
   }
 
   private async dispatchWithTransientAuthRetry(
