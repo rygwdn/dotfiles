@@ -153,6 +153,7 @@ it(
     const overlay: unknown = JSON.parse(readFileSync(configLogPath, "utf8"));
     expect(overlay).toEqual({
       memory: { backend: "off" },
+      extensions: [expect.stringMatching(/bb-hide-dead-memory-tools\.ts$/u)],
       skills: { customDirectories: [join(harness.workspaceDir, "user-skills"), bbRoot] },
       tools: { approvalMode: "yolo" },
     });

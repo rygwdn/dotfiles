@@ -11,7 +11,24 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 const HIDE_DEAD_MEMORY_TOOLS_EXTENSION = `const DEAD_MEMORY_TOOLS = ["memory_edit", "recall", "retain", "reflect"];
 export default function hideDeadMemoryTools(pi) {
   for (const name of DEAD_MEMORY_TOOLS) {
-    pi.registerTool({ name, exposure: "hidden" });
+    pi.registerTool({
+      name,
+      description: "Disabled in bb sessions; durable memory is owned by the bb memory CLI.",
+      parameters: { type: "object", properties: {} },
+      execute: async () => ({
+        content: [{ type: "text", text: "Failure: this native memory tool is disabled in bb sessions. Durable memory lives in BB memory: use the learn tool or the bb memory CLI (search/get/add/update/forget)." }],
+        details: undefined,
+      }),
+      exposure: "hidden",
+    });
+  }
+  // Withdraw the dead tools from the model-visible active set; re-registering
+  // with exposure "hidden" alone does not deactivate already-active built-ins.
+  try {
+    const active = pi.getActiveTools().map((t) => (typeof t === "string" ? t : t.name));
+    pi.setActiveTools(active.filter((n) => !DEAD_MEMORY_TOOLS.includes(n)));
+  } catch (error) {
+    console.error("bb hide-dead-memory-tools: setActiveTools failed:", error && error.message);
   }
 }
 `;

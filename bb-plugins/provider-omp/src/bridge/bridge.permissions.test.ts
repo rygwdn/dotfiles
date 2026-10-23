@@ -23,8 +23,11 @@ const ACCEPT_EDITS_OPTIONS = {
 const TIMEOUT_MS = 60_000;
 const identitySchema = z.object({ providerThreadId: z.string() });
 const launchSchema = z.object({ args: z.array(z.string()), threadId: z.string().nullable() });
+/** The BI-11 dead-memory-tool hiding extension referenced by every BB overlay. */
+const extensionRef = () => expect.stringMatching(/bb-hide-dead-memory-tools\.ts$/u);
 const overlaySchema = z.object({
   memory: z.object({ backend: z.literal("off") }),
+  extensions: z.array(z.string()).optional(),
   tools: z.object({ approvalMode: z.enum(["yolo", "write"]) }).optional(),
   skills: z.object({ customDirectories: z.array(z.string()) }).optional(),
   modelRoles: z.record(z.string(), z.string().nullable()).optional(),
@@ -151,10 +154,10 @@ it.each([
   expect(launch!.args).not.toContain("--yolo");
   expect(launch!.args).not.toContain("--auto-approve");
   expect(launch!.args).not.toContain("--approval-mode");
-  expect(overlays()).toEqual([{ memory: { backend: "off" }, tools: { approvalMode } }]);
+  expect(overlays()).toEqual([{ memory: { backend: "off" }, tools: { approvalMode }, extensions: [extensionRef()] }]);
   const overlayPath = flag(launch!.args, "--config")!;
   expect(overlayPath).not.toBe(configPath);
-  expect(JSON.parse(readFileSync(overlayPath, "utf8"))).toEqual({ memory: { backend: "off" }, tools: { approvalMode } });
+  expect(JSON.parse(readFileSync(overlayPath, "utf8"))).toEqual({ memory: { backend: "off" }, tools: { approvalMode }, extensions: [extensionRef()] });
   expect(readFileSync(configPath, "utf8")).toBe(originalConfig);
 }, TIMEOUT_MS);
 
@@ -177,6 +180,7 @@ it.each([
   expect(overlays()).toEqual([{
     memory: { backend: "off" },
     tools: { approvalMode },
+    extensions: [extensionRef()],
     skills: { customDirectories: [join(harness.workspaceDir, "user-skills"), bbRoot] },
     modelRoles: { ...modelRoles, advisor: null },
     defaultThinkingLevel: "low",
