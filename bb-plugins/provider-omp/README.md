@@ -348,7 +348,7 @@ the agent actually loads.
 ## Memory
 
 Every omp process this bridge launches — thread sessions and forked sessions
-alike — runs with a `--config` overlay containing `memory: { backend: off }`,
+alike — runs with a `--config` overlay containing `memory: { backend: off }` and `autolearn: { autoContinue: false }`,
 so OMP's native Mnemopi memory writes nothing for BB-hosted threads. Durable
 memory for BB-hosted agents is owned by the `memory-fork` plugin instead
 (scopes: global/project/bot; see its own documentation). Standalone omp runs on
@@ -356,3 +356,12 @@ this machine are unaffected: they keep whatever memory backend your own OMP
 configuration selects. Because the native memory backend is off, OMP's
 `memory_edit` tool is unavailable in BB-hosted sessions; corrections go through
 the memory-fork CLI (`bb memory update` / `bb memory forget`) per its memory skill.
+
+
+The backend switch removes native recall, retain, reflect, memory_edit and learn
+from the actual tool catalog; the bridge registers no denial-only substitutes.
+Native manage_skill remains available. Automatic private memory/skill capture
+continuations are disabled. The memory-fork plugin supplies BB learning, scoped
+retrieval and versioned correction instructions. ACP is a separate provider;
+its process launch is integrated by memory-fork's host env hook and the
+supported provider-acp custom agent command, not this RPC bridge.

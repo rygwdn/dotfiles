@@ -23,11 +23,9 @@ const ACCEPT_EDITS_OPTIONS = {
 const TIMEOUT_MS = 60_000;
 const identitySchema = z.object({ providerThreadId: z.string() });
 const launchSchema = z.object({ args: z.array(z.string()), threadId: z.string().nullable() });
-/** The BI-11 dead-memory-tool hiding extension referenced by every BB overlay. */
-const extensionRef = () => expect.stringMatching(/bb-hide-dead-memory-tools\.ts$/u);
 const overlaySchema = z.object({
   memory: z.object({ backend: z.literal("off") }),
-  extensions: z.array(z.string()).optional(),
+  autolearn: z.object({ autoContinue: z.literal(false) }),
   tools: z.object({ approvalMode: z.enum(["yolo", "write"]) }).optional(),
   skills: z.object({ customDirectories: z.array(z.string()) }).optional(),
   modelRoles: z.record(z.string(), z.string().nullable()).optional(),
@@ -154,10 +152,10 @@ it.each([
   expect(launch!.args).not.toContain("--yolo");
   expect(launch!.args).not.toContain("--auto-approve");
   expect(launch!.args).not.toContain("--approval-mode");
-  expect(overlays()).toEqual([{ memory: { backend: "off" }, tools: { approvalMode }, extensions: [extensionRef()] }]);
+  expect(overlays()).toEqual([{ memory: { backend: "off" }, tools: { approvalMode }, autolearn: { autoContinue: false } }]);
   const overlayPath = flag(launch!.args, "--config")!;
   expect(overlayPath).not.toBe(configPath);
-  expect(JSON.parse(readFileSync(overlayPath, "utf8"))).toEqual({ memory: { backend: "off" }, tools: { approvalMode }, extensions: [extensionRef()] });
+  expect(JSON.parse(readFileSync(overlayPath, "utf8"))).toEqual({ memory: { backend: "off" }, tools: { approvalMode }, autolearn: { autoContinue: false } });
   expect(readFileSync(configPath, "utf8")).toBe(originalConfig);
 }, TIMEOUT_MS);
 
@@ -180,7 +178,7 @@ it.each([
   expect(overlays()).toEqual([{
     memory: { backend: "off" },
     tools: { approvalMode },
-    extensions: [extensionRef()],
+    autolearn: { autoContinue: false },
     skills: { customDirectories: [join(harness.workspaceDir, "user-skills"), bbRoot] },
     modelRoles: { ...modelRoles, advisor: null },
     defaultThinkingLevel: "low",
@@ -203,7 +201,7 @@ it("uses the requested policy on resume and fork rather than inheriting the sour
   });
   expect(resumed.error, JSON.stringify(resumed)).toBeUndefined();
   expect(resumed.result).toMatchObject({ providerThreadId });
-  expect(overlays().map((overlay) => overlay.tools.approvalMode)).toEqual(["yolo", "write"]);
+  expect(overlays().map((overlay) => overlay.tools?.approvalMode)).toEqual(["yolo", "write"]);
   const forkId = "thr_permission_fork";
   const forked = await harness.request(4, "thread/fork", {
     threadId: forkId,
@@ -243,7 +241,7 @@ it.each([
   expect(readFileSync(originalFile, "utf8").startsWith(history)).toBe(true);
   expect(readFileSync(originalFile, "utf8")).toContain("continued after policy change");
   expect(existsSync(originalOverlay)).toBe(false);
-  expect(overlays().map((overlay) => overlay.tools.approvalMode)).toEqual(modes);
+  expect(overlays().map((overlay) => overlay.tools?.approvalMode)).toEqual(modes);
   expect(replacementMessages(threadId)).toEqual([{
     threadId,
     providerThreadId,
@@ -280,7 +278,7 @@ it("stops a pending approval before applying an active steer policy and ignores 
   const seen = harness.deltasOf(threadId).length;
   expect((await turn(2, "turn/steer", threadId, providerThreadId, ACCEPT_EDITS_OPTIONS, "continue with restrictive approval policy")).error).toBeUndefined();
   await harness.waitForTurnBoundary(threadId, seen);
-  expect(overlays().map((overlay) => overlay.tools.approvalMode)).toEqual(["yolo", "write"]);
+  expect(overlays().map((overlay) => overlay.tools?.approvalMode)).toEqual(["yolo", "write"]);
   expect(lines(uiLog).map((line) => uiResponseSchema.parse(line))).toEqual([{ id: spec.id, cancelled: true }]);
   const sent = lines(rpcLog).map((line) => rpcSchema.parse(line));
   expect(sent.filter((command) => command.type === "steer")).toEqual([]);
@@ -320,7 +318,7 @@ it.each([
   const since = harness.deltasOf(threadId).length;
   expect((await turn(2, method, threadId, providerThreadId, ACCEPT_EDITS_OPTIONS, text)).error).toBeUndefined();
   expect(launches(threadId)).toHaveLength(2);
-  expect(overlays().map((overlay) => overlay.tools.approvalMode)).toEqual(["yolo", "write"]);
+  expect(overlays().map((overlay) => overlay.tools?.approvalMode)).toEqual(["yolo", "write"]);
   await harness.waitForTurnBoundary(threadId, since);
   expect(replacementMessages(threadId)).toHaveLength(1);
 }, TIMEOUT_MS);
@@ -337,7 +335,7 @@ it("waits for an EOF- and SIGTERM-resistant old child to exit before policy repl
   expect(launches(threadId)).toHaveLength(2);
   expect(harness.runningChildPids()).not.toContain(oldPid);
   expect(existsSync(oldOverlay)).toBe(false);
-  expect(overlays().at(-1)?.tools.approvalMode).toBe("write");
+  expect(overlays().at(-1)?.tools?.approvalMode).toBe("write");
 }, TIMEOUT_MS);
 
 it("does not restore the old permissive child when the restrictive replacement fails", async () => {

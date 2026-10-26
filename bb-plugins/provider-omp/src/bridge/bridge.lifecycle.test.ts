@@ -321,11 +321,10 @@ it("release and resume preserve native history while replacing prompts and host 
   const initialHeader = sessionRecords(sessionFile).find((record) => record.type === "session");
   const initialFiles = scratchFiles();
   expect(initialFiles).toEqual([
-    expect.stringMatching(/^bb-hide-dead-memory-tools\.ts$/u),
     expect.stringMatching(/^omp-append-.*\.md$/u),
     expect.stringMatching(/^omp-config-.*\.yml$/u),
   ]);
-  expect(readFileSync(join(experimental_scratchDirForTests(), initialFiles[1]!), "utf8")).toContain(oldInstructions);
+  expect(readFileSync(join(experimental_scratchDirForTests(), initialFiles[0]!), "utf8")).toContain(oldInstructions);
   const turn = await harness.request((nextId += 1), "turn/start", {
     threadId,
     providerThreadId,
@@ -365,11 +364,10 @@ it("release and resume preserve native history while replacing prompts and host 
   expect(readFileSync(sessionFile, "utf8")).toContain(sentinel);
   const resumedFiles = scratchFiles();
   expect(resumedFiles).toEqual([
-    expect.stringMatching(/^bb-hide-dead-memory-tools\.ts$/u),
     expect.stringMatching(/^omp-append-.*\.md$/u),
     expect.stringMatching(/^omp-config-.*\.yml$/u),
   ]);
-  const resumedPrompt = readFileSync(join(experimental_scratchDirForTests(), resumedFiles[1]!), "utf8");
+  const resumedPrompt = readFileSync(join(experimental_scratchDirForTests(), resumedFiles[0]!), "utf8");
   expect(resumedPrompt).toContain(newInstructions);
   expect(resumedPrompt).not.toContain(oldInstructions);
   const registrations = readFileSync(rpcLog, "utf8")
@@ -474,7 +472,6 @@ it("prompt scratch files are removed after release and failed construction witho
     dynamicTools: [{ name: "bb_probe", description: "A bb tool.", inputSchema: { type: "object" } }],
   });
   expect(scratchFiles()).toEqual([
-    expect.stringMatching(/^bb-hide-dead-memory-tools\.ts$/u),
     expect.stringMatching(/^omp-append-.*\.md$/u),
     expect.stringMatching(/^omp-config-.*\.yml$/u),
   ]);

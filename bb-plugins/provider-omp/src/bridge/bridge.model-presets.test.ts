@@ -522,7 +522,7 @@ it("clears a stale preset snapshot when an explicit unknown preset falls back to
     options: { ...FULL_PERMISSION_OPTIONS, model: "preset:selected" },
   });
   expect(resumed.error, JSON.stringify(resumed)).toBeUndefined();
-  expect(overlays().at(-1)).toEqual({ memory: { backend: "off" },  memory: { backend: "off" }, tools: { approvalMode: "yolo" } });
+  expect(overlays().at(-1)).toEqual({ memory: { backend: "off" }, tools: { approvalMode: "yolo" } });
   expect(existsSync(snapshotPath)).toBe(false);
   expect(harness.deltasOf(threadId)).toContainEqual(expect.objectContaining({
     kind: "provider.warning",

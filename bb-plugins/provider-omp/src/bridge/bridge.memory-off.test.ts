@@ -67,12 +67,14 @@ it("every BB-hosted OMP session launch carries a config overlay that turns the n
     for (const path of configPathsForLaunch) {
       expect(JSON.parse(readFileSync(path, "utf8"))).toMatchObject({
         memory: { backend: "off" },
+        autolearn: { autoContinue: false },
       });
     }
   }
   // The overlay log is fed by the fake omp child reading the same files.
   for (const overlay of overlays()) {
-    expect(JSON.parse(overlay)).toMatchObject({ memory: { backend: "off" } });
+    expect(JSON.parse(overlay)).toMatchObject({ memory: { backend: "off" }, autolearn: { autoContinue: false } });
+    expect(JSON.parse(overlay)).not.toHaveProperty("extensions");
   }
 }, 30_000);
 
@@ -107,6 +109,7 @@ it("forked OMP sessions also launch with the memory-off overlay", async () => {
     for (const path of paths) {
       expect(JSON.parse(readFileSync(path, "utf8"))).toMatchObject({
         memory: { backend: "off" },
+        autolearn: { autoContinue: false },
       });
     }
   }
