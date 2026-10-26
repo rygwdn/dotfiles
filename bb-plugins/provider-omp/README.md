@@ -38,6 +38,12 @@ OMP extension dialogs use native `extension_ui_request` and
 `extension_ui_response` frames. Model and thinking changes use native RPC on the
 live session.
 
+Continuity uses the workspace `.omp/extensions/bb-continuity.ts` bootstrap and
+the thread's contributed `BB_CONTINUITY_*` environment. Session children receive
+those values unchanged; native `compact` RPC remains available. Sessionless
+model catalog probes omit these variables and ignore them in their cache key,
+so a model lookup cannot activate a thread's Continuity runtime.
+
 Each thread stores its sessions in
 `~/.bb/omp-bridge-sessions/<sanitized-providerThreadId>/`. Thread IDs use the
 `omp_<UUID>` prefix. The bridge resumes with `--session-dir <dir> --continue`,

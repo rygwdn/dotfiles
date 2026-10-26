@@ -275,7 +275,7 @@ function catalogKey(cwd: string, shellEnvOverrides: Record<string, string>): str
   return JSON.stringify([
     resolve(cwd),
     Object.entries(shellEnvOverrides)
-      .filter(([name]) => name !== "BB_THREAD_ID")
+      .filter(([name]) => name !== "BB_THREAD_ID" && !name.startsWith("BB_CONTINUITY_"))
       .sort(([left], [right]) => left.localeCompare(right)),
   ]);
 }
@@ -296,9 +296,13 @@ export function getOmpCatalog(
   if (existing) {
     return existing;
   }
-  // Catalogs are sessionless: thread identity must not prevent cwd/env sharing.
-  const catalogEnv = { ...shellEnvOverrides };
-  delete catalogEnv.BB_THREAD_ID;
+  // Sessionless probes must neither activate Continuity nor fragment the cache
+  // by its per-thread runtime directory.
+  const catalogEnv = Object.fromEntries(
+    Object.entries(shellEnvOverrides).filter(
+      ([name]) => name !== "BB_THREAD_ID" && !name.startsWith("BB_CONTINUITY_"),
+    ),
+  );
   const created = spawnCatalog(resolve(cwd), catalogEnv, () => touchCatalog(key)).catch(
     (error: unknown) => {
       catalogsByEnvironment.delete(key);

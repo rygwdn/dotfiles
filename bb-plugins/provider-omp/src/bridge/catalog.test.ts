@@ -88,6 +88,16 @@ describe("native omp catalog", () => {
     expect(peekOmpCatalog(paths.workspace, overrides)).toBe(profilePromise);
     expect(getOmpCatalog(paths.workspace, { ...overrides, BB_THREAD_ID: "thread-two" })).toBe(profilePromise);
     expect(peekOmpCatalog(paths.workspace, { ...overrides, BB_THREAD_ID: "thread-three" })).toBe(profilePromise);
+    expect(getOmpCatalog(paths.workspace, {
+      ...overrides,
+      BB_CONTINUITY_DIRECTORY: "/thread-one/continuity",
+      BB_CONTINUITY_EXTENSION: "/thread-one/extension.mjs",
+    })).toBe(profilePromise);
+    expect(peekOmpCatalog(paths.workspace, {
+      ...overrides,
+      BB_CONTINUITY_DIRECTORY: "/thread-two/continuity",
+      BB_CONTINUITY_EXTENSION: "/thread-two/extension.mjs",
+    })).toBe(profilePromise);
     const profileCatalog = await profilePromise;
     expect(profileCatalog).not.toBe(defaultCatalog);
     expect(await defaultCatalog.rawModels()).toEqual([FAKE_MODEL]);
