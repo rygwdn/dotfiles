@@ -7,7 +7,7 @@ my dot files
 
 `bb-plugins/` holds ordinary source directories for the local BB plugins,
 alongside `provider-omp`. The active checkout on this machine is
-`/Users/traceywooden/wt-dotfiles-bi13`, branch `bi13-omp-memory-cutover`.
+`/Users/traceywooden/dotfiles`, branch `master`.
 Build and install from the chosen dotfiles checkout; plugin data stays in BB's
 private storage under `~/.bb/plugins/<id>`.
 
@@ -23,12 +23,18 @@ then move the existing installation
 with `bb plugin install /absolute/path/to/dotfiles/bb-plugins/<directory> --yes`.
 This preserves its ID, settings and private data. Later source edits use
 `bb plugin reload <id>` after rebuilding. Do not uninstall to relocate a plugin.
-BB 0.47.1 refuses this move for the Git-managed `bots-sidebar` installation;
-its imported source is ready here, but its live source remains the exact managed
-revision until BB supports a configuration-preserving Git-to-path move.
+BB 0.47.1 refuses this move for the Git-managed `bots-sidebar` installation.
+Its source is ready here, but the live source remains the exact managed revision.
+Registration is a normalized row in `~/.bb/bb.db` (`plugins`), including the active
+artifact pointer; changing only `source` or `root_dir` is insufficient. A live
+external edit cannot acquire BB's in-memory lifecycle/registration locks or
+exclude its periodic update checks. The remaining move therefore requires a
+supported configuration-preserving Git-to-path operation, or an explicitly
+authorized maintenance window with BB stopped for a backed-up targeted change.
+Do not uninstall or edit the live registry to bypass this guard.
 Dependencies and runtime state are excluded from Git; Memory Fork retains its
 previously tracked distribution files. The original checkouts and managed Bots
-Sidebar cache are retained. The three relocated plugins use these dotfiles
+Sidebar cache are retained. The three relocated plugins and `provider-omp` use these dotfiles
 directories at runtime; the Bots Sidebar cache remains active while its move
 is blocked.
 

@@ -1,7 +1,8 @@
 # Independent Bots development
 
 Work in `bb-plugins/bots-sidebar` in the canonical dotfiles checkout (currently
-`bi13-omp-memory-cutover`). Confirm its path with `bb plugin list` before editing.
+`/Users/traceywooden/dotfiles` on `master`). Confirm its path with
+`bb plugin list` before editing.
 Original standalone checkouts and managed caches are historical safety copies.
 Build and reload `bots-sidebar` from this checkout; verify the installed
 source before deploying. The owner requested private, ID-keyed state,
