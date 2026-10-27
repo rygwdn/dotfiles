@@ -1,0 +1,2 @@
+/* Keep a CSS entry in the app graph so BB emits its themed utility stylesheet. */
+.continuity-root { min-width: 0; }

@@ -1,0 +1,71 @@
+{
+  "name": "bb-plugin-memory-fork",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Provider-independent durable memory for agents, with stable bot-private scopes. Forked from BB's official Memory plugin.",
+  "license": "MIT",
+  "homepage": "https://github.com/rygwdn/bb-plugin-memory-fork#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rygwdn/bb-plugin-memory-fork.git"
+  },
+  "files": [
+    "dist",
+    "server.ts",
+    "host.ts",
+    "omp-cutover-contract.ts",
+    "app.tsx",
+    "skills",
+    "README.md"
+  ],
+  "engines": {
+    "bb": ">=0.46",
+    "bbPluginSdk": ">=0.6.49"
+  },
+  "bb": {
+    "name": "Memory Fork",
+    "description": "Provider-independent durable memory for agents, with stable bot-private scopes. Forked from BB's official Memory plugin.",
+    "branding": {
+      "icon": "Brain"
+    },
+    "server": "./server.ts",
+    "host": "./host.ts",
+    "app": "./app.tsx",
+    "skills": [
+      "skills"
+    ]
+  },
+  "keywords": [
+    "bb-plugin"
+  ],
+  "scripts": {
+    "build": "bb plugin build",
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.5.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.7.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@get-bb/plugin-sdk": "0.6.49",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "12.10.0",
+    "cron-parser": "^5.10.2",
+    "hono": "^4.13.13",
+    "jsdom": "^29.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

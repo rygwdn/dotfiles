@@ -1,0 +1,955 @@
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import type { DragEvent, ReactElement } from "react";
+import { createPortal } from "react-dom";
+import { toast } from "sonner";
+import { useConversationDrop } from "./hooks/use-conversation-drop";
+import { useConversationReorder } from "./hooks/use-conversation-reorder";
+import { threadActionTarget } from "./lib/thread-action-target";
+import {
+  definePluginApp,
+  experimental_ThreadActionsContextMenu as ThreadActionsContextMenu,
+  useSdk,
+  useSidebarThreadShortcut,
+  ThreadTitle,
+  experimental_useSidebarThreadSplit,
+  experimental_useSidebarThreads,
+  useRealtime,
+  useRealtimeConnectionState,
+  useRpc,
+  useBbNavigate,
+} from "@get-bb/plugin-sdk/app";
+import type {
+  NewThreadRequest,
+  PluginSidebarThread,
+  BbNavigate,
+  PluginThreadListProps,
+} from "@get-bb/plugin-sdk/app";
+import type { BotAvatar, BotMemoryEntry, BotMetadata, BotSection, ProjectOwner, rpcContract } from "./contract";
+import { orderedBotConversationTree, conversationOwners } from "./lib/conversations";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { RenameConversationDialog } from "@/components/rename-conversation-dialog";
+import { SidebarConversationStatus } from "@/components/sidebar-conversation-status";
+import { BotActivityBadge } from "@/components/bot-activity-badge";
+import { ConversationArchiveButton } from "@/components/conversation-archive-button";
+import { BotNewConversationButton } from "@/components/bot-new-conversation-button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ChatsSection } from "@/components/chats-section";
+import { ConversationDialog } from "@/components/conversation-dialog";
+import type { ConversationTarget } from "@/components/conversation-dialog";
+import { AssignConversationDialog } from "@/components/assign-conversation-dialog";
+import * as ContextMenu from "@radix-ui/react-context-menu";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import * as Popover from "@radix-ui/react-popover";
+import { MachineSelect } from "./components/machine-select";
+import { BotProjectsPanel } from "./components/bot-projects-panel";
+import { ProjectCreateDialog } from "./components/project-create-dialog";
+import type { ProjectCreationActions } from "./components/project-create-form";
+import { usePortalScopeProps } from "./lib/portal-scope";
+import { conversationLaunchProjectId, ownedConversationProjectId, projectLaunchEnvironment, worktreeLaunchEnvironment, worktreeLaunchHostId } from "./lib/worktree-launch";
+import { randomAvatar } from "./lib/appearance";
+import { AvatarAppearance } from "./components/avatar-appearance";
+import { BotIcon } from "./components/bot-icon";
+import { SidebarBotIcon } from "./components/sidebar-bot-icon";
+import { MEMORY_MAX_CHARS } from "./lib/memory-limit";
+import { MEMORY_CLI } from "./lib/bot-instructions";
+import { emptyLaunchPreset, launchPresetSchema, type LaunchPreset } from "./lib/launch-preset";
+import { LaunchPresetEditor } from "./components/launch-preset-editor";
+import "./style.css";
+import { BuiltinThreadList, registerBuiltinThreadList } from "./integration/builtin-thread-list";
+import { BotThreadListContext } from "./integration/thread-list-sdk";
+
+const MENU_ITEM_CLASS = "bot-menu-item cursor-default select-none rounded-sm px-2 py-1.5 text-xs outline-none data-[disabled]:opacity-40";
+
+type HostOption = { id: string; name: string; connected: boolean };
+type ProjectOption = { id: string; name: string };
+type BotEditFields = Pick<BotMetadata, "hostId" | "name" | "role" | "avatar" | "sectionId" | "linkedProjectIds" | "soul" | "settings" | "launchPreset"> & { ownedProjectIds: string[]; memory?: string };
+type ProjectRole = "none" | "member" | "owner";
+type EditorTab = "setup" | "context" | "projects";
+type EditorTarget =
+  | { kind: "create" }
+  | { kind: "edit"; metadata: BotMetadata; projectOwners: ProjectOwner[]; tab?: EditorTab };
+
+function ownedProjectIdsFor(botId: string, owners: ProjectOwner[]): string[] {
+  return owners.filter((owner) => owner.botId === botId).map((owner) => owner.projectId);
+}
+
+function isPersonalOrLegacyHome(projectId: string, bot: BotMetadata, personalProjectId: string | null): boolean {
+  return projectId === personalProjectId || projectId === bot.legacyHomeProjectId;
+}
+
+function availableWorkProjects(projects: ProjectOption[], bot: BotMetadata, personalProjectId: string | null): ProjectOption[] {
+  const linked = new Set(bot.linkedProjectIds);
+  const work = projects.filter((project) => !isPersonalOrLegacyHome(project.id, bot, personalProjectId));
+  return [...work.filter((project) => linked.has(project.id)), ...work.filter((project) => !linked.has(project.id))];
+}
+
+function allowsConversationProject(projectId: string, bot: BotMetadata, personalProjectId: string | null, projects: ProjectOption[]): boolean {
+  if (projectId === personalProjectId) return true;
+  if (isPersonalOrLegacyHome(projectId, bot, personalProjectId)) return false;
+  return bot.linkedProjectIds.includes(projectId) || projects.some((project) => project.id === projectId);
+}
+
+/** Drop zone for a regular drag-to-assign: the bot's face places the thread first, the rest appends. */
+function threadDropPlace(wrapper: Element, clientY: number): "first" | "last" {
+  const face = wrapper.querySelector("[data-bot-drop-first]")?.getBoundingClientRect();
+  return face && clientY >= face.top && clientY <= face.bottom ? "first" : "last";
+}
+
+function TinyIcon({ name }: { name: "chevron" | "plus" | "edit" | "folder" | "hide" | "show" | "up" | "down" | "main" }) {
+  return (
+    <svg className="tiny-icon" aria-hidden="true" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      {name === "chevron" ? <path d="m7 5 5 5-5 5" /> : null}
+      {name === "plus" ? <path d="M10 4v12M4 10h12" /> : null}
+      {name === "edit" ? <><path d="m4 14 1 2 2-1 8-8-3-3-8 8Z" /><path d="m10.5 5.5 3 3" /></> : null}
+      {name === "folder" ? <path d="M2.5 6.5h6l1.5 2h7.5v7h-15v-9Zm0 0v-2h5l1.5 2" /> : null}
+      {name === "hide" ? <><path d="M3 3l14 14" /><path d="M8.2 6.2A7.8 7.8 0 0 1 10 6c4.5 0 7 4 7 4a12 12 0 0 1-2.1 2.5M11.7 13.8A7.8 7.8 0 0 1 10 14c-4.5 0-7-4-7-4a12 12 0 0 1 2.1-2.5" /></> : null}
+      {name === "show" ? <><path d="M3 10s2.5-4 7-4 7 4 7 4-2.5 4-7 4-7-4-7-4Z" /><circle cx="10" cy="10" r="2" /></> : null}
+      {name === "up" ? <path d="m5 12 5-5 5 5" /> : null}
+      {name === "down" ? <path d="m5 8 5 5 5-5" /> : null}
+      {name === "main" ? <path d="M10 3.5 12 7l4 .7-2.8 2.9.5 4.1L10 13l-3.7 1.7.5-4.1L4 7.7 8 7l2-3.5Z" /> : null}
+    </svg>
+  );
+}
+
+function useBotData() {
+  const rpc = useRpc<typeof rpcContract>();
+  const [bots, setBots] = useState<BotMetadata[]>([]);
+  const [hosts, setHosts] = useState<HostOption[]>([]);
+  const [sections, setSections] = useState<BotSection[]>([]);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [threadBindings, setThreadBindings] = useState<Array<{ threadId: string; botId: string }>>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [personalProjectId, setPersonalProjectId] = useState<string | null>(null);
+  const [projectOwners, setProjectOwners] = useState<ProjectOwner[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const refreshSequence = useRef(0);
+  const connectionState = useRealtimeConnectionState();
+  const previousConnection = useRef(connectionState);
+  const refresh = useCallback(() => {
+    const sequence = ++refreshSequence.current;
+    return rpc.call("bots_list").then(
+      (result) => {
+        if (sequence !== refreshSequence.current) return result;
+        setBots(result.bots);
+        setHosts(result.hosts);
+        setSections(result.sections);
+        setProjects(result.projects);
+        setThreadBindings(result.threadBindings);
+        setWarnings(result.warnings);
+        setPersonalProjectId(result.personalProjectId);
+        setProjectOwners(result.projectOwners ?? []);
+        setLoaded(true);
+        setError(null);
+        return result;
+      },
+      (cause) => {
+        if (sequence !== refreshSequence.current) return;
+        setLoaded(true);
+        setError(cause instanceof Error ? cause.message : String(cause));
+      },
+    );
+  }, [rpc]);
+  useEffect(() => { void refresh(); return () => { refreshSequence.current++; }; }, [refresh]);
+  useEffect(() => {
+    if (connectionState === "connected" && previousConnection.current !== "connected") void refresh();
+    previousConnection.current = connectionState;
+  }, [connectionState, refresh]);
+  useRealtime("project-bots-changed", refresh);
+  return { rpc, bots, hosts, sections, projects, threadBindings, warnings, personalProjectId, projectOwners, loaded, error, refresh };
+}
+
+function BotMemoryList({ state }: { state: { memories: BotMemoryEntry[]; available: boolean; detail?: string } | null }) {
+  if (!state) return <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">Loading memories...</div>;
+  if (!state.available) return <div className="flex flex-1 flex-col justify-center gap-1 text-xs text-muted-foreground"><span>BB memory is not available yet.</span>{state.detail ? <span className="truncate" title={state.detail}>{state.detail}</span> : null}</div>;
+  if (!state.memories.length) return <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">No bot memories yet. Facts are saved with {MEMORY_CLI} add --scope bot.</div>;
+  return <ul className="min-h-0 flex-1 list-none overflow-y-auto rounded-md border border-input bg-background p-1 text-xs" aria-label="Bot memory list">
+    {state.memories.map((memory) => <li key={memory.id} className="flex flex-col gap-0.5 rounded px-2 py-1.5 hover:bg-accent/50">
+      <span className="flex items-center gap-1.5 font-medium text-foreground"><span className="truncate">{memory.name}</span>{memory.pinned ? <span className="rounded bg-accent px-1 text-[10px] text-accent-foreground">pinned</span> : null}<span className="rounded bg-muted px-1 text-[10px] text-muted-foreground">{memory.kind}</span></span>
+      <span className="text-muted-foreground">{memory.summary}</span>
+      {memory.tags.length ? <span className="text-[10px] text-muted-foreground">{memory.tags.join(" · ")}</span> : null}
+    </li>)}
+  </ul>;
+}
+
+function BotEditor({ target, hosts, sections, projects, bots, projectOwners, onClose, onCreate, onUpdate, onCreateSection, onCreateProject, onBrowseProjects }: ProjectCreationActions & {
+  target: EditorTarget; hosts: HostOption[]; sections: BotSection[]; projects: ProjectOption[]; bots: BotMetadata[]; projectOwners: ProjectOwner[]; onClose: () => void;
+  onCreateSection: (name: string) => Promise<BotSection>;
+  onCreate: (value: BotEditFields & { hostId: string }) => Promise<void>;
+  onUpdate: (value: BotEditFields) => Promise<void>;
+}) {
+  const editing = target.kind === "edit";
+  const botId = editing ? target.metadata.id : null;
+  const [name, setName] = useState(editing ? target.metadata.name : "");
+  const [role, setRole] = useState(editing ? target.metadata.role : "Assistant");
+  const [hostId, setHostId] = useState(editing ? target.metadata.hostId : hosts.find((host) => host.connected)?.id ?? hosts[0]?.id ?? "");
+  const [memory, setMemory] = useState(editing ? target.metadata.memory : "");
+  const [launchPreset, setLaunchPreset] = useState<LaunchPreset>(() => editing && target.metadata.launchPreset ? target.metadata.launchPreset : emptyLaunchPreset());
+  const [settingsText, setSettingsText] = useState(() => `${JSON.stringify(editing ? target.metadata.settings : {}, null, 2)}\n`);
+  const [stateFile, setStateFile] = useState<"SOUL.md" | "memory-bb" | "MEMORY.md" | "settings.json">("SOUL.md");
+  const rpc = useRpc<typeof rpcContract>();
+  const [botMemory, setBotMemory] = useState<{ memories: BotMemoryEntry[]; available: boolean; detail?: string } | null>(null);
+  useEffect(() => {
+    if (target.kind !== "edit" || stateFile !== "memory-bb") return;
+    const id = target.metadata.id;
+    let cancelled = false;
+    rpc.call("bot_memory_list", { botId: id }).then(
+      (result) => { if (!cancelled) setBotMemory(result); },
+      (cause) => { if (!cancelled) setBotMemory({ memories: [], available: false, detail: cause instanceof Error ? cause.message : String(cause) }); },
+    );
+    return () => { cancelled = true; };
+  }, [stateFile, rpc, target]);
+  const portalScope = usePortalScopeProps();
+  const initialOwners = editing ? target.projectOwners : projectOwners;
+  const [owners] = useState(initialOwners);
+  const [botNames] = useState(() => new Map(bots.map((bot) => [bot.id, bot.name])));
+  const [ownedProjectIds, setOwnedProjectIds] = useState<string[]>(() => botId ? ownedProjectIdsFor(botId, initialOwners) : []);
+  const [linkedProjectIds, setLinkedProjectIds] = useState<string[]>(() => {
+    const linked = editing ? target.metadata.linkedProjectIds : [];
+    return [...new Set([...linked, ...ownedProjectIdsFor(botId ?? "", initialOwners)])];
+  });
+  const [projectPending, setProjectPending] = useState(false);
+  const [projectDraft, setProjectDraft] = useState(false);
+  const [sectionId, setSectionId] = useState<string | null>(editing ? target.metadata.sectionId : null);
+  const [soul, setSoul] = useState(editing ? target.metadata.soul : "");
+  const [sectionDraft, setSectionDraft] = useState<string | null>(null);
+  const [createdSections, setCreatedSections] = useState<BotSection[]>([]);
+  const sectionOptions = [...sections, ...createdSections.filter((created) => !sections.some((section) => section.id === created.id))];
+  const [avatar, setAvatar] = useState<BotAvatar>(() => editing ? target.metadata.avatar : randomAvatar());
+  const [pending, setPending] = useState(false);
+  const saving = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<EditorTab>(editing ? target.tab ?? "setup" : "setup");
+  const tabsId = useId();
+  const tabs = [{ id: "setup", label: "Bot" }, { id: "context", label: "Context" }, { id: "projects", label: `Projects${linkedProjectIds.length ? ` · ${linkedProjectIds.length}` : ""}` }] as const;
+  function setProjectRole(projectId: string, next: ProjectRole) {
+    const otherOwner = owners.find((owner) => owner.projectId === projectId && owner.botId !== botId);
+    if (next === "owner" && otherOwner) return;
+    setLinkedProjectIds((current) => next === "none" ? current.filter((id) => id !== projectId) : current.includes(projectId) ? current : [...current, projectId]);
+    setOwnedProjectIds((current) => next === "owner" ? (current.includes(projectId) ? current : [...current, projectId]) : current.filter((id) => id !== projectId));
+  }
+  async function createSection() {
+    if (pending || !sectionDraft?.trim()) return;
+    setPending(true); setError(null);
+    try {
+      const section = await onCreateSection(sectionDraft.trim());
+      setCreatedSections((current) => [...current, section]);
+      setSectionId(section.id); setSectionDraft(null);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setPending(false); }
+  }
+  function closeEditor() {
+    if (saving.current || pending || projectPending) return;
+    const stateDirty = editing && (memory !== target.metadata.memory || settingsText !== `${JSON.stringify(target.metadata.settings, null, 2)}\n` || JSON.stringify(launchPreset) !== JSON.stringify(target.metadata.launchPreset ?? emptyLaunchPreset()));
+    if (!stateDirty || window.confirm("Discard unsaved bot state changes?")) onClose();
+  }
+  async function submit() {
+    if (saving.current || pending || projectPending || projectDraft || sectionDraft !== null) return;
+    saving.current = true; setPending(true); setError(null);
+    try {
+      const preset = launchPresetSchema.safeParse(launchPreset);
+      if (!preset.success) { setTab("setup"); throw new Error(preset.error.issues[0]?.message ?? "Check the new conversation defaults."); }
+      let parsed: unknown;
+      try { parsed = JSON.parse(settingsText, (_key, value: unknown) => { if (typeof value === "number" && !Number.isFinite(value)) throw new Error("Settings numbers must be finite"); return value; }); }
+      catch { setTab("context"); setStateFile("settings.json"); throw new Error("settings.json must contain valid JSON. Your draft is kept."); }
+      if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") { setTab("context"); setStateFile("settings.json"); throw new Error("settings.json must contain a JSON object. Your draft is kept."); }
+      if (`${JSON.stringify(parsed, null, 2)}\n`.length > 16384) { setTab("context"); setStateFile("settings.json"); throw new Error("settings.json is too large (maximum 16384 characters). Your draft is kept."); }
+      const memoryChanged = !editing || memory !== target.metadata.memory;
+      if (memoryChanged && memory.length > MEMORY_MAX_CHARS) { setTab("context"); setStateFile("MEMORY.md"); throw new Error("MEMORY.md must be at most 3000 characters. Shorten your draft before saving; it has been kept."); }
+      const fields = { hostId, name: name.trim(), role: role.trim(), avatar, sectionId, soul, ...(memoryChanged ? { memory } : {}), settings: parsed as BotMetadata["settings"], linkedProjectIds, ownedProjectIds, launchPreset: preset.data.execution || preset.data.initialPrompt || preset.data.workspace !== "checkout" ? preset.data : null };
+      if (target.kind === "edit") await onUpdate(fields);
+      else await onCreate({ ...fields, hostId });
+      onClose();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); } finally { saving.current = false; setPending(false); }
+  }
+  return <Dialog open onOpenChange={(open) => { if (!open) closeEditor(); }}>
+    <DialogContent className="bot-editor-dialog flex max-h-[85dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+      <form className="flex min-h-0 flex-1 flex-col" onSubmit={(event) => event.preventDefault()} onKeyDown={(event) => { if (event.key === "Enter" && event.target instanceof HTMLInputElement) { event.preventDefault(); event.stopPropagation(); } }}>
+        <DialogHeader className="shrink-0 px-4 pt-4 pr-10 pb-3">
+          <DialogTitle>{editing ? "Edit bot" : "Create bot"}</DialogTitle>
+          <DialogDescription>An identity, private state, and optional linked projects.</DialogDescription>
+        </DialogHeader>
+        <div className="flex shrink-0 items-end gap-3 px-4 pb-3">
+          <div className="flex shrink-0 items-center gap-0.5">
+            <Popover.Root>
+              <Popover.Trigger asChild><button type="button" disabled={pending} className="flex size-14 shrink-0 items-center justify-center rounded-lg hover:bg-state-hover" aria-label="Customize avatar" title="Customize appearance"><BotIcon avatar={avatar} size={48} label="Bot preview" /></button></Popover.Trigger>
+              <Popover.Portal><Popover.Content {...portalScope} aria-label="Bot appearance" align="start" sideOffset={6} className="z-50 max-h-[60vh] w-72 max-w-[calc(100vw-24px)] overflow-y-auto rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md">
+                <fieldset disabled={pending}><AvatarAppearance avatar={avatar} onChange={setAvatar} showRandomize={false} /></fieldset>
+              </Popover.Content></Popover.Portal>
+            </Popover.Root>
+            <Tooltip><TooltipTrigger asChild><Button type="button" size="icon" variant="ghost" className="h-6 w-6 shrink-0 text-muted-foreground" disabled={pending} aria-label="Randomize appearance" onClick={() => setAvatar(randomAvatar())}>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="3" width="18" height="18" rx="4" /><g fill="currentColor" stroke="none"><circle cx="8" cy="8" r="1.5" /><circle cx="16" cy="8" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="8" cy="16" r="1.5" /><circle cx="16" cy="16" r="1.5" /></g></svg>
+            </Button></TooltipTrigger><TooltipContent>Randomize appearance</TooltipContent></Tooltip>
+          </div>
+          <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
+            <label className="min-w-0 space-y-1 text-xs font-medium text-muted-foreground">Bot name<Input autoFocus className="h-8" value={name} maxLength={120} onChange={(event) => setName(event.target.value)} placeholder="Research bot" /></label>
+            <label className="min-w-0 space-y-1 text-xs font-medium text-muted-foreground">Role<Input className="h-8" value={role} maxLength={80} onChange={(event) => setRole(event.target.value)} placeholder="Assistant" /></label>
+          </div>
+        </div>
+        <div role="tablist" aria-label="Bot settings" className="flex shrink-0 gap-1 border-b border-border px-4" onKeyDown={(event) => {
+          if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+          event.preventDefault(); event.stopPropagation();
+          const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+          const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+          const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+          setTab(tabs[next]!.id); buttons[next]?.focus();
+        }}>
+          {tabs.map((entry) => <button key={entry.id} id={`${tabsId}-${entry.id}`} type="button" role="tab" aria-selected={tab === entry.id} aria-controls={`${tabsId}-panel`} tabIndex={tab === entry.id ? 0 : -1} className="min-w-0 flex-1 truncate rounded-t px-1.5 py-2 text-[11px] font-medium text-muted-foreground hover:bg-state-hover aria-selected:bg-state-active aria-selected:text-foreground" onClick={() => setTab(entry.id)}>{entry.label}</button>)}
+        </div>
+        <div id={`${tabsId}-panel`} role="tabpanel" aria-labelledby={`${tabsId}-${tab}`} className="bot-editor-panel h-60 min-h-0 overflow-y-auto px-4 py-3">
+          {tab === "setup" ? <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block space-y-1 text-xs font-medium text-muted-foreground">Section<select className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground" value={sectionDraft !== null ? "__create_section__" : sectionId ?? ""} onChange={(event) => {
+                  if (event.target.value === "__create_section__") setSectionDraft("");
+                  else { setSectionId(event.target.value || null); setSectionDraft(null); }
+                }}><option value="">Main</option>{sectionOptions.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}<option value="__create_section__">Create New…</option></select></label>
+                {sectionDraft !== null ? <div className="space-y-1">
+                  <Input autoFocus className="h-8" aria-label="New section name" value={sectionDraft} maxLength={80} onChange={(event) => setSectionDraft(event.target.value)} />
+                  <div className="flex items-center gap-2"><Button type="button" size="sm" disabled={pending || !sectionDraft.trim()} onClick={() => void createSection()}>Add section</Button><button type="button" aria-label="Cancel section creation" className="text-[11px] text-muted-foreground hover:text-foreground" disabled={pending} onClick={() => setSectionDraft(null)}>Cancel</button></div>
+                </div> : null}
+              </div>
+              <MachineSelect hosts={hosts} value={hostId} onValueChange={setHostId} disabled={pending} />
+            </div>
+            <p className="text-[11px] text-muted-foreground">State is stored privately in BB. Machine is the default for new conversations.</p>
+            <LaunchPresetEditor value={launchPreset} onChange={setLaunchPreset} hostId={hostId} disabled={pending} />
+          </div> : null}
+          {tab === "context" ? <div className="flex h-full min-h-0 flex-col gap-2">
+            <div className="flex shrink-0 items-center justify-between gap-2">
+              <select aria-label="Context document" className="h-7 min-w-0 rounded border border-input bg-background px-2 text-xs text-foreground" value={stateFile} onChange={(event) => setStateFile(event.target.value as typeof stateFile)}>
+                <option value="SOUL.md">Instructions · SOUL.md</option><option value="memory-bb">Memory · BB memory</option><option value="MEMORY.md">Legacy memory · MEMORY.md (read-only)</option><option value="settings.json">Settings · settings.json</option>
+              </select>
+              <span className="text-[10px] text-muted-foreground">{stateFile === "memory-bb" ? `${botMemory?.memories.length ?? "…"} memories` : `${(stateFile === "SOUL.md" ? soul : stateFile === "MEMORY.md" ? memory : settingsText).length}/${stateFile === "SOUL.md" ? 4096 : stateFile === "MEMORY.md" ? MEMORY_MAX_CHARS : 16384}`}</span>
+            </div>
+            {stateFile === "memory-bb" ? <BotMemoryList state={botMemory} /> : <textarea aria-label={stateFile} className="min-h-24 w-full flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 font-mono text-xs text-foreground" value={stateFile === "SOUL.md" ? soul : stateFile === "MEMORY.md" ? memory : settingsText} maxLength={stateFile === "SOUL.md" ? 4096 : stateFile === "MEMORY.md" ? undefined : 16384} disabled={pending || stateFile === "MEMORY.md"} spellCheck={stateFile === "SOUL.md"} onKeyDown={(event) => event.stopPropagation()} onKeyUp={(event) => event.stopPropagation()} onChange={(event) => stateFile === "SOUL.md" ? setSoul(event.target.value) : stateFile === "MEMORY.md" ? setMemory(event.target.value) : setSettingsText(event.target.value)} placeholder={stateFile === "SOUL.md" ? "Personality, perspective, and communication style." : undefined} />}
+            {stateFile === "MEMORY.md" && memory.length > MEMORY_MAX_CHARS ? <p role="status" className="text-xs text-destructive">Memory exceeds 3000 characters. Shorten it before saving a memory change. Existing text is kept.</p> : null}
+            {stateFile === "MEMORY.md" ? <p className="shrink-0 text-[10px] text-muted-foreground">Read-only legacy. Durable facts now live in BB memory; this file is kept until migration completes.</p> : <p className="shrink-0 text-[10px] text-muted-foreground">Private to this bot. Saved together with the bot; don’t store credentials here.</p>}
+          </div> : null}
+          <div hidden={tab !== "projects"}><BotProjectsPanel projects={projects} owners={owners} botNames={botNames} botId={botId} botName={name} hostId={hostId} hosts={hosts} linkedProjectIds={linkedProjectIds} ownedProjectIds={ownedProjectIds} onRoleChange={setProjectRole} onBusyChange={setProjectPending} onDraftChange={setProjectDraft} onCreateProject={onCreateProject} onBrowseProjects={onBrowseProjects} /></div>
+        </div>
+        {error ? <p role="alert" className="max-h-20 shrink-0 overflow-y-auto px-4 pb-2 text-xs text-destructive">{error}</p> : null}
+        <DialogFooter className="shrink-0 border-t border-border px-4 py-3"><Button type="button" variant="ghost" disabled={pending || projectPending} onClick={closeEditor}>Cancel</Button><Button type="button" onClick={() => void submit()} disabled={pending || projectPending || projectDraft || sectionDraft !== null || !name.trim() || (!editing && !hostId)}>{pending ? "Saving..." : editing ? "Save bot" : "Create bot"}</Button></DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>;
+}
+
+type MenuItem = { label: string; action: () => void; disabled?: boolean };
+function RowContextMenu({ children, items }: { children: ReactElement; items: MenuItem[] }) {
+  const portalScope = usePortalScopeProps();
+  return <ContextMenu.Root>
+    <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
+    <ContextMenu.Portal>
+      <ContextMenu.Content {...portalScope} className="z-50 min-w-52 max-w-[calc(100vw-12px)] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md">
+        {items.map((item) => <ContextMenu.Item key={item.label} disabled={item.disabled} className={MENU_ITEM_CLASS} onSelect={item.action}>{item.label}</ContextMenu.Item>)}
+      </ContextMenu.Content>
+    </ContextMenu.Portal>
+  </ContextMenu.Root>;
+}
+
+function ConversationContextMenu({ children, thread, items = [], dragging }: {
+  children: ReactElement;
+  thread: PluginSidebarThread;
+  items?: MenuItem[];
+  dragging?: boolean;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const sdk = useSdk();
+  return <>
+    <ThreadActionsContextMenu
+      thread={threadActionTarget(thread)}
+      dragging={dragging}
+      requestRename={() => setRenaming(true)}
+      inline={items.map((item) => ({
+        key: item.label,
+        group: "00-bots",
+        action: { label: item.label, icon: "MessageCircle", disabled: item.disabled, run: item.action },
+      }))}
+    >{children}</ThreadActionsContextMenu>
+    {renaming ? <RenameConversationDialog title={thread.title ?? thread.titleFallback ?? "Untitled conversation"} onSave={async (title) => { await sdk.threads.update({ threadId: thread.id, title }); }} onClose={() => setRenaming(false)} /> : null}
+  </>;
+}
+
+function useConversationBranch(threadId: string, activeThreadId: string | null, activePath: Set<string>) {
+  const containsActive = threadId !== activeThreadId && activePath.has(threadId);
+  const [expanded, setExpanded] = useState(containsActive);
+  const childrenId = useId();
+  const rowRef = useRef<HTMLAnchorElement>(null);
+  // Other branches start closed. Reveal the active path on navigation, without
+  // forcing it back open when the user deliberately collapses it afterwards.
+  useEffect(() => { if (containsActive) setExpanded(true); }, [activeThreadId, containsActive]);
+  useEffect(() => {
+    if (threadId === activeThreadId) rowRef.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [threadId, activeThreadId]);
+  return { expanded, toggle: () => setExpanded((current) => !current), childrenId, rowRef, containsActive };
+}
+
+function BranchToggle({ title, count, expanded, childrenId, onToggle }: { title: string; count: number; expanded: boolean; childrenId: string; onToggle: () => void }) {
+  return count ? <button type="button" className="conversation-disclosure" aria-label={`${expanded ? "Collapse" : "Expand"} children of ${title}`} aria-expanded={expanded} aria-controls={childrenId} title={`${count} child conversations`} onClick={onToggle}>
+    <span className="text-[9px] tabular-nums" aria-hidden="true">{count}</span>
+    <span className={expanded ? "rotate-90" : ""}><TinyIcon name="chevron" /></span>
+  </button> : null;
+}
+
+type ReorderConversation = (threadId: string, targetThreadId: string, position: "before" | "after") => void;
+
+function ThreadRow({ thread, siblings, childrenByParent, activePath, navigate, activeThreadId, onNavigate, onReorder, onNewInWorktree, onFork, onNest, reorderDrag }: {
+  thread: PluginSidebarThread; siblings: PluginSidebarThread[]; childrenByParent: Map<string, PluginSidebarThread[]>; activePath: Set<string>; navigate: BbNavigate; activeThreadId: string | null; onNavigate: () => void; onReorder: ReorderConversation; onNewInWorktree: (thread: PluginSidebarThread) => void; onFork: (thread: PluginSidebarThread) => void; onNest: (threadId: string, parentThreadId: string) => void; reorderDrag: ReturnType<typeof useConversationReorder>;
+}) {
+  const split = experimental_useSidebarThreadSplit(thread.id);
+  const shortcut = useSidebarThreadShortcut(thread.id);
+  const children = childrenByParent.get(thread.id) ?? [];
+  const branch = useConversationBranch(thread.id, activeThreadId, activePath);
+  const title = thread.displayTitle ?? thread.title ?? thread.titleFallback ?? "Untitled conversation";
+  const [dropPosition, setDropPosition] = useState<"before" | "after" | "inside" | null>(null);
+  const position = (event: DragEvent) => {
+    const bounds = event.currentTarget.querySelector(".thread-row")!.getBoundingClientRect();
+    return event.clientY > bounds.top + bounds.height / 2 ? "after" : "before";
+  };
+  useEffect(() => {
+    const clear = () => setDropPosition(null);
+    window.addEventListener("dragend", clear); window.addEventListener("drop", clear); window.addEventListener("blur", clear);
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") clear(); };
+    window.addEventListener("keydown", escape);
+    return () => { window.removeEventListener("dragend", clear); window.removeEventListener("drop", clear); window.removeEventListener("blur", clear); window.removeEventListener("keydown", escape); };
+  }, []);
+  return <li data-thread-drop-target={thread.id} data-drop-position={reorderDrag.target?.id === thread.id ? reorderDrag.target.position : dropPosition} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropPosition(null); }} onDragOver={(event) => {
+    if (!event.dataTransfer.types.includes("application/x-bb-thread-id")) return;
+    event.preventDefault(); event.stopPropagation(); setDropPosition(event.shiftKey ? "inside" : position(event));
+  }} onDrop={(event) => {
+    if (!event.dataTransfer.types.includes("application/x-bb-thread-id")) return;
+    event.preventDefault(); event.stopPropagation(); setDropPosition(null);
+    const source = event.dataTransfer.getData("application/x-bb-thread-id");
+    if (source && source !== thread.id) {
+      if (event.shiftKey) onNest(source, thread.id);
+      else onReorder(source, thread.id, position(event));
+    }
+  }}><ConversationContextMenu thread={thread} dragging={reorderDrag.drag?.threadId === thread.id} items={[
+    { label: "New conversation in worktree…", action: () => onNewInWorktree(thread) },
+    { label: "Fork in same environment…", action: () => onFork(thread) },
+    { label: "Move to top", action: () => onReorder(thread.id, siblings[0]!.id, "before"), disabled: siblings[0]?.id === thread.id },
+  ]}>
+    <div draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("application/x-bb-thread-id", thread.id); }} className="thread-row flex min-h-7 items-center rounded-md text-xs text-muted-foreground hover:bg-state-hover hover:text-foreground" aria-current={activeThreadId === thread.id ? "page" : undefined} data-active-descendant={!branch.expanded && branch.containsActive}>
+      <a href={thread.href} {...split.splitProps} onPointerDown={(event) => { split.splitProps.onPointerDown?.(event); reorderDrag.begin(thread, event); }} ref={branch.rowRef} role="link" tabIndex={0} aria-current={activeThreadId === thread.id ? "page" : undefined} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); navigate.toThread(thread.id, { split: event.metaKey || event.ctrlKey }); onNavigate(); } }} data-sidebar-thread-shortcut-target="" data-sidebar-thread-id={thread.id} aria-keyshortcuts={shortcut?.ariaKeyshortcuts} className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 py-1 pr-1" onClick={(event) => { event.preventDefault(); navigate.toThread(thread.id, { split: event.metaKey || event.ctrlKey }); onNavigate(); }}>
+        <SidebarConversationStatus thread={thread} /><span className="min-w-0 flex-1 truncate"><ThreadTitle threadId={thread.id} /></span>{shortcut ? <kbd className="shrink-0 rounded bg-muted px-1 text-[9px]">{shortcut.label}</kbd> : null}
+      </a>
+      <ConversationArchiveButton thread={thread} />
+      <BranchToggle title={title} count={children.length} expanded={branch.expanded} childrenId={branch.childrenId} onToggle={branch.toggle} />
+    </div>
+  </ConversationContextMenu>{children.length ? <ul id={branch.childrenId} className="conversation-children" hidden={!branch.expanded}>{branch.expanded ? children.map((child) => <ThreadRow key={child.id} thread={child} siblings={children} childrenByParent={childrenByParent} activePath={activePath} navigate={navigate} activeThreadId={activeThreadId} onNavigate={onNavigate} onReorder={onReorder} onNewInWorktree={onNewInWorktree} onFork={onFork} onNest={onNest} reorderDrag={reorderDrag} />) : null}</ul> : null}</li>;
+}
+
+function BotGroup({
+  metadata,
+  ownedProjectNames,
+  threads,
+  selected,
+  activeThreadId,
+  navigate,
+  topicsVisible,
+  onToggleTopics,
+  onEdit,
+  onVisibilityChange,
+  hidden,
+  onOpenBot,
+  onNavigate,
+  onReorder,
+  onNewInWorktree,
+  onFork,
+  onNest,
+  onNewConversation,
+  onNewInProject,
+  hasWorkProjects,
+  onDragStart,
+  onDragEnd,
+  dragging,
+  conversationDropTarget,
+  threadDrop,
+}: {
+  metadata: BotMetadata;
+  ownedProjectNames: string[];
+  threads: PluginSidebarThread[];
+  selected: boolean;
+  activeThreadId: string | null;
+  navigate: BbNavigate;
+  topicsVisible: boolean;
+  onToggleTopics: () => void;
+  onEdit: (tab?: EditorTab) => void;
+  onVisibilityChange: (hidden: boolean) => void;
+  hidden: boolean;
+  onOpenBot: () => void;
+  onNavigate: () => void;
+  onReorder: ReorderConversation;
+  onNewInWorktree: (thread?: PluginSidebarThread) => void;
+  onFork: (thread: PluginSidebarThread) => void;
+  onNest: (threadId: string, parentThreadId: string) => void;
+  onNewConversation: () => void;
+  onNewInProject: () => void;
+  hasWorkProjects: boolean;
+  onDragStart: (event: DragEvent) => void;
+  onDragEnd: () => void;
+  dragging: boolean;
+  conversationDropTarget: "first" | "last" | null;
+  threadDrop: "first" | "last" | null;
+}) {
+  const { childrenByParent, activePath, roots } = useMemo(() => orderedBotConversationTree(threads, metadata.threadOrder, activeThreadId), [threads, metadata.threadOrder, activeThreadId]);
+  const conversationsId = useId();
+  const reorderDrag = useConversationReorder(threads, onReorder, onNest, metadata.id, roots[0]?.id);
+  const dropToTop = conversationDropTarget === "first" || Boolean(reorderDrag.target?.botRow);
+  // An HTML5 thread drag hovering this bot (regular drag-to-assign) takes hint
+  // precedence; the pointer-based assignment gesture keeps its own hints.
+  const dropHint = threadDrop === "first" ? "Drop to make top conversation"
+    : threadDrop === "last" ? "Drop to add at end"
+    : conversationDropTarget === "first" ? "Make first"
+    : conversationDropTarget === "last" ? "Add to end"
+    : dropToTop ? "Drop to make top conversation" : null;
+  const portalScope = usePortalScopeProps();
+  const renderThread = (thread: PluginSidebarThread) => <ThreadRow key={thread.id} thread={thread} siblings={roots} childrenByParent={childrenByParent} activePath={activePath} navigate={navigate} activeThreadId={activeThreadId} onNavigate={onNavigate} onReorder={onReorder} onNewInWorktree={onNewInWorktree} onFork={onFork} onNest={onNest} reorderDrag={reorderDrag} />;
+  const botSelected = selected || threads.some((thread) => thread.id === activeThreadId);
+  const latest = roots[0];
+  const subtitle = [metadata.role, ownedProjectNames.join(", ")].filter(Boolean).join(" · ");
+  const subtitleTitle = [metadata.role, ownedProjectNames.length ? `Owned projects: ${ownedProjectNames.join(", ")}` : ""].filter(Boolean).join(" · ");
+  const idleVariant = [...metadata.id].reduce((total, character) => total + character.charCodeAt(0), 0) % 3;
+  return (
+    <section className="project-group">
+      <RowContextMenu items={[
+        { label: "New conversation…", action: onNewConversation },
+        { label: "New conversation in project…", action: onNewInProject, disabled: !hasWorkProjects },
+        { label: "New conversation in worktree…", action: () => onNewInWorktree(), disabled: !hasWorkProjects },
+        { label: topicsVisible ? "Collapse conversations" : "Expand conversations", action: onToggleTopics },
+        { label: "Edit bot…", action: () => onEdit() },
+        { label: "Add / manage projects…", action: () => onEdit("projects") },
+        { label: hidden ? "Show in sidebar" : "Hide until activity", action: () => onVisibilityChange(!hidden) },
+      ]}>
+      <div className="project-row relative flex cursor-grab items-center rounded-lg px-1.5 aria-current:bg-state-active data-[hidden=true]:opacity-55 data-[dragging=true]:opacity-35 active:cursor-grabbing" aria-current={botSelected ? "page" : undefined} data-hidden={hidden} data-dragging={dragging} data-bot-drop-target={metadata.id} data-conversation-drop={Boolean(dropHint)} data-thread-drop-hover={threadDrop !== null} draggable onDragStart={onDragStart} onDragEnd={onDragEnd}>
+        <button type="button" className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left" onClick={(event) => { if (event.detail < 2) onOpenBot(); }} onDoubleClick={(event) => { event.preventDefault(); onToggleTopics(); }}>
+          <span data-bot-drop-first data-drop-active={conversationDropTarget === "first" || threadDrop === "first"} className="bot-icon-shell relative flex size-8 shrink-0 items-center justify-center">
+            <SidebarBotIcon botId={metadata.id} avatar={metadata.avatar} threads={threads} idleVariant={idleVariant} selected={botSelected} />
+            <BotActivityBadge threads={threads} mainThreadId={latest?.id ?? null} />
+          </span>
+          <span data-bot-drop-append data-drop-active={conversationDropTarget === "last" || threadDrop === "last"} className="min-w-0 flex-1">
+            <span className="flex items-baseline gap-2">
+              <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-foreground">{metadata.name}</span>
+            </span>
+            <span className="bot-subtitle block truncate text-[10px] leading-4 text-muted-foreground" title={dropHint ?? subtitleTitle}>{dropHint ?? subtitle}</span>
+          </span>
+        </button>
+        <BotNewConversationButton name={metadata.name} onClick={onNewConversation} />
+        <button type="button" className="conversation-disclosure" aria-label={`${topicsVisible ? "Collapse" : "Expand"} conversations for ${metadata.name}`} aria-expanded={topicsVisible} aria-controls={conversationsId} onClick={onToggleTopics}>
+          <span className="text-[9px] tabular-nums" aria-hidden="true">{roots.length || ""}</span>
+          <span className={topicsVisible ? "rotate-90" : ""}><TinyIcon name="chevron" /></span>
+        </button>
+      </div>
+      </RowContextMenu>
+      <div id={conversationsId} role="group" aria-label={`Conversations for ${metadata.name}`} className="bot-topics" hidden={!topicsVisible}>
+        {topicsVisible ? <ul>{roots.map(renderThread)}</ul> : null}
+      </div>
+      {reorderDrag.drag ? createPortal(<div {...portalScope} ref={reorderDrag.ghostRef} className="conversation-drag-ghost rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md" aria-hidden="true"><div className="truncate">{reorderDrag.drag.title}</div><div className="text-[10px] text-muted-foreground">{reorderDrag.target ? reorderDrag.target.botRow ? "Make top conversation" : reorderDrag.target.position === "inside" ? "Nest conversation" : "Reorder conversation" : "Drag above/below a sibling · Shift to nest"}</div></div>, document.body) : null}
+    </section>
+  );
+}
+
+
+function BotsSidebar(props: PluginThreadListProps) {
+  const { activeThreadId, onNavigate } = props;
+  const sidebar = experimental_useSidebarThreads();
+  const navigate = useBbNavigate();
+  const portalScope = usePortalScopeProps();
+  const [conversation, setConversation] = useState<ConversationTarget | null>(null);
+  const { rpc, bots, hosts, sections, projects, threadBindings, warnings, personalProjectId, projectOwners, loaded, error, refresh } = useBotData();
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState<PluginSidebarThread | null>(null);
+  const [editor, setEditor] = useState<EditorTarget | null>(null);
+  const [showHidden, setShowHidden] = useState(false);
+  const [addingSection, setAddingSection] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const projectActions: ProjectCreationActions = {
+    onCreateProject: async (input) => { const project = await rpc.call("project_create", input); void refresh(); return project; },
+    onBrowseProjects: (input) => rpc.call("project_browse", input),
+  };
+  const [sectionName, setSectionName] = useState("");
+  const [sectionPending, setSectionPending] = useState(false);
+  const [editingSection, setEditingSection] = useState<BotSection | null>(null);
+  const [shownTopicBots, setShownTopicBots] = useState<Set<string>>(() => new Set());
+  const sidebarElement = useRef<HTMLDivElement>(null);
+  const [droppedConversation, setDroppedConversation] = useState<{ botId: string; threadId: string } | null>(null);
+  useEffect(() => {
+    if (!droppedConversation || !shownTopicBots.has(droppedConversation.botId)) return;
+    const botRow = Array.from(sidebarElement.current?.querySelectorAll<HTMLElement>("[data-bot-drop-target]") ?? [])
+      .find(row => row.dataset.botDropTarget === droppedConversation.botId);
+    const threadRow = Array.from(botRow?.closest(".project-group")?.querySelectorAll<HTMLElement>("[data-sidebar-thread-id]") ?? [])
+      .find(row => row.dataset.sidebarThreadId === droppedConversation.threadId);
+    if (!threadRow) return;
+    threadRow.scrollIntoView?.({ block: "nearest", inline: "nearest", behavior: "instant" });
+    setDroppedConversation(null);
+  }, [droppedConversation, shownTopicBots, threadBindings, sidebar.threads]);
+  const [draggedBotId, setDraggedBotId] = useState<string | null>(null);
+  // Regular HTML5 thread drags: the bot row currently hovered as an
+  // assignment target. Native reorder/nest drags are untouched; only a drop
+  // that lands on a bot row assigns.
+  const [threadDropTarget, setThreadDropTarget] = useState<{ botId: string; place: "first" | "last" } | null>(null);
+  // A drop or dragend anywhere clears a leftover assignment hover highlight.
+  useEffect(() => {
+    if (!threadDropTarget) return;
+    const clear = () => setThreadDropTarget(null);
+    window.addEventListener("dragend", clear);
+    window.addEventListener("drop", clear);
+    return () => { window.removeEventListener("dragend", clear); window.removeEventListener("drop", clear); };
+  }, [threadDropTarget]);
+  // Dragover cannot read protected drag data, so remember which thread a
+  // regular drag carries (set at dragstart) and skip already-owned threads.
+  const threadDragId = useRef<string | null>(null);
+  useEffect(() => {
+    const start = (event: globalThis.DragEvent) => {
+      if (event.dataTransfer?.types?.includes("application/x-bb-thread-id")) threadDragId.current = event.dataTransfer.getData("application/x-bb-thread-id");
+    };
+    const end = () => { threadDragId.current = null; };
+    window.addEventListener("dragstart", start);
+    window.addEventListener("dragend", end);
+    window.addEventListener("drop", end);
+    return () => { window.removeEventListener("dragstart", start); window.removeEventListener("dragend", end); window.removeEventListener("drop", end); };
+  }, []);
+  const preparing = useRef(false);
+  const projectCatalog = JSON.stringify(sidebar.projects.map(({ id, name, isPersonal }) => [id, name, isPersonal]));
+  const lastProjectCatalog = useRef(projectCatalog);
+  useEffect(() => {
+    if (lastProjectCatalog.current === projectCatalog) return;
+    lastProjectCatalog.current = projectCatalog;
+    void refresh();
+  }, [projectCatalog, refresh]);
+  const wakeups = useRef(new Set<string>());
+  const owners = useMemo(() => conversationOwners(sidebar.threads, threadBindings), [sidebar.threads, threadBindings]);
+  const assignmentRequests = useRef(new Set<string>());
+  const conversationDrop = useConversationDrop((thread, value) => {
+    const { botId, placeFirst } = JSON.parse(value) as { botId: string; placeFirst: boolean };
+    run(async () => {
+      await assignConversation(thread, botId, placeFirst);
+      toast.success(`Conversation assigned to ${bots.find(bot => bot.id === botId)?.name ?? "bot"}`, {
+        action: { label: "View", onClick: () => { navigate.toThread(thread.id); onNavigate(); } },
+      });
+    });
+  }, (botId) => bots.some(bot => bot.id === botId), (_thread, element, _x, _y, shiftKey) => {
+    const row = element.closest<HTMLElement>("[data-bot-drop-target]");
+    const botId = row?.dataset.botDropTarget;
+    if (!botId || !bots.some(bot => bot.id === botId)) return null;
+    return JSON.stringify({ botId, placeFirst: shiftKey || Boolean(element.closest("[data-bot-drop-first]")) });
+  });
+  const outsideDropTarget = conversationDrop.drag?.botId
+    ? JSON.parse(conversationDrop.drag.botId) as { botId: string; placeFirst: boolean } : null;
+  const selectedBotId = activeThreadId ? owners.get(activeThreadId) : undefined;
+  const threadsByBot = useMemo(() => {
+    const result = new Map<string, PluginSidebarThread[]>();
+    for (const thread of sidebar.threads) {
+      const botId = owners.get(thread.id);
+      if (!botId) continue;
+      const group = result.get(botId) ?? []; group.push(thread); result.set(botId, group);
+    }
+    return result;
+  }, [sidebar.threads, owners]);
+  const lastActivityByBot = useMemo(() => new Map([...threadsByBot].map(([id, threads]) => [id, threads.reduce((latest, thread) => Math.max(latest, thread.updatedAt, thread.latestAttentionAt), 0)])), [threadsByBot]);
+  const hiddenBots = bots.filter((bot) => bot.hiddenUntilActivity && (lastActivityByBot.get(bot.id) ?? 0) <= (bot.hiddenAt ?? Number.MAX_SAFE_INTEGER));
+  const hiddenIds = new Set(hiddenBots.map((bot) => bot.id));
+  // A bot needs neither a linked project nor a main conversation to be visible.
+  const shownBots = bots.filter((bot) => showHidden || !hiddenIds.has(bot.id));
+  const sectionGroups = [{ id: null as string | null, name: "Main" }, ...sections.map((section) => ({ id: section.id as string | null, name: section.name }))]
+    .map((section) => ({ ...section, bots: shownBots.filter((bot) => (sections.some((entry) => entry.id === bot.sectionId) ? bot.sectionId : null) === section.id) }))
+    .filter((section) => section.id !== null || section.bots.length > 0 || draggedBotId !== null);
+
+  function reportError(cause: unknown) { setActionError(cause instanceof Error ? cause.message : String(cause)); }
+  function run(action: () => Promise<unknown>) { setActionError(null); void action().catch(reportError); }
+  function nestConversation(threadId: string, parentThreadId: string) {
+    run(async () => { await rpc.call("conversation_nest", { threadId, parentThreadId }); await refresh(); });
+  }
+
+  function firstConversation(bot: BotMetadata) {
+    return orderedBotConversationTree((threadsByBot.get(bot.id) ?? []), bot.threadOrder).roots[0];
+  }
+
+  async function assignConversation(thread: PluginSidebarThread, botId: string, placeFirst?: boolean) {
+    if (owners.has(thread.id)) throw new Error("This conversation has already been assigned. Refresh and try again.");
+    if (assignmentRequests.current.has(thread.id)) throw new Error("This conversation is already being assigned.");
+    assignmentRequests.current.add(thread.id);
+    try {
+      await rpc.call("conversation_assign", { botId, threadId: thread.id, ...(placeFirst !== undefined ? { placeFirst } : {}) });
+      if (placeFirst !== undefined) {
+        // Reveal as soon as assignment succeeds, even if refreshing the list is slow.
+        setShownTopicBots(current => new Set([...current, botId]));
+        setDroppedConversation({ botId, threadId: thread.id });
+      }
+      await refresh();
+    }
+    finally { assignmentRequests.current.delete(thread.id); }
+  }
+
+  async function moveBot(botId: string, sectionId: string | null, beforeBotId: string | null) {
+    const moved = bots.find((bot) => bot.id === botId); if (!moved) return;
+    const groups = new Map<string | null, BotMetadata[]>();
+    for (const bot of bots) {
+      if (bot.id === botId) continue;
+      const group = groups.get(bot.sectionId) ?? []; group.push(bot); groups.set(bot.sectionId, group);
+    }
+    const target = groups.get(sectionId) ?? [];
+    const targetIndex = beforeBotId ? target.findIndex((bot) => bot.id === beforeBotId) : -1;
+    target.splice(targetIndex < 0 ? target.length : targetIndex, 0, { ...moved, sectionId });
+    groups.set(sectionId, target);
+    const sectionOrder: Array<string | null> = [null, ...sections.map((section) => section.id)];
+    for (const key of groups.keys()) if (!sectionOrder.includes(key)) sectionOrder.push(key);
+    const placements = sectionOrder.flatMap((key) => groups.get(key) ?? []).map((bot) => ({ botId: bot.id, sectionId: bot.sectionId }));
+    await rpc.call("bots_reorder", { bots: placements }); refresh();
+  }
+  async function addSection() {
+    const value = sectionName.trim(); if (!value || sectionPending) return; setSectionPending(true);
+    try { await rpc.call("section_create", { name: value }); setSectionName(""); setAddingSection(false); refresh(); } finally { setSectionPending(false); }
+  }
+
+
+
+  useEffect(() => {
+    for (const metadata of bots) {
+      if (!metadata.hiddenUntilActivity) { wakeups.current.delete(metadata.id); continue; }
+      if (metadata.hiddenAt === null || wakeups.current.has(metadata.id)) continue;
+      if ((lastActivityByBot.get(metadata.id) ?? 0) <= metadata.hiddenAt) continue;
+      wakeups.current.add(metadata.id);
+      rpc.call("visibility_set", { botId: metadata.id, hiddenUntilActivity: false }).then(
+        refresh,
+        (cause) => { wakeups.current.delete(metadata.id); reportError(cause); },
+      );
+    }
+  }, [bots, lastActivityByBot, refresh, rpc]);
+
+  async function openBotConversation(bot: BotMetadata) {
+    if (preparing.current) return;
+    preparing.current = true;
+    try {
+      let prepared = await rpc.call("bot_prepare", { botId: bot.id });
+      let personalId = personalProjectId;
+      let ownedProjectId: string | null = null;
+      {
+        // Refresh ownership at the action boundary, then keep the composer seed
+        // stable. Later realtime updates must not reset the user's choices.
+        const snapshot = await refresh();
+        if (!snapshot) throw new Error("Could not read current project roles. Try again.");
+        const current = snapshot.bots.find(entry => entry.id === bot.id);
+        if (!current) throw new Error("Bot no longer exists.");
+        if (current.updatedAt >= prepared.updatedAt) prepared = current;
+        personalId = snapshot.personalProjectId;
+        ownedProjectId = ownedConversationProjectId({ bot: prepared, projects: snapshot.projects, owners: snapshot.projectOwners ?? [], personalProjectId: personalId, main: firstConversation(prepared) });
+      }
+      if (!prepared.stateReady) throw new Error("The bot’s private state could not be prepared. Try again.");
+      if (ownedProjectId) {
+        const worktree = prepared.launchPreset?.workspace === "worktree";
+        setConversation({ bot: prepared, kind: worktree ? "worktree" : "project", projectId: ownedProjectId, environment: worktree ? worktreeLaunchEnvironment(prepared.hostId) : projectLaunchEnvironment(prepared.hostId), makeMain: false });
+        return;
+      }
+      if (!personalId) throw new Error("BB’s personal project is not available. Refresh and try again.");
+      setConversation({ bot: prepared, kind: "bot", projectId: personalId, environment: { type: "host", hostId: prepared.hostId, workspace: { type: "personal" } }, makeMain: false });
+    } finally { preparing.current = false; }
+  }
+
+  async function editBot(bot: BotMetadata, tab: EditorTab = "setup") {
+    // Read fresh private state and hashes before opening the explicit-save editor.
+    const prepared = await rpc.call("bot_prepare", { botId: bot.id });
+    if (!prepared.stateReady) throw new Error("Prepare the bot’s private state before editing.");
+    const snapshot = await refresh();
+    if (!snapshot) throw new Error("Could not read current project roles. Try again.");
+    const current = snapshot.bots.find((entry) => entry.id === bot.id);
+    if (!current) throw new Error("Bot no longer exists.");
+    // Roles live outside BotMetadata. Capture them from a fresh list before
+    // mounting the draft, otherwise fresh metadata + stale roles could release
+    // an ownership claim the user never saw.
+    setEditor({ kind: "edit", metadata: current.updatedAt >= prepared.updatedAt ? current : prepared, projectOwners: snapshot.projectOwners ?? [], tab });
+  }
+
+  function openLinked(bot: BotMetadata, kind: "project" | "worktree", thread?: PluginSidebarThread) {
+    const workProjects = availableWorkProjects(projects, bot, personalProjectId);
+    const main = firstConversation(bot);
+    const preferredMain = main && bot.linkedProjectIds.includes(main.projectId) ? main : undefined;
+    const projectId = conversationLaunchProjectId(workProjects, thread, preferredMain);
+    if (!projectId) {
+      setActionError("Choose a work project for this conversation. Manage this bot’s projects in Edit bot.");
+      run(() => editBot(bot)); return;
+    }
+    const hostId = worktreeLaunchHostId(bot, thread, main);
+    const environment = kind === "project" ? projectLaunchEnvironment(hostId) : worktreeLaunchEnvironment(hostId);
+    setConversation({ bot, kind, projectId, environment, makeMain: false });
+  }
+
+  function openFork(bot: BotMetadata, source: PluginSidebarThread) {
+    const environmentId = source.environment?.id;
+    if (!environmentId) { setActionError("This conversation has no reusable environment."); return; }
+    setConversation({ bot, kind: "fork", projectId: source.projectId, environment: { type: "reuse", environmentId }, makeMain: false, sourceThreadId: source.id });
+  }
+
+  async function openBot(bot: BotMetadata) {
+    const first = firstConversation(bot);
+    if (first) { navigate.toThread(first.id); onNavigate(); }
+    else await openBotConversation(bot);
+  }
+
+  return (
+    <TooltipProvider>
+    <div ref={sidebarElement} className="bots-sidebar flex h-full min-h-0 flex-col overflow-hidden px-1.5 pb-1.5" data-conversation-dragging={Boolean(conversationDrop.drag)}>
+      <div className="min-h-0 flex-1 overflow-y-auto pr-0.5">
+        {sidebar.status === "loading" || !loaded ? <p className="px-2 py-4 text-sm text-muted-foreground">Loading bots…</p> : null}
+        {sidebar.status === "error" || error || actionError ? <p role="alert" className="px-2 py-3 text-xs text-destructive">{actionError ?? error ?? "Could not load the sidebar."}</p> : null}
+        {warnings.map((warning, index) => <p key={`${index}:${warning}`} role="status" className="px-2 py-1 text-xs text-muted-foreground">{warning}</p>)}
+        <div className="bots-list-header sticky top-0 z-10 flex items-center justify-between px-1.5 pb-1">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Bots</span>
+          <DropdownMenu.Root><DropdownMenu.Trigger asChild><button type="button" className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-state-hover" aria-label="Create…" title="Create…"><TinyIcon name="plus" /></button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content {...portalScope} align="end" sideOffset={4} aria-label="Create" className="z-50 min-w-36 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md">
+            <DropdownMenu.Item className={MENU_ITEM_CLASS} onSelect={() => { setAddingSection(false); setEditor({ kind: "create" }); }}>Bot</DropdownMenu.Item>
+            <DropdownMenu.Item className={MENU_ITEM_CLASS} onSelect={() => setAddingSection(true)}>Section</DropdownMenu.Item>
+            <DropdownMenu.Item className={MENU_ITEM_CLASS} onSelect={() => { setAddingSection(false); setCreatingProject(true); }}>Project</DropdownMenu.Item>
+          </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
+        </div>
+        {addingSection ? <form className="mb-2 flex gap-1 px-1.5" onSubmit={(event) => event.preventDefault()}><Input autoFocus className="h-7 min-w-0 text-xs" aria-label="Section name" value={sectionName} maxLength={80} onChange={(event) => setSectionName(event.target.value)} placeholder="Section name" /><Button type="button" size="sm" className="h-7 px-2" disabled={!sectionName.trim() || sectionPending} onClick={() => run(addSection)}>Add</Button><button type="button" className="px-1 text-xs text-muted-foreground" aria-label="Cancel section creation" disabled={sectionPending} onClick={() => setAddingSection(false)}>Cancel</button></form> : null}
+        <div className="space-y-2">
+          {sectionGroups.map((section) => <section key={section.id ?? "unassigned"} className="bot-section rounded-md" data-section-id={section.id ?? "unassigned"} onDragOver={(event) => { if (draggedBotId) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); if (draggedBotId) run(() => moveBot(draggedBotId, section.id, null)); setDraggedBotId(null); }}>
+            {section.id !== null ? <RowContextMenu items={[
+              { label: "New section…", action: () => setAddingSection(true) },
+              ...(section.id ? [
+                { label: "Rename section…", action: () => setEditingSection(sections.find((entry) => entry.id === section.id) ?? null) },
+                { label: "Delete section", action: () => { if (window.confirm(`Delete “${section.name}”? Its bots will move to Main.`)) void rpc.call("section_delete", { sectionId: section.id! }).then(refresh); } },
+              ] : []),
+            ]}><div className="px-1.5 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground" tabIndex={0}>{section.name}</div></RowContextMenu> : null}
+            {section.id === null && section.bots.length === 0 && draggedBotId ? <div className="rounded border border-dashed border-border px-2 py-2 text-[10px] text-muted-foreground">Move to Main</div> : null}
+            <div className="space-y-px">{section.bots.map((metadata, index) => {
+              const botId = metadata.id;
+              const botThreads = (threadsByBot.get(botId) ?? []).filter((thread) => !thread.isArchived);
+              return <div key={botId} onDragOver={(event) => {
+                if (draggedBotId) { if (draggedBotId !== botId) event.preventDefault(); return; }
+                if (!event.dataTransfer?.types?.includes("application/x-bb-thread-id")) return;
+                if (threadDragId.current && owners.has(threadDragId.current)) return;
+                event.preventDefault(); event.stopPropagation();
+                const place = threadDropPlace(event.currentTarget, event.clientY);
+                setThreadDropTarget((current) => current?.botId === botId && current.place === place ? current : { botId, place });
+              }} onDragLeave={(event) => {
+                if (threadDropTarget?.botId === botId && !event.currentTarget.contains(event.relatedTarget as Node | null)) setThreadDropTarget(null);
+              }} onDrop={(event) => {
+                event.preventDefault(); event.stopPropagation();
+                const threadId = event.dataTransfer?.getData?.("application/x-bb-thread-id") || null;
+                const placeFirst = !draggedBotId && threadDropPlace(event.currentTarget, event.clientY) === "first";
+                setThreadDropTarget(null);
+                const bounds = event.currentTarget.querySelector(".project-row")?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect();
+                const beforeBotId = event.clientY > bounds.top + bounds.height / 2 ? section.bots[index + 1]?.id ?? null : botId;
+                if (draggedBotId && draggedBotId !== botId) run(() => moveBot(draggedBotId, section.id, beforeBotId));
+                setDraggedBotId(null);
+                if (!draggedBotId && threadId && !owners.has(threadId)) {
+                  const dropped = sidebar.threads.find((candidate) => candidate.id === threadId);
+                  if (dropped) run(async () => {
+                    await assignConversation(dropped, botId, placeFirst);
+                    toast.success(`Conversation assigned to ${bots.find((candidate) => candidate.id === botId)?.name ?? "bot"}`);
+                  });
+                }
+              }}><BotGroup metadata={metadata} threads={botThreads} selected={botId === selectedBotId} activeThreadId={activeThreadId} navigate={navigate} topicsVisible={shownTopicBots.has(botId)}
+                threadDrop={threadDropTarget?.botId === botId ? threadDropTarget.place : null}
+                ownedProjectNames={projectOwners.filter(owner => owner.botId === botId).map(owner => projects.find(project => project.id === owner.projectId)?.name ?? "Unavailable project")}
+                onToggleTopics={() => setShownTopicBots((current) => { const next = new Set(current); if (next.has(botId)) next.delete(botId); else next.add(botId); return next; })}
+                onEdit={(tab) => run(() => editBot(metadata, tab))} hidden={hiddenIds.has(botId)}
+                onVisibilityChange={(hiddenUntilActivity) => run(() => rpc.call("visibility_set", { botId, hiddenUntilActivity }).then(refresh))}
+                onOpenBot={() => run(() => openBot(metadata))}
+                onReorder={(threadId, targetThreadId, position) => run(async () => { await rpc.call("conversation_reorder", { botId, threadId, targetThreadId, position }); await refresh(); })}
+                onNewConversation={() => run(() => openBotConversation(metadata))}
+                onNewInProject={() => openLinked(metadata, "project")}
+                hasWorkProjects={availableWorkProjects(projects, metadata, personalProjectId).length > 0}
+                onNewInWorktree={(thread) => openLinked(metadata, "worktree", thread)}
+                onFork={(thread) => openFork(metadata, thread)} onNest={nestConversation}
+                onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", botId); setDraggedBotId(botId); }}
+                onDragEnd={() => setDraggedBotId(null)} dragging={draggedBotId === botId} conversationDropTarget={outsideDropTarget?.botId === botId ? outsideDropTarget.placeFirst ? "first" : "last" : null} onNavigate={onNavigate} /></div>;
+            })}</div>
+          </section>)}
+        </div>
+        {loaded && bots.length === 0 ? (
+          <button type="button" className="mt-2 flex w-full flex-col items-center rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground hover:bg-state-hover hover:text-foreground" onClick={() => setEditor({ kind: "create" })}>
+            <span className="mb-2 flex size-9 items-center justify-center rounded-lg bg-muted"><TinyIcon name="folder" /></span>
+            Create your first bot
+          </button>
+        ) : null}
+        {hiddenBots.length ? <div className="bots-list-footer px-1.5 pt-2">
+          <button type="button" className="h-5 rounded px-1.5 text-[9px] text-muted-foreground hover:bg-state-hover" aria-pressed={showHidden} onClick={() => setShowHidden((current) => !current)}>{hiddenBots.length} hidden</button>
+        </div> : null}
+        <ChatsSection activeChatId={activeThreadId && !owners.has(activeThreadId) ? activeThreadId : null} onNewChat={() => {
+          navigate.toCompose({ ...(personalProjectId ? { projectId: personalProjectId } : {}), focusPrompt: true });
+          onNavigate();
+        }}>
+          <BotThreadListContext.Provider value={{
+            bindings: threadBindings,
+            onAssign: (threadId) => setAssigning(sidebar.threads.find(thread => thread.id === threadId) ?? null),
+            onAssignmentDrag: (row, event) => {
+              if (!owners.has(row.id) && !assignmentRequests.current.has(row.id)) conversationDrop.begin(row, event);
+            },
+          }}>
+            {loaded && !error ? <BuiltinThreadList {...props} /> : <p className="px-2 py-2 text-xs text-muted-foreground">Waiting for bot ownership…</p>}
+          </BotThreadListContext.Provider>
+        </ChatsSection>
+      </div>
+      {editingSection ? <RenameConversationDialog title={editingSection.name} heading="Rename section" description="Choose the section name shown in the sidebar." onClose={() => setEditingSection(null)} onSave={async (name) => {
+        await rpc.call("section_update", { sectionId: editingSection.id, name }); refresh();
+      }} /> : null}
+      {assigning ? <AssignConversationDialog bots={bots} title={assigning.title ?? assigning.titleFallback ?? "Untitled conversation"} onClose={() => setAssigning(null)} onAssign={async (botId) => {
+        await assignConversation(assigning, botId);
+      }} /> : null}
+      {conversation ? <ConversationDialog target={conversation} onClose={() => setConversation(null)} onCreate={async (request, continuityEnabled) => {
+        const bot = bots.find((bot) => bot.id === conversation.bot.id);
+        if (!bot) throw new Error("This bot is no longer available.");
+        if (!allowsConversationProject(request.projectId, bot, personalProjectId, projects)) {
+          throw new Error("Choose no project or an available work project.");
+        }
+        const { threadId } = conversation.kind === "fork"
+          ? await rpc.call("conversation_fork", { botId: bot.id, sourceThreadId: conversation.sourceThreadId!, request })
+          : await rpc.call("conversation_create", { botId: bot.id, request, makeMain: conversation.makeMain, ...(continuityEnabled ? { continuityEnabled: true } : {}) });
+        setConversation(null); refresh();
+        navigate.toThread(threadId);
+        onNavigate();
+      }} /> : null}
+      {creatingProject ? <ProjectCreateDialog hosts={hosts} {...projectActions} onClose={() => setCreatingProject(false)} onCreated={(project) => { setCreatingProject(false); navigate.toProject(project.id); onNavigate(); }} /> : null}
+      {editor ? (
+        <BotEditor
+          {...projectActions}
+          key={editor.kind === "edit" ? editor.metadata.id : "create"}
+          target={editor}
+          hosts={hosts}
+          sections={sections}
+          projects={projects}
+          bots={bots}
+          projectOwners={projectOwners}
+          onCreateSection={async (name) => { const section = await rpc.call("section_create", { name }); refresh(); return section; }}
+          onClose={() => setEditor(null)}
+          onCreate={async (value) => {
+            const created = await rpc.call("bot_create", value);
+            refresh();
+            // Creation is already saved. Close the editor before preparing the
+            // first chat so a preparation error cannot create a duplicate bot.
+            setEditor(null);
+            run(() => openBotConversation(created));
+          }}
+          onUpdate={async (value) => {
+            if (editor.kind !== "edit") return;
+            await rpc.call("bot_update", { ...value, botId: editor.metadata.id, expectedUpdatedAt: editor.metadata.updatedAt, expectedStateHashes: editor.metadata.stateHashes });
+            refresh();
+          }}
+        />
+      ) : null}
+    </div>
+    {conversationDrop.drag ? createPortal(<div {...portalScope} ref={conversationDrop.ghostRef} className="conversation-drag-ghost rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md" aria-hidden="true"><div className="truncate">{conversationDrop.drag.title}</div><div className="text-[10px] text-muted-foreground">{outsideDropTarget?.placeFirst ? "Drop to make top conversation" : "Drop to add at end · Face or Shift for top"}</div></div>, document.body) : null}
+    </TooltipProvider>
+  );
+}
+
+export default definePluginApp((app) => {
+  registerBuiltinThreadList(app);
+  app.slots.experimental_threadList({
+    id: "bot-projects",
+    title: "Bots Sidebar",
+    description: "Independent bots with their conversation trees and unassigned chats.",
+    component: BotsSidebar,
+  });
+});

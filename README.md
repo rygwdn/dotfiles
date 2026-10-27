@@ -3,6 +3,35 @@ dotfiles
 
 my dot files
 
+## BB plugins
+
+`bb-plugins/` holds ordinary source directories for the local BB plugins,
+alongside `provider-omp`. The active checkout on this machine is
+`/Users/traceywooden/wt-dotfiles-bi13`, branch `bi13-omp-memory-cutover`.
+Build and install from the chosen dotfiles checkout; plugin data stays in BB's
+private storage under `~/.bb/plugins/<id>`.
+
+| Directory | Imported source |
+| --- | --- |
+| `bots-sidebar` | [rygwdn/bb-bots-sidebar](https://github.com/rygwdn/bb-bots-sidebar), installed `bi12-bb-memory` revision `825fe7e48a5105e2a538504a1a429c8d3323618e` |
+| `ballast` | [rygwdn/bb-plugin-ballast](https://github.com/rygwdn/bb-plugin-ballast), `a4643d066a3b93dc8087d42689e6d49ce657944f` plus the installed checkout's authored disk-reporting changes; upstream [braedonsaunders/bb-plugin-ballast](https://github.com/braedonsaunders/bb-plugin-ballast) |
+| `continuity` | Local checkout `38d1cc7ebef68992397525f7ff2412f07df68276` |
+| `memory-fork` | [rygwdn/bb-plugin-memory-fork](https://github.com/rygwdn/bb-plugin-memory-fork), `df8b46b60f9f380d7c794e788383f0c8b21798fe`; upstream attribution in its `UPSTREAM.md` and `LICENSE` |
+
+For a plugin already installed from a local path, run its documented checks,
+then move the existing installation
+with `bb plugin install /absolute/path/to/dotfiles/bb-plugins/<directory> --yes`.
+This preserves its ID, settings and private data. Later source edits use
+`bb plugin reload <id>` after rebuilding. Do not uninstall to relocate a plugin.
+BB 0.47.1 refuses this move for the Git-managed `bots-sidebar` installation;
+its imported source is ready here, but its live source remains the exact managed
+revision until BB supports a configuration-preserving Git-to-path move.
+Dependencies and runtime state are excluded from Git; Memory Fork retains its
+previously tracked distribution files. The original checkouts and managed Bots
+Sidebar cache are retained. The three relocated plugins use these dotfiles
+directories at runtime; the Bots Sidebar cache remains active while its move
+is blocked.
+
 ## Install
 
 ```sh

@@ -1,0 +1,12 @@
+{
+  "sdkMajor": 0,
+  "sdkVersion": "0.6.79",
+  "artifactFormatVersion": 1,
+  "pluginId": "memory-fork",
+  "pluginVersion": "0.1.0",
+  "builtWith": {
+    "bbVersion": "0.47.1",
+    "pluginSdkVersion": "0.6.79"
+  },
+  "artifactDigest": "91c8e6190c69282f85e084df4c284bbcb8450b3ee2622a04960090a2b2c35870"
+}
