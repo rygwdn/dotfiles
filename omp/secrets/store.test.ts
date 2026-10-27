@@ -9,7 +9,7 @@ let cfg: StoreConfig;
 let publicKey: string;
 beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), "omp-secret-test-"));
-  cfg = { host: "proxmox", store: "/unused", identity: join(directory, "keys/identity.txt"), cache: join(directory, "cache/store.age"), offline: true };
+  cfg = { host: "proxmox", store: "/unused", identity: join(directory, "keys/identity.txt"), cache: join(directory, "cache/store.age"), offline: true, cacheTtlSeconds: 300 };
   await initialize(cfg);
   publicKey = (await command("age-keygen", ["-y", cfg.identity])).toString().trim();
   await mkdir(dirname(cfg.cache), { mode: 0o700 });

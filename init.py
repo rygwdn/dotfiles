@@ -57,6 +57,9 @@ unix_links = all_platforms + fish_contents + [
     "flexget",
     "tmux.conf",
     ("omp/secrets/extension.ts", ".omp/agent/extensions/omp-secrets.ts"),
+    ("hermes/plugins/omp", ".hermes/plugins/omp"),
+    ("hermes/plugins/omp", ".hermes/profiles/codr/plugins/omp"),
+    ("bin/hermes-omp", ".local/bin/hermes-omp"),
 ]
 
 DOTFILES_DIR = Path(__file__).resolve().parent
@@ -237,6 +240,9 @@ def main():
             Path.home().joinpath(".config/tridactyl").mkdir(exist_ok=True)
             if not is_windows:
                 Path.home().joinpath(".omp/agent/extensions").mkdir(parents=True, exist_ok=True)
+                Path.home().joinpath(".hermes/plugins").mkdir(parents=True, exist_ok=True)
+                Path.home().joinpath(".hermes/profiles/codr/plugins").mkdir(parents=True, exist_ok=True)
+                Path.home().joinpath(".local/bin").mkdir(parents=True, exist_ok=True)
 
         for op in operations:
             op()

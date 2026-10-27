@@ -1,0 +1,8 @@
+{
+  "name": "hermes-omp-watch",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@oh-my-pi/pi-tui": "18.12.1"
+  }
+}

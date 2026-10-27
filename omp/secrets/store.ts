@@ -5,18 +5,29 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 
-export interface StoreConfig { host: string; store: string; identity: string; cache: string; offline: boolean }
+export interface StoreConfig { host: string; store: string; identity: string; cache: string; offline: boolean; cacheTtlSeconds: number }
 export interface Entry { path: string; env: string }
 export interface LoadedStore { values: Record<string, string>; catalog: { source: "remote" | "cache"; cachedAt: string; entries: Entry[] } }
 
 export function config(): StoreConfig {
+  const ttl = process.env.OMP_SECRETS_CACHE_TTL_SECONDS ?? "300";
+  if (!/^\d+(?:\.\d+)?$/.test(ttl)) throw new Error("OMP_SECRETS_CACHE_TTL_SECONDS must be nonnegative decimal seconds");
+  const cacheTtlSeconds = Number(ttl);
+  validateTtl(cacheTtlSeconds);
   return {
     host: process.env.OMP_SECRETS_HOST ?? "proxmox",
     store: process.env.OMP_SECRETS_STORE ?? "/root/.secrets/omp-tokens.yaml",
     identity: process.env.OMP_SECRETS_IDENTITY ?? join(homedir(), ".config/omp-secrets/identity.txt"),
     cache: process.env.OMP_SECRETS_CACHE ?? join(homedir(), ".cache/omp-secrets/store.age"),
     offline: process.env.OMP_SECRETS_OFFLINE === "1",
+    cacheTtlSeconds,
   };
+}
+
+function validateTtl(seconds: number): void {
+  if (!Number.isFinite(seconds) || seconds < 0 || seconds > Number.MAX_SAFE_INTEGER / 1000) {
+    throw new Error("Cache TTL must be finite nonnegative seconds within the safe millisecond range");
+  }
 }
 
 function validatePaths(cfg: StoreConfig): void {
@@ -138,8 +149,23 @@ async function save(cfg: StoreConfig, snapshot: Buffer): Promise<string> {
 
 export async function load(cfg: StoreConfig, requireRemote = false): Promise<LoadedStore> {
   validatePaths(cfg);
+  validateTtl(cfg.cacheTtlSeconds);
   const publicKey = await recipient(cfg);
   if (!cfg.offline) {
+    if (!requireRemote && cfg.cacheTtlSeconds > 0) {
+      let info;
+      try { info = await stat(cfg.cache); }
+      catch (error) {
+        if (!error || typeof error !== "object" || !("code" in error) || error.code !== "ENOENT") {
+          throw new Error("Cannot inspect encrypted cache freshness");
+        }
+      }
+      if (info) {
+        const age = Date.now() - info.mtimeMs;
+        // Future timestamps are stale, not indefinitely fresh after a clock change.
+        if (age >= 0 && age < cfg.cacheTtlSeconds * 1000) return await cached(cfg);
+      }
+    }
     let snapshot: Buffer;
     try { snapshot = await fetchSnapshot(cfg, publicKey); }
     catch {

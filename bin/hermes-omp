@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+"""Run the dotfiles-owned OMP supervisor client from any working directory."""
+from pathlib import Path
+import runpy
+import sys
+
+plugin = Path(__file__).resolve().parent.parent / "hermes" / "plugins" / "omp"
+sys.path.insert(0, str(plugin))
+runpy.run_path(str(plugin / "cli.py"), run_name="__main__")

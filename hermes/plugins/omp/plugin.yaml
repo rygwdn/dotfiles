@@ -1,0 +1,22 @@
+name: omp
+version: 1.0.0
+description: "Supervise persistent OMP workers from Hermes with origin-bound notifications. Non-CLI push requires plugins.entries.omp.allow_gateway_injection: true in this profile; delivery is restricted to exact host-supplied session keys."
+provides_tools:
+  - omp_start
+  - omp_sessions
+  - omp_resume
+  - omp_send
+  - omp_status
+  - omp_watch
+  - omp_wait
+  - omp_btw
+  - omp_answer
+  - omp_abort
+  - omp_stop
+  - omp_rpc
+  - omp_extend
+  - omp_pending
+provides_hooks:
+  - on_session_start
+  - pre_llm_call
+  - on_session_reset
