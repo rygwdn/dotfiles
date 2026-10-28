@@ -70,6 +70,7 @@ import {
   type InteractionUiRequest,
 } from "../extension-ui-contract.js";
 import { createOmpNoticeDeltas } from "./extension-notices.js";
+import { continuityCompactionDeltas } from "./continuity-compaction.js";
 import { OMP_TERMINAL_SIGN_IN_HINT } from "../declaration.js";
 import {
   getOmpInstallGate,
@@ -340,6 +341,8 @@ const extensionUi: ExtensionUiCoordinator = createExtensionUiCoordinator({
     }]);
   },
   onNotice: ({ threadId, severity, message, url, launchUrl, instructions }) => {
+    const compaction = severity === "info" ? continuityCompactionDeltas(message) : null;
+    if (compaction) { sendThreadDeltas(threadId, compaction); return; }
     sendThreadDeltas(threadId, createOmpNoticeDeltas(
       {
         severity,

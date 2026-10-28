@@ -97,3 +97,105 @@ for (const failure of ["callback", "throw"] as const) test(`embedded runtime ret
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+for (const trigger of ["requested", "idle"] as const) test(`committed ${trigger} compaction emits one boundary and never re-emits on resume`, async () => {
+  assertFreshExtension();
+  const directory = mkdtempSync(join(tmpdir(), "continuity-commit-"));
+  const previous = process.env.BB_CONTINUITY_DIRECTORY;
+  process.env.BB_CONTINUITY_DIRECTORY = directory;
+  let now = 1_800_000_000_000;
+  const clock = spyOn(Date, "now").mockImplementation(() => now);
+  const handlers = new Map<string, Function>();
+  const settings = new Map<string, unknown>();
+  const branch: any[] = [{ id: "user-a", message: { role: "user" } }];
+  const notices: string[] = [];
+  let poll: () => Promise<void>;
+  let compactions = 0;
+  const event = { compactionEntry: { id: "committed-a", timestamp: new Date(now + 1234).toISOString() }, fromExtension: false };
+  const context: any = {
+    agent: { kind: "main" }, sessionManager: { getBranch: () => branch, getSessionId: () => "session-a" },
+    getContextUsage: () => ({ tokens: 50_000 }), getAsyncJobSnapshot: () => null, isIdle: () => true, hasPendingMessages: () => false,
+    setInterval: (callback: () => Promise<void>) => { poll = callback; return 1; }, clearTimer() {},
+    ui: { notify: (message: string) => notices.push(message) },
+    async compact(options: { onComplete: () => void }) {
+      compactions++;
+      // OMP's public contract commits first, emits session_compact, then onComplete.
+      await handlers.get("session_compact")!(event, context);
+      await handlers.get("session_compact")!(event, context);
+      options.onComplete();
+    },
+  };
+  try {
+    writeFileSync(join(directory, "control.json"), JSON.stringify({ policy: { ...DEFAULT_POLICY, idleSeconds: 30 }, compactRequestId: trigger === "requested" ? "request-a" : null }));
+    const runtime = await import(`data:text/javascript;base64,${Buffer.from(extensionSource).toString("base64")}`);
+    const api = {
+      pi: { settings: {} }, zod: z, on: (name: string, handler: Function) => handlers.set(name, handler), registerCommand() {}, registerTool() {},
+      appendEntry: (customType: string, data: unknown) => branch.push({ type: "custom", customType, data }),
+      getActiveTools: () => ["context_notes", "new_context", "read", "grep"],
+    };
+    const registry = { lookup(id: string) { return { get: () => settings.get(id), provenance: () => "default", override: (_: unknown, value: unknown) => settings.set(id, value), clearOverride: () => settings.delete(id) }; } };
+    runtime.default(api, registry);
+    await handlers.get("session_start")!({}, context);
+    if (trigger === "idle") { now += 30_001; await poll!(); }
+    expect(compactions).toBe(1);
+    expect(notices).toEqual([`bb-continuity.compacted.v1:${JSON.stringify({ sessionId: "session-a", entryId: "committed-a", timestamp: event.compactionEntry.timestamp, trigger })}`]);
+    const committed = JSON.parse(readFileSync(join(directory, "status.json"), "utf8"));
+    expect(committed.lastCompactedAt).toBe(Date.parse(event.compactionEntry.timestamp));
+    await handlers.get("session_shutdown")!({}, context);
+    // New extension instance restores the checkpoint; status/reconnect is not a boundary.
+    runtime.default(api, registry);
+    await handlers.get("session_start")!({}, context);
+    await handlers.get("session_compact")!(event, context);
+    expect(notices).toHaveLength(1);
+    // External native manual/automatic compactions have their own provider events.
+    await handlers.get("session_compact")!({ compactionEntry: { id: "native-b", timestamp: new Date(now).toISOString() }, fromExtension: false }, context);
+    expect(notices).toHaveLength(1);
+  } finally {
+    clock.mockRestore();
+    if (previous === undefined) delete process.env.BB_CONTINUITY_DIRECTORY; else process.env.BB_CONTINUITY_DIRECTORY = previous;
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a slow startup compaction publishes heartbeats and shutdown cannot be overwritten", async () => {
+  assertFreshExtension();
+  const directory = mkdtempSync(join(tmpdir(), "continuity-slow-"));
+  const previous = process.env.BB_CONTINUITY_DIRECTORY;
+  process.env.BB_CONTINUITY_DIRECTORY = directory;
+  let now = 1_800_000_000_000;
+  const clock = spyOn(Date, "now").mockImplementation(() => now);
+  const handlers = new Map<string, Function>();
+  const settings = new Map<string, unknown>();
+  const completion = Promise.withResolvers<void>();
+  let poll: () => Promise<void>;
+  let start: Promise<void> | undefined;
+  const readStatus = () => JSON.parse(readFileSync(join(directory, "status.json"), "utf8"));
+  try {
+    writeFileSync(join(directory, "control.json"), JSON.stringify({ policy: DEFAULT_POLICY, compactRequestId: "startup-request" }));
+    const runtime = await import(`data:text/javascript;base64,${Buffer.from(extensionSource).toString("base64")}`);
+    runtime.default({
+      pi: { settings: {} }, zod: z, on: (name: string, handler: Function) => handlers.set(name, handler), registerCommand() {}, registerTool() {}, appendEntry() {},
+      getActiveTools: () => ["context_notes", "new_context", "read", "grep"],
+    }, { lookup(id: string) { return { get: () => settings.get(id), provenance: () => "default", override: (_: unknown, value: unknown) => settings.set(id, value), clearOverride: () => settings.delete(id) }; } });
+    const context = {
+      agent: { kind: "main" }, sessionManager: { getBranch: () => [], getSessionId: () => "slow-session" },
+      getContextUsage: () => ({ tokens: 50_000 }), getAsyncJobSnapshot: () => null, isIdle: () => true, hasPendingMessages: () => false,
+      setInterval: (callback: () => Promise<void>) => { poll = callback; return 1; }, clearTimer() {},
+      compact: async () => { await completion.promise; },
+    };
+    start = handlers.get("session_start")!({}, context);
+    expect(readStatus().state).toBe("compacting");
+    now += 90_000;
+    await poll!();
+    expect(readStatus()).toMatchObject({ state: "compacting", updatedAt: now });
+    await handlers.get("session_shutdown")!({}, context);
+    now += 2000;
+    await poll!();
+    expect(readStatus()).toMatchObject({ state: "stopped", updatedAt: now - 2000 });
+  } finally {
+    completion.resolve(); await start;
+    clock.mockRestore();
+    if (previous === undefined) delete process.env.BB_CONTINUITY_DIRECTORY; else process.env.BB_CONTINUITY_DIRECTORY = previous;
+    rmSync(directory, { recursive: true, force: true });
+  }
+});

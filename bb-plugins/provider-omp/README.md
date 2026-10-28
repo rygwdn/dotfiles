@@ -365,3 +365,7 @@ continuations are disabled. The memory-fork plugin supplies BB learning, scoped
 retrieval and versioned correction instructions. ACP is a separate provider;
 its process launch is integrated by memory-fork's host env hook and the
 supported provider-acp custom agent command, not this RPC bridge.
+
+### Continuity compaction boundaries
+
+Continuity-owned idle summaries use a small `bb-continuity.compacted.v1:` notification, emitted only by the committed OMP `session_compact` hook. The RPC bridge validates the session/entry identity, timestamp and requested/idle trigger, then emits an ordinary native compaction row in a dedicated synthetic turn. The user turn remains untouched. BB's persisted event replay keeps the marker across navigation, reload and provider shutdown. The notification is not replayed on session resume; native `/compact` and automatic rollover keep their existing lifecycle path. Malformed or unrelated notifications retain the ordinary notice handling.

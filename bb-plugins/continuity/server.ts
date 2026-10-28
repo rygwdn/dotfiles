@@ -66,19 +66,22 @@ export default function continuity(bb: BbPluginApi): void {
   }
   async function statuses({ threadIds }: { threadIds: string[] }) {
     const out: Record<string, RuntimeStatus | null> = {};
+    const enabledThreadIds: string[] = [];
     await Promise.all(threadIds.map(async threadId => {
       const policy = await readPolicy(threadId);
       if (!policy?.enabled) { out[threadId] = null; return; }
       try {
         const thread = await bb.sdk.threads.get({ threadId });
-        if (!supportsProvider(thread.providerId) || !thread.environmentId) { out[threadId] = null; return; }
+        if (!supportsProvider(thread.providerId)) { out[threadId] = null; return; }
+        enabledThreadIds.push(threadId);
+        if (!thread.environmentId) { out[threadId] = null; return; }
         const environment = await bb.sdk.environments.get({ environmentId: thread.environmentId });
         if (!environment.path || environment.lifecycle.phase !== "active") { out[threadId] = null; return; }
         const { status } = await host.call("inspect", { threadId }, { hostId: environment.hostId });
         out[threadId] = status;
       } catch { out[threadId] = null; }
     }));
-    return { statuses: out };
+    return { statuses: out, enabledThreadIds: threadIds.filter(id => enabledThreadIds.includes(id)) };
   }
   bb.rpc.register(rpcContract, { inspect, configure, setEnabled, compact, statuses });
   for (const providerId of OMP_PROVIDERS) bb.providers.experimental_contributeEnv(providerId, async ctx => {

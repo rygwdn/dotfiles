@@ -7,6 +7,7 @@ import type { z } from "zod";
 import type { rpcContract } from "./contracts";
 import type { Policy } from "./policy";
 import type { RuntimeStatus } from "./schema";
+import { continuityView, reconcileRequest } from "./view";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -86,8 +87,6 @@ export function ContinuityPanel({ threadId }: { threadId: string }) {
     </>}
   </div></div>;
 }
-const FRESH_MS = 60_000;
-const COMPACT_GRACE_MS = 5 * 60_000;
 const QUEUED_TTL_MS = 15 * 60_000;
 const TONE_CLASS: Record<RuntimeStatus["state"], string> = {
   "ready": "text-muted-foreground",
@@ -103,73 +102,58 @@ const TONE_CLASS: Record<RuntimeStatus["state"], string> = {
 
 const Icon = experimental_Icon;
 
-type RuntimeView = { status: RuntimeStatus | null; queued: boolean };
+type RuntimeView = ReturnType<typeof continuityView> & { queued: boolean };
 
-/**
- * Per-thread Continuity runtime view shared by the header action and the
- * composer banner. Data comes from the batch `statuses` RPC on mount and then
- * from the host's `runtime` signal relayed over realtime; `queued` is latched
- * by the server's `requested` ping when a compaction is queued.
- */
 function useContinuityRuntime(threadId: string | null): RuntimeView {
   const rpc = useRpc<typeof rpcContract>();
-  const [status, setStatus] = useState<RuntimeStatus | null>(null);
-  const [seenAt, setSeenAt] = useState(0);
-  const [queuedAt, setQueuedAt] = useState(0);
-  const queuedAtRef = useRef(0);
+  const [snapshot, setSnapshot] = useState<{ threadId: string; enabled: boolean; status: RuntimeStatus | null } | null>(null);
+  const [request, setRequest] = useState<{ threadId: string; at: number } | null>(null);
   const [, tick] = useState(0);
+  const refreshRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (!threadId) return;
     let alive = true;
-    rpc.call("statuses", { threadIds: [threadId] })
-      .then(result => { if (alive) { setStatus(result.statuses[threadId] ?? null); setSeenAt(Date.now()); } })
-      .catch(() => { /* panel still renders from the next signal */ });
-    const timer = setInterval(() => tick(count => count + 1), 5000);
-    return () => { alive = false; clearInterval(timer); };
+    let revision = 0;
+    async function refresh() {
+      const current = ++revision;
+      try {
+        const result = await rpc.call("statuses", { threadIds: [threadId!] });
+        if (alive && current === revision) setSnapshot({ threadId: threadId!, enabled: result.enabledThreadIds.includes(threadId!), status: result.statuses[threadId!] ?? null });
+      } catch { /* Keep saved policy visible; runtime phase expires independently. */ }
+    }
+    refreshRef.current = () => { void refresh(); };
+    void refresh();
+    const timer = setInterval(() => { tick(n => n + 1); void refresh(); }, 5000);
+    return () => { alive = false; refreshRef.current = () => {}; clearInterval(timer); };
   }, [rpc, threadId]);
   useRealtime("runtime", payload => {
-    if (!threadId || typeof payload !== "object" || payload === null) return;
-    const signal = payload as { threadId?: unknown; status?: unknown };
-    if (signal.threadId !== threadId) return;
-    setStatus((signal.status ?? null) as RuntimeStatus | null);
-    setSeenAt(Date.now());
+    if ((payload as { threadId?: string } | null)?.threadId === threadId) refreshRef.current();
   });
+  useRealtime("changed", () => { refreshRef.current(); });
   useRealtime("requested", payload => {
-    if (!threadId || typeof payload !== "object" || payload === null) return;
-    const signal = payload as { threadId?: unknown };
-    if (signal.threadId === threadId) { queuedAtRef.current = Date.now(); setQueuedAt(Date.now()); }
+    if (threadId && (payload as { threadId?: string } | null)?.threadId === threadId) {
+      setRequest({ threadId, at: Date.now() }); refreshRef.current();
+    }
   });
   useEffect(() => {
-    if (!status) return;
-    if (status.state === "compacting" || status.state === "error") { queuedAtRef.current = 0; setQueuedAt(0); }
-    else if (queuedAtRef.current && status.lastCompactedAt !== null && status.lastCompactedAt > queuedAtRef.current) { queuedAtRef.current = 0; setQueuedAt(0); }
-  }, [status]);
+    if (snapshot?.threadId !== threadId) return;
+    setRequest(current => current?.threadId === threadId &&
+      (!snapshot.enabled || !reconcileRequest(current.at, snapshot.status)) ? null : current);
+  }, [snapshot, threadId]);
+  // A component may be reused during navigation; never render its previous thread.
+  const saved = snapshot?.threadId === threadId ? snapshot : null;
   const now = Date.now();
-  // "stopped"/"disabled" are terminal: never present them as a live runtime,
-  // even right after a page load resurrects the last written status.
-  const live = status !== null && status.state !== "stopped" && status.state !== "disabled" &&
-    now - Math.max(status.updatedAt, seenAt) < (status.state === "compacting" ? COMPACT_GRACE_MS : FRESH_MS + 30_000);
-  return { status: live ? status : null, queued: queuedAt > 0 && now - queuedAt < QUEUED_TTL_MS };
-}
-
-function runtimeLabel(status: RuntimeStatus, queued: boolean): string {
-  const results = status.demotedResults === 1 ? "result" : "results";
-  switch (status.state) {
-    case "compacting": return "Continuity: compacting context now";
-    case "compacted": return "Continuity: context compacted; history preserved in the OMP journal";
-    case "demoted": return `Continuity: active — ${status.demotedResults} large ${results} projected out of model context`;
-    case "ready": case "cache-hot": return `Continuity: active (${status.demotedResults} preserved ${results})`;
-    case "deferred": return queued ? "Continuity: compaction queued — runs at the next idle boundary" : `Continuity: maintenance deferred — ${status.reason}`;
-    case "error": return `Continuity: error — ${status.reason}`;
-    default: return `Continuity: ${status.state}`;
-  }
+  const view = continuityView(saved?.enabled ?? false, saved?.status ?? null, now);
+  const queued = !!view.phase && request?.threadId === threadId && now - request.at < QUEUED_TTL_MS &&
+    view.phase.state !== "compacting" && view.phase.state !== "error" && (view.phase.lastCompactedAt ?? 0) < request.at;
+  return { ...view, queued };
 }
 
 function ContinuityHeaderAction({ threadId }: PluginThreadHeaderActionProps) {
   const navigate = useBbNavigate();
-  const { status, queued } = useContinuityRuntime(threadId);
-  if (!status && !queued) return null;
-  const label = status ? runtimeLabel(status, queued) : "Continuity: compaction queued — runs at the next idle boundary";
+  const { enabled, phase: status, label: savedLabel, queued } = useContinuityRuntime(threadId);
+  if (!enabled) return null;
+  const label = queued ? "Continuity: compaction queued — runs at the next idle boundary" : savedLabel;
   return (
     <button
       type="button"
@@ -185,21 +169,8 @@ function ContinuityHeaderAction({ threadId }: PluginThreadHeaderActionProps) {
 
 function ContinuityComposerBanner() {
   const { threadId } = useBbContext();
-  const { status, queued } = useContinuityRuntime(threadId);
-  const [, tick] = useState(0);
-  const [compactedUntil, setCompactedUntil] = useState(0);
-  const compactedAt = useRef<number | null>(null);
-  useEffect(() => {
-    if (status?.state === "compacted" && compactedAt.current !== status.lastCompactedAt) {
-      compactedAt.current = status.lastCompactedAt;
-      setCompactedUntil(Date.now() + 15_000);
-    }
-  }, [status]);
-  useEffect(() => {
-    const timer = setInterval(() => tick(count => count + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  if (!threadId) return null;
+  const { enabled, phase: status, label, queued } = useContinuityRuntime(threadId);
+  if (!threadId || !enabled) return null;
   let text: string | null = null;
   let toneClass = "text-muted-foreground";
   if (status?.state === "compacting") {
@@ -210,13 +181,13 @@ function ContinuityComposerBanner() {
     toneClass = "text-primary";
   } else if (status?.state === "deferred" && /queued/i.test(status.reason)) {
     text = `Continuity compaction waiting: ${status.reason}`;
-  } else if (status?.state === "compacted" || Date.now() < compactedUntil) {
+  } else if (status?.state === "compacted") {
     text = "Continuity compacted the context; original tool results stay recoverable via continuity_read.";
   } else if (status?.state === "error") {
     text = `Continuity error: ${status.reason}`;
     toneClass = "text-destructive";
   }
-  if (!text) return null;
+  if (!text) text = label;
   return (
     <div role="status" className={`flex items-center gap-2 px-3 py-2 text-sm ${toneClass}`}>
       <Icon name="Layers" className="size-4 shrink-0" aria-hidden="true" />
@@ -226,10 +197,9 @@ function ContinuityComposerBanner() {
 }
 
 const THREAD_ID_PATTERN = /^thr_[a-zA-Z0-9_-]+$/;
-const ROW_STATUS_FRESH_MS = 90_000;
 
 /**
- * Decorates sidebar rows of threads with a live Continuity runtime: the host
+ * Decorates sidebar rows of threads with saved Continuity policy: the host
  * renders the status glyph in place of the draft glyph. Reads the thread ids
  * off the sidebar DOM and batch-fetches statuses over the plugin's same-origin
  * RPC route; realtime is not available to content scripts.
@@ -255,18 +225,19 @@ function registerRowStatusScript(app: PluginAppBuilder) {
             body: JSON.stringify({ threadIds: ids }),
           });
           if (!response.ok) return;
-          const body = (await response.json()) as { ok?: boolean; result?: { statuses?: Record<string, RuntimeStatus | null> } };
+          const body = (await response.json()) as { ok?: boolean; result?: { statuses?: Record<string, RuntimeStatus | null>; enabledThreadIds?: string[] } };
           const statuses = body.ok ? body.result?.statuses : undefined;
           if (!statuses) return;
+          const enabled = new Set(body.result?.enabledThreadIds ?? []);
           const now = Date.now();
           for (const threadId of ids) {
             const status = statuses[threadId] ?? null;
-            const live = status !== null && now - status.updatedAt < ROW_STATUS_FRESH_MS && status.state !== "stopped" && status.state !== "disabled";
-            if (!live) { apply(threadId, null); continue; }
+            const view = continuityView(enabled.has(threadId), status, now);
+            if (!view.enabled) { apply(threadId, null); continue; }
             apply(threadId, {
               icon: "Layers",
-              label: `Continuity: ${status.state}`,
-              tone: status.state === "compacting" ? "running" : status.state === "error" ? "error" : "default",
+              label: view.label,
+              tone: view.phase?.state === "compacting" ? "running" : view.phase?.state === "error" ? "error" : "default",
             });
           }
         } catch { /* offline or server restarting; retried on the next tick */ }

@@ -11,6 +11,7 @@ const checkpointSchema = z.object({
   version: z.literal(1), demotions: z.array(z.object({ id: z.string().max(200), text: z.string().max(1000) }).strict()).max(4096),
   lastRewriteSize: z.number().nonnegative(), lastCompactedAt: z.number().nullable(), lastAttemptAt: z.number(),
   handledRequest: z.string().nullable(), idleAttemptUserId: z.string().nullable(),
+  lastCompactionEntryId: z.string().max(200).nullable().optional(),
 }).strict();
 const CHECKPOINT = "bb-continuity.checkpoint.v1";
 const COOLDOWN_MS = 15 * 60 * 1000;
@@ -24,13 +25,15 @@ export default function continuity(pi: OmpApi, registry: { lookup(id: string): S
   let active = false, admitting = false, compacting = false, stopped = false, polling = false;
   let generation = 0, lastActivityAt = Date.now(), coldIdleMs = 0;
   let lastCompactedAt: number | null = null, lastAttemptAt = 0;
+  let lastCompactionEntryId: string | null = null;
+  let compactionTrigger: "requested" | "idle" = "idle";
   let handledRequest: string | null = null, requested: string | null = null, idleAttemptUserId: string | null = null;
   let status: RuntimeStatus | undefined;
   let maintenanceError: string | undefined;
   const overrides = new Map<string, { setting: Setting; previous: unknown; wasOverride: boolean }>();
 
   function persist(ctx: OmpContext): void {
-    pi.appendEntry(CHECKPOINT, { ...state, lastCompactedAt, lastAttemptAt, handledRequest, idleAttemptUserId });
+    pi.appendEntry(CHECKPOINT, { ...state, lastCompactedAt, lastAttemptAt, handledRequest, idleAttemptUserId, lastCompactionEntryId });
   }
   function publish(ctx: OmpContext, next: RuntimeStatus["state"], reason: string): void {
     if (maintenanceError && next !== "error" && next !== "disabled" && next !== "stopped") {
@@ -73,7 +76,7 @@ export default function continuity(pi: OmpApi, registry: { lookup(id: string): S
     }
   }
   function restoreJournal(ctx: OmpContext): void {
-    state = emptyState(); lastCompactedAt = null; lastAttemptAt = 0; handledRequest = null; idleAttemptUserId = null;
+    state = emptyState(); lastCompactedAt = null; lastAttemptAt = 0; handledRequest = null; idleAttemptUserId = null; lastCompactionEntryId = null;
     for (const entry of ctx.sessionManager.getBranch()) {
       if (entry.type !== "custom" || entry.customType !== CHECKPOINT) continue;
       const parsed = checkpointSchema.safeParse(entry.data);
@@ -81,6 +84,7 @@ export default function continuity(pi: OmpApi, registry: { lookup(id: string): S
       const data = parsed.data;
       state = { version: 1, demotions: data.demotions, lastRewriteSize: data.lastRewriteSize };
       ({ lastCompactedAt, lastAttemptAt, handledRequest, idleAttemptUserId } = data);
+      lastCompactionEntryId = data.lastCompactionEntryId ?? null;
     }
   }
   function busy(ctx: OmpContext): boolean {
@@ -89,7 +93,11 @@ export default function continuity(pi: OmpApi, registry: { lookup(id: string): S
       (jobs.running.length > 0 || jobs.delivery.queued > 0 || jobs.delivery.delivering || jobs.delivery.pendingJobIds.length > 0);
   }
   async function maintain(ctx: OmpContext): Promise<void> {
-    if (stopped || compacting || polling) return;
+    if (stopped) return;
+    // The managed interval continues while the native summarizer awaits I/O.
+    // Keep freshness truthful for slow summaries, without extending stale phases.
+    if (compacting) { publish(ctx, "compacting", status?.reason ?? "Native OMP soft compaction is running."); return; }
+    if (polling) return;
     polling = true;
     try {
       const control = controlSchema.parse(readJson(join(directory!, "control.json")));
@@ -112,6 +120,7 @@ export default function continuity(pi: OmpApi, registry: { lookup(id: string): S
       // No awaits between the final activity gate and ctx.compact(): core installs its lock synchronously.
       if (busy(ctx)) return;
       compacting = true;
+      compactionTrigger = manual ? "requested" : "idle";
       maintenanceError = undefined;
       try {
         const epoch = generation;
@@ -120,7 +129,7 @@ export default function continuity(pi: OmpApi, registry: { lookup(id: string): S
         persist(ctx);
         publish(ctx, "compacting", manual ? "Running requested native soft compaction at an idle boundary." : "Running native soft compaction after the configured idle interval.");
         await ctx.compact({ mode: "soft", suppressContinuation: true,
-          onComplete: () => { if (!stopped && epoch === generation) { lastCompactedAt = Date.now(); persist(ctx); publish(ctx, "compacted", "Native OMP soft compaction committed; no maintenance continuation requested."); } },
+          onComplete: () => { if (!stopped && epoch === generation) publish(ctx, "compacted", "Native OMP soft compaction committed; no maintenance continuation requested."); },
           onError: error => { if (!stopped && epoch === generation) { maintenanceError = `Native compaction failed: ${error.message}`; publish(ctx, "error", maintenanceError); } },
         });
       } catch (error) {
@@ -138,8 +147,8 @@ export default function continuity(pi: OmpApi, registry: { lookup(id: string): S
     maintenanceError = undefined;
     lastActivityAt = Date.now(); coldIdleMs = 0;
     restoreJournal(ctx);
-    await maintain(ctx);
     timer = ctx.setInterval(() => maintain(ctx), 2000);
+    await maintain(ctx);
   }
   for (const event of ["session_start", "session_switch", "session_branch", "session_tree"] as const) pi.on(event, start);
   pi.on("input", (_event, ctx) => {
@@ -169,10 +178,21 @@ export default function continuity(pi: OmpApi, registry: { lookup(id: string): S
   });
   pi.on("session.compacting", () => policy.enabled ? { context: [GUIDANCE], preserveData: { continuity: { version: 1, history: "original OMP branch journal", strategy: "notes-rollover-with-idle-soft-summary" } } } : undefined);
   pi.on("cache_warming_decision", () => policy.enabled ? { action: "stop" } : undefined);
-  pi.on("session_compact", (_event, ctx) => {
+  pi.on("session_compact", (event, ctx) => {
     if (ctx.agent.kind !== "main") return;
+    const { id, timestamp } = event.compactionEntry;
+    if (id === lastCompactionEntryId) return;
+    const committedAt = Date.parse(timestamp);
+    if (!Number.isFinite(committedAt)) return;
     maintenanceError = undefined;
-    lastCompactedAt = Date.now(); state = emptyState(); status = undefined; persist(ctx);
+    lastCompactionEntryId = id; lastCompactedAt = committedAt;
+    state = emptyState(); status = undefined; persist(ctx);
+    // Native /compact and automatic rollover already have provider lifecycle
+    // events. Only extension-owned idle compaction needs this transport bridge.
+    // This is emitted once at commit, never replayed from status/checkpoints.
+    if (policy.enabled && compacting) ctx.ui.notify(`bb-continuity.compacted.v1:${JSON.stringify({
+      sessionId: ctx.sessionManager.getSessionId(), entryId: id, timestamp, trigger: compactionTrigger,
+    })}`, "info");
   });
   pi.on("session_shutdown", (_event, ctx) => {
     if (ctx.agent.kind !== "main") return;

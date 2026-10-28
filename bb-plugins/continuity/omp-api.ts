@@ -18,7 +18,9 @@ export interface OmpContext {
 export interface OmpEvents {
   session_start: {}; session_switch: {}; session_branch: {}; session_tree: {}; session_shutdown: {};
   input: {}; agent_start: {}; agent_end: { willContinue?: boolean; awaitingAsyncWork?: boolean };
-  context: { messages: ContextMessage[] }; session_compact: {}; "session.compacting": {}; cache_warming_decision: {};
+  context: { messages: ContextMessage[] };
+  session_compact: { compactionEntry: { id: string; timestamp: string }; fromExtension: boolean };
+  "session.compacting": {}; cache_warming_decision: {};
 }
 export interface OmpApi {
   zod: typeof z;

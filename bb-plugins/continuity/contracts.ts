@@ -35,6 +35,6 @@ export const rpcContract = defineRpcContract({
   },
   statuses: {
     input: z.object({ threadIds: z.array(threadIdSchema).min(1).max(64) }),
-    output: z.object({ statuses: z.record(threadIdSchema, statusSchema.nullable()) }),
+    output: z.object({ statuses: z.record(threadIdSchema, statusSchema.nullable()), enabledThreadIds: z.array(threadIdSchema) }),
   },
 });

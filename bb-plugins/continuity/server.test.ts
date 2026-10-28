@@ -88,9 +88,34 @@ for (const providerId of ["omp", "acp-omp"]) test(`${providerId} launch prepares
     expect(await host.harness.behavior.callRpc("configure", { threadId: "thr_launch", policy: { ...DEFAULT_POLICY, tools: ["read", "grep"] } })).toMatchObject({ applied: true });
     expect(await host.harness.behavior.callRpc("inspect", { threadId: "thr_launch" })).toMatchObject({ supported: true, configured: true, policy: { tools: ["read", "grep"] } });
     expect(await host.harness.behavior.callRpc("compact", { threadId: "thr_launch" })).toMatchObject({ queued: true });
-    expect(await host.harness.behavior.callRpc("statuses", { threadIds: ["thr_launch"] })).toEqual({ statuses: { thr_launch: null } });
+    expect(await host.harness.behavior.callRpc("statuses", { threadIds: ["thr_launch"] })).toEqual({ statuses: { thr_launch: null }, enabledThreadIds: ["thr_launch"] });
     const before = host.harness.experimental_hostRpcCalls.length;
     expect(await host.harness.behavior.resolveProviderEnv(providerId, { threadId: "thr_launch", projectId: "proj_other", hostId: "host_test" })).toEqual([]);
     expect(host.harness.experimental_hostRpcCalls.length).toBe(before);
+  } finally { await host.harness.lifecycle.dispose(); }
+});
+
+test("batch status preserves saved enablement through stopped, missing and unreachable runtimes, scoped to the current host", async () => {
+  const status = { sessionId: "session-a", updatedAt: 100, state: "stopped", reason: "Stopped", demotedResults: 2, reclaimedTokens: 1000, estimatedTokens: 2000, lastCompactedAt: 90 };
+  const host = createFakePluginHost({ pluginId: "continuity", sdk: {
+    threads: { get: async ({ threadId }) => makeThreadResponse({ id: threadId, providerId: threadId === "thr_wrong" ? "codex" : "omp", environmentId: threadId === "thr_new" ? null : "env_current" }) },
+  }, experimental_callHostRpc: async ({ method, input, hostId }) => {
+    if (method === "control") return { queued: false };
+    expect(hostId).toBe("host_current");
+    const id = (input as { threadId: string }).threadId;
+    if (id === "thr_offline") throw new Error("Host offline");
+    return { status: id === "thr_stopped" ? status : null };
+  } });
+  host.harness.sdk.stub("environments.get", async () => ({ hostId: "host_current", path: "/current", lifecycle: { phase: "active" } }));
+  plugin(host.bb);
+  try {
+    const ids = ["thr_stopped", "thr_missing", "thr_offline", "thr_new", "thr_disabled", "thr_wrong", "thr_unconfigured"];
+    for (const id of ids.slice(0, 6)) await host.bb.storage.kv.set(`thread:${id}`, { ...DEFAULT_POLICY, enabled: id !== "thr_disabled" });
+    expect(await host.harness.behavior.callRpc("statuses", { threadIds: ids })).toEqual({
+      enabledThreadIds: ids.slice(0, 4),
+      statuses: Object.fromEntries(ids.map(id => [id, id === "thr_stopped" ? status : null])),
+    });
+    await host.harness.behavior.callRpc("setEnabled", { threadId: "thr_stopped", enabled: false });
+    expect(await host.harness.behavior.callRpc("statuses", { threadIds: ["thr_stopped"] })).toEqual({ enabledThreadIds: [], statuses: { thr_stopped: null } });
   } finally { await host.harness.lifecycle.dispose(); }
 });
