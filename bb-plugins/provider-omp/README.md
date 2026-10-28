@@ -17,7 +17,39 @@ curl -fsSL https://omp.sh/install | sh
 Run `omp` on that host, then `/login` to authenticate. Select OMP when starting a
 bb thread. Upgrade with `omp update`, or update through your installation manager.
 The provider probes `omp --version` and reports missing or outdated installations;
-it does not run an npm installation for you.
+it does not install dependencies for you.
+
+## Local test resource guard
+
+`pnpm run test:supervised -- [Vitest filters/options]` opts into a local supervisor.
+The ordinary `pnpm test` command remains unsupervised. The guard launches the
+current checkout's resolved `vitest/vitest.mjs` directly with Node and an argument
+array (no shell or package-runner process). Install checkout-local dependencies
+first; a Vitest entry outside this checkout is refused.
+
+Every two seconds it samples only this run's root and snapshot-derived descendants.
+It aborts after ten continuously observed seconds above either
+`max(32, 4 * CPU count)` processes or 25% of host physical memory in aggregate RSS.
+RSS above 15% and CPU above host capacity produce warnings; CPU never aborts.
+RSS sums may double-count shared pages. The thresholds use host memory, not
+container limits. An overload exits with code **75**, distinct from test failure.
+
+On abort it sends TERM to the root first, then individually revalidated owned
+children, waits one second, and sends KILL only to still-matching owned identities.
+It never selects by command name, cwd, BB/thread identity or process group.
+Processes present before launch, siblings and unrelated processes are excluded.
+Missing/ambiguous snapshots prevent signalling; changed parent/start identities
+and reparented children are skipped, so cleanup is intentionally best-effort.
+Portable `ps` start times have one-second precision and there is an unavoidable
+snapshot-to-signal PID-reuse race: this is a local safety aid, not a sandbox or
+an atomic OS process-identity guarantee.
+
+Each run prints its private temporary log location: a mode-0700 directory with a
+mode-0600 JSONL file capped at 1 MiB (further samples are dropped once full).
+Logs contain aggregate measurements, not process arguments or environment values.
+Remove the printed directory when no longer needed.
+`pnpm run test:supervisor` runs deterministic snapshot/clock and dry-run signal
+safety tests without spawning stress workloads or sending real signals.
 
 ## Native RPC bridge
 
@@ -72,10 +104,67 @@ tool, not the target path, so it does not prevent writes outside the workspace.
 ## Tool rows and native controls
 
 File reads, directory listings, searches, web searches, web fetches and reasoning
-use bb's matching timeline rows. File-read and search rows do not retain result
-bodies because bb's SDK has no result-body field for those row types. Writes to
-`xd://` devices are tool dispatches, not file changes. Streaming cache warming
-appears as a progress notice; idle cache warming is silent unless it fails.
+use bb's matching timeline rows. Search rows retain the original `grep`, `glob`,
+`find`, `ast_grep` or directory-`read` identity, query and path. File reads retain
+the requested selector/range. Both send the full returned text, including errors;
+semantic-find scores, partial-coverage notes and truncation/artifact notices stay
+verbatim rather than becoming an inferred complete file list.
+
+Descriptive `find` queries use semantic-search labels and content-search identity,
+distinct from filename `glob` discovery; expanded results retain scored hits,
+ranges, coverage and truncation notices exactly as returned.
+
+The matching updated bb core shows bounded output previews and access to the full
+output/artifact. The pinned Plugin SDK 0.6.75 still drops search identity/output
+and file-read selectors/output when assembling rows; both bb and its SDK need the
+updated contracts to retain those fields. Ambiguous or malformed calls stay
+generic with their original arguments and structured result.
+
+Successful single-file `edit` calls keep their hashline input and full result in
+the generic tool details. When OMP returns a validated local path and complete
+old/new snapshots (or a matching single-file unified patch), the matching bb
+core additionally shows its native diff card. Failed, ambiguous and `xd://`
+dispatch calls stay generic without an inferred file change.
+
+Python/JavaScript `eval` calls and Tool Gateway signature search/program execution
+remain generic tool events with their complete arguments and structured results.
+Their rows identify the language or Gateway operation and show a useful supplied
+intent, or a bounded source/query preview when the intent is generic. With the
+matching bb core, expanded details separate highlighted source from readable
+results, preserve exact raw output, and display supported embedded result images.
+Malformed calls keep the ordinary generic tool view.
+
+Writes to `xd://` devices are tool dispatches, not file changes. A validated
+dispatch uses the inner tool's identity, output and failure status, including
+directory reads. Unknown, help-only or malformed dispatches remain generic
+`write` rows. Streaming cache warming appears as a progress notice; idle cache
+warming is silent unless it fails.
+
+Bash calls with structured OMP async metadata keep their command row as a
+completed dispatch and open a separate native background-job row with the job ID.
+Dispatch does not imply command success or invent an exit code. Originating bash
+updates, structured `wait` snapshots and explicit `async-result` job statuses
+update known jobs across turns, retaining output, errors and reported exit codes.
+Terminal observations do not reopen jobs; repeated empty wait heartbeats add no
+progress noise. Missing/unknown statuses and prose are not inferred as success.
+Job associations are scoped to the thread, parent and current OMP session; they
+are cleared on session reset rather than reconstructed from historical prose.
+
+`wait` keeps one invocation row, separate from those job rows. Live structured
+snapshots emit readable progress from validated job IDs, types, statuses, labels,
+task stages/completion estimates and reported exit codes. Duration-only and
+unchanged snapshots stay silent. Original arguments and the complete terminal
+envelope remain attached, including message-only, empty, interrupted, skipped,
+malformed and long results. A successful wait or a reached wait cap does not mean
+its background work succeeded; synthetic unexecuted results never update job
+outcomes.
+
+Displayed IRC messages have distinct message icons and sender → recipient rows,
+with pool context when OMP supplies it. Collapsed rows preview the actual
+message; OMP does not emit a separate IRC reason. Expand a row to read its full
+retained body. With matching bb core, groups count IRC messages separately from
+native Thoughts rather than calling both “plugin steps”; unknown extension
+cards keep the generic fallback.
 
 These composer commands use OMP RPC directly, without a model round trip:
 
@@ -95,9 +184,14 @@ These composer commands use OMP RPC directly, without a model round trip:
 Side questions and user shell commands show pending background cards while they
 run. Shell command cards display text output only, even if OMP records images.
 
-The session options include **Slow mode** when the active model supports it.
-If OMP reports global scope, the option warns that changing it affects every OMP
-session, not just this thread.
+The model picker's only session option is **Slow mode**, shown when the active
+model supports it. If OMP reports global scope, the option warns that changing it
+affects every OMP session, not just this thread.
+
+bb has no Fast switch, steering, follow-up, interrupt, compaction, retry or cache
+warming rows for OMP. OMP's own config owns those (`~/.omp/agent/config.yml` or
+OMP's `/settings`), and `/fast` toggles fast mode from the composer. Choices older
+threads saved for them in bb are ignored.
 
 bb's provider usage view runs `omp usage --json` on the host to show available
 account limits and reset windows. This is separate from the thread's token and
@@ -125,12 +219,31 @@ When the final reply is already visible in the nested transcript, the terminal
 delegation summary keeps only metadata and any error instead of repeating it.
 The bridge subscribes to child events and reconciles completed messages/tools
 with incremental `get_subagent_messages` reads, retaining terminal children
-locally even after OMP removes them from `get_subagents`.
+locally even after OMP removes them from `get_subagents`. Nested delegations stay
+scoped to their owner's transcript turn, including foreground task completions
+that arrive after the root turn or owner has finished.
 
-Detached children additionally share a native background-workflow card per
-spawning call, showing each agent's state, model, last tool, and token usage.
-Their cards and nested transcript updates can outlive the spawning turn; a
-finished `task` call does not mark still-running children completed. OMP's
+Detached task batches additionally share a native background-workflow card per
+root spawning call. The roster includes every descendant, even nested children
+running in the foreground, with stable native identities and parent links in
+parent-before-child chronological order. Independent root calls keep separate
+cards, including when they overlap in one turn. Each member retains its own
+delegation and expandable transcript; state, model, last tool, and token usage
+update from both live child events and transcript backfill.
+
+Family snapshots retain finished members and aggregate their usage. A finished
+`task` call does not mark still-running descendants completed, and nested calls
+wait for their authoritative results before the family completes. On restore,
+root task history establishes family identity and child transcript backfill
+recovers nested ownership before the first workflow snapshot. Unknown spawning
+calls wait for ownership evidence instead of creating temporary nested cards;
+agent-name dots alone do not establish ancestry. Keep-alive wakes reopen the
+same family when the spawning call is unchanged; a new root call gets a separate
+family without changing historical members of the old one. Late terminal usage,
+output, and error corrections revise the finished card without reopening it or
+emitting another completion boundary.
+
+Cards and nested transcript updates can outlive the spawning turn. OMP's
 async-work yield completes the current bb turn; a later background-result
 follow-up opens a new turn. Known open surfaces are interrupted when their
 OMP process exits or is shut down.
@@ -181,6 +294,12 @@ can open the URL, read logs, restart, stop, or kill. omp's own helpers
 every 5 seconds while it is open. The plugin's host entry runs `omp ps` on the
 thread's host. When that host isn't the bb server's machine, the URL points to
 that host's loopback, and the panel says so.
+
+**Context notes** shows the active branch's read-only notebook when OMP's
+experimental notes-backed context windows are in use. The bridge loads the
+current notes on session start and refreshes them after `context_notes` tool
+calls and OMP notebook-message events; an empty or cleared notebook shows an
+empty state. Edit the notebook with OMP's `context_notes` tool, not in the panel.
 
 The SDK has no way to change an open panel's saved params. So after the first
 open, picking a different agent only lasts for the current session.
@@ -255,17 +374,42 @@ session-storage settings.
 
 The plugin settings (Settings → Plugins → omp) decide which omp models show in
 bb's model picker. Hidden models go under **More models**: they stay searchable
-and selectable, so no thread loses its model. By default only the latest model
-of each family shows (newest Opus, newest GPT mini, and so on); models omp has
-no family for always show. The other filters are off until you set them:
-minimum intelligence score, maximum input and output price, minimum context
-window, reasoning, image input and tool support, provider allow and deny lists,
-and an always-show list. Lists are comma-separated names or `*` globs.
+and selectable, so no thread loses its model. These rules are on by default, and
+each has its own setting to turn it off:
+
+- **Latest per family**: only the newest model of each family and variant shows
+  (newest Opus, newest GPT mini, and so on). Models with no known family show.
+- **Fill in families and versions**: before grouping, a model with a known maker
+  but no family uses the maker (glm, qwen, gemma), a version inside the family
+  name is split out (kimi `k2.5`, minimax `m2`), and a missing version is read
+  from the id (Fireworks `5p3` reads as 5.3). Older glm, kimi, minimax, qwen and
+  o1 models then fold under their newest version.
+- **Task models**: embedding, reranker, text-to-speech, realtime and live audio,
+  image generation (`imagine`, `flux`), robotics, computer use, deep research,
+  safeguard and Groq `compound` models, and any omp model kind other than chat.
+- **Old generations**: a model two or more major versions behind the newest from
+  the same provider and maker, for example gpt-4o and o3 once gpt-6 exists. A
+  version after other words (`grok-code-fast-1`) numbers its own line and is
+  left alone.
+- **One copy per model**: when the same model comes from several providers
+  (`openai` and `openai-272k`, groq and Fireworks `gpt-oss`), one copy shows. A
+  pinned copy wins, then **Preferred providers for copies** (names or globs,
+  best first), then the current model's provider, then catalog order.
+- **Shared scores**: an unscored model uses the score of the same id on another
+  provider (ignoring Fireworks paths, `-fast` and date stamps), so the minimum
+  score applies to it. Different models such as `-pro` or `-mini` never share.
+
+The other filters are off until you set them: minimum intelligence score,
+maximum input and output price, minimum context window, reasoning, image input
+and tool support, provider allow and deny lists, and an always-show list. Lists
+are comma-separated names or `*` globs.
 
 Missing data never hides a model (no score, unknown price, unknown context or
-tool support). omp's current model and its `modelRoles` models always show, and
-if the filters would hide everything the full list shows instead. Each model's
-description carries its price per million tokens, context window and score.
+tool support). omp's current model, its `modelRoles` models, models your presets
+use and the always-show list are pinned: they always show and sit at the top,
+with the current model first. If the filters would hide everything the full list
+shows instead. Each model's description carries its price per million tokens,
+context window and score.
 
 A change applies to the picker within a couple of seconds; running threads are
 not interrupted.

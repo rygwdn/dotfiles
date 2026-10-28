@@ -1,62 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createOmpModelContextWindowResolverFrom } from "./delta-translation.js";
 import { DEFAULT_OMP_MODEL_FILTER } from "./model-curation.js";
-import { buildOmpAvailableModels, type OmpCatalogModel } from "./model-list.js";
+import {
+  bbDisplayedReasoningLevel,
+  buildOmpAvailableModels,
+  type OmpCatalogModel,
+} from "./model-list.js";
 import type { OmpModelPreset } from "./native-roots.js";
 
 describe("omp model list", () => {
-  it("exposes all six native-default session controls on every model", () => {
-    const { models } = buildOmpAvailableModels({
-      models: [
-        {
-          id: "reasoning-model",
-          name: "Reasoning model",
-          provider: "custom",
-          reasoning: true,
-          input: ["text"],
-        },
-        {
-          id: "plain-model",
-          name: "Plain model",
-          provider: "other",
-          reasoning: false,
-          input: ["text"],
-        },
-      ],
-    });
-    for (const model of models) {
-      expect(
-        model.sessionOptions?.map(({ id, type, value }) => ({ id, type, value })),
-      ).toEqual([
-        { id: "steeringMode", type: "select", value: "native" },
-        { id: "followUpMode", type: "select", value: "native" },
-        { id: "interruptMode", type: "select", value: "native" },
-        { id: "autoCompactionEnabled", type: "select", value: "native" },
-        { id: "autoRetryEnabled", type: "select", value: "native" },
-        { id: "cacheWarmingMode", type: "select", value: "native" },
-      ]);
-    }
-  });
-
-  it.each([
-    { serviceTiers: ["priority"], expected: [{ id: "default", label: "Default" }, { id: "fast", label: "Fast" }] },
-    { serviceTiers: ["flex", "ultrafast"], expected: [{ id: "default", label: "Default" }] },
-    { serviceTiers: [], expected: [{ id: "default", label: "Default" }] },
-    { serviceTiers: undefined, expected: undefined },
-  ])("maps native service tiers without exposing slow or guessing support: $serviceTiers", ({ serviceTiers, expected }) => {
-    const { models } = buildOmpAvailableModels({
-      models: [{
-        id: "tiered-model",
-        name: "Tiered model",
-        provider: "custom",
-        reasoning: false,
-        input: ["text"],
-        ...(serviceTiers === undefined ? {} : { serviceTiers }),
-      }],
-    });
-    expect(models[0]?.supportedServiceTiers).toEqual(expected);
-  });
-
   it("adds off as none and preserves a sparse native effort ladder", () => {
     const { models } = buildOmpAvailableModels({
       models: [
@@ -385,8 +337,8 @@ describe("omp model list", () => {
       });
 
       expect(models.map((model) => model.id)).toEqual([
-        "custom/first-model",
-        "custom/second-model",
+        expected,
+        ...["custom/first-model", "custom/second-model"].filter((id) => id !== expected),
       ]);
       expect(models.filter((model) => model.isDefault).map((model) => model.id)).toEqual([
         expected,
@@ -426,14 +378,51 @@ describe("omp model list", () => {
     });
 
     expect(models.map((model) => model.id)).toEqual([
-      "anthropic/claude-opus-4-8",
       "anthropic/claude-opus-4-8-20260115",
+      "anthropic/claude-opus-4-8",
       "anthropic/claude-opus-4-6-20240620",
     ]);
     expect(models.filter((model) => model.isDefault).map((model) => model.id)).toEqual([
       "anthropic/claude-opus-4-8-20260115",
     ]);
     expect(selectedOnlyModels).toEqual([]);
+  });
+
+  it("keeps role targets immediately after a late default ahead of unpinned raw models", () => {
+    const catalog: OmpCatalogModel[] = ["ordinary", "role", "preset-role", "active"].map((id) => ({
+      id, name: id, provider: "custom", reasoning: false, input: ["text"],
+    }));
+    const { models } = buildOmpAvailableModels({
+      models: catalog,
+      preferredDefaultId: "custom/active",
+      modelRoles: { task: "custom/role:high" },
+      presets: [{
+        name: "coding", source: "global",
+        modelRoles: { default: "custom/active", advisor: "custom/preset-role" },
+      }],
+    });
+    expect(models[0]).toMatchObject({ id: "custom/active", isDefault: true });
+    expect(models.filter(({ id }) => !id.startsWith("preset:")).map(({ id }) => id))
+      .toEqual(["custom/active", "custom/role", "custom/preset-role", "custom/ordinary"]);
+    expect(models.map(({ id }) => id)).toEqual([
+      "custom/active", "preset:coding", "custom/role", "custom/preset-role", "custom/ordinary",
+    ]);
+  });
+
+  it("keeps collapsed copies and task models selectable without losing catalog rows", () => {
+    const catalog: OmpCatalogModel[] = [
+      { id: "glm-5.3", provider: "zai", identity: { class: "glm" } },
+      { id: "z-ai/glm-5.3", provider: "openrouter", identity: { class: "glm" } },
+      { id: "specialist", provider: "custom", kind: "embedding" },
+      { id: "gpt-5.6-terra", provider: "openai", identity: { class: "gpt" }, kind: "chat" },
+    ].map((model) => ({ ...model, name: model.id, reasoning: false, input: ["text"] }));
+    const { models, selectedOnlyModels } = buildOmpAvailableModels({ models: catalog });
+    expect(models.map(({ id }) => id)).toEqual(["zai/glm-5.3", "openai/gpt-5.6-terra"]);
+    expect(selectedOnlyModels.map(({ id }) => id)).toEqual([
+      "openrouter/z-ai/glm-5.3", "custom/specialist",
+    ]);
+    expect([...models, ...selectedOnlyModels].map(({ id }) => id).sort())
+      .toEqual(catalog.map(({ provider, id }) => `${provider}/${id}`).sort());
   });
 
   it("handles an empty catalog", () => {
@@ -482,6 +471,29 @@ describe("omp model list", () => {
   });
 });
 
+describe("bb's displayed reasoning level", () => {
+  function pickerModel(efforts: string[]) {
+    const [model] = buildOmpAvailableModels({
+      models: [{
+        id: "m", name: "M", provider: "p", reasoning: true, input: ["text"], thinking: { efforts },
+      }],
+    }).models;
+    return model!;
+  }
+
+  it.each([
+    { efforts: ["low", "high", "max"], level: "medium", shown: "high" },
+    { efforts: ["low", "high", "max"], level: "xhigh", shown: "high" },
+    { efforts: ["low", "medium", "high"], level: "max", shown: "high" },
+    { efforts: ["low", "high", "max"], level: "low", shown: "low" },
+    { efforts: ["low", "high", "max"], level: "none", shown: "none" },
+    { efforts: ["minimal", "high"], level: "low", shown: "none" },
+    { efforts: ["low", "high"], level: "minimal", shown: "high" },
+  ])("shows $shown for $level on $efforts", ({ efforts, level, shown }) => {
+    expect(bbDisplayedReasoningLevel(level, pickerModel(efforts))).toBe(shown);
+  });
+});
+
 describe("omp preset picker entries", () => {
   const oldModel: OmpCatalogModel = {
     id: "old",
@@ -490,7 +502,6 @@ describe("omp preset picker entries", () => {
     reasoning: true,
     input: ["text"],
     thinking: { efforts: ["low", "high"] },
-    serviceTiers: ["priority", "flex"],
     int: 10,
   };
   const newModel: OmpCatalogModel = {
@@ -523,7 +534,7 @@ describe("omp preset picker entries", () => {
   it.each([
     {
       mode: "both" as const,
-      shown: ["preset:best-coder", "preset:economy", "custom/old", "custom/new"],
+      shown: ["custom/new", "preset:best-coder", "preset:economy", "custom/old"],
       more: ["custom/hidden"],
       defaultId: "custom/new",
     },
@@ -556,16 +567,14 @@ describe("omp preset picker entries", () => {
 
   it("uses both mode by default and describes preset roles and non-global sources", () => {
     const { models } = buildOmpAvailableModels({ models: catalog, presets });
-    expect(models[0]).toMatchObject({
+    expect(models.find(({ id }) => id === "preset:best-coder")).toMatchObject({
       id: "preset:best-coder",
       model: "preset:best-coder",
       displayName: "Best coder",
       description: "Preset · default old · task @slow",
       defaultReasoningEffort: "high",
-      sessionOptions: models.find(({ id }) => id === "custom/old")?.sessionOptions,
-      supportedServiceTiers: [{ id: "default", label: "Default" }, { id: "fast", label: "Fast" }],
     });
-    expect(models[1]?.description).toBe("Preset · default new · project");
+    expect(models.find(({ id }) => id === "preset:economy")?.description).toBe("Preset · default new · project");
   });
 
   it("pins raw models referenced by every preset role, not only the default role", () => {
@@ -575,7 +584,7 @@ describe("omp preset picker entries", () => {
       presets: [{ ...presets[0]!, modelRoles: { default: "custom/new", advisor: "custom/old:max" } }],
       filter: curatedFilter,
     });
-    expect(models.map(({ id }) => id)).toEqual(["preset:best-coder", "custom/old", "custom/new"]);
+    expect(models.map(({ id }) => id)).toEqual(["custom/new", "preset:best-coder", "custom/old"]);
     expect(selectedOnlyModels.map(({ id }) => id)).toEqual(["custom/hidden"]);
   });
 
@@ -588,7 +597,7 @@ describe("omp preset picker entries", () => {
         modelRoles: { task: "@slow", plan: "custom/new", default: "custom/old", advisor: "custom/new" },
       }],
     });
-    expect(models[0]).toMatchObject({
+    expect(models.find(({ id }) => id === "preset:many_roles")).toMatchObject({
       displayName: "Many roles",
       description: "Preset · default old · task @slow · plan new · … · overlay",
     });
@@ -602,6 +611,7 @@ describe("omp preset picker entries", () => {
       modelRoles: { task: "@slow", default: "custom/new:low", unused: "" },
       filter: { ...DEFAULT_OMP_MODEL_FILTER, modelPresetsInPicker: "presets" },
     });
+    expect(models[0]).toMatchObject({ id: "preset:economy", isDefault: true });
     expect(models.filter(({ isDefault }) => isDefault).map(({ id }) => id))
       .toEqual(["preset:economy"]);
   });
@@ -644,13 +654,12 @@ describe("omp preset picker entries", () => {
         source: "global",
       }],
     });
-    expect(models[0]?.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort))
+    expect(models.find(({ id }) => id === "preset:router")?.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort))
       .toEqual(["none", "low", "high"]);
-    expect(models[0]?.defaultReasoningEffort).toBe(effort);
-    expect(models[0]?.supportedServiceTiers).toEqual(models[1]?.supportedServiceTiers);
+    expect(models.find(({ id }) => id === "preset:router")?.defaultReasoningEffort).toBe(effort);
   });
 
-  it("follows the preset's default role alias for reasoning and service-tier metadata", () => {
+  it("follows the preset's default role alias for reasoning metadata", () => {
     const { models } = buildOmpAvailableModels({
       models: [{ ...oldModel, provider: "provider", id: "B" }],
       presets: [{
@@ -660,11 +669,9 @@ describe("omp preset picker entries", () => {
         defaultThinkingLevel: "low",
       }],
     });
-    expect(models[0]?.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort))
+    expect(models.find(({ id }) => id === "preset:aliased")?.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort))
       .toEqual(["none", "low", "high"]);
-    expect(models[0]?.defaultReasoningEffort).toBe("high");
-    expect(models[0]?.supportedServiceTiers)
-      .toEqual([{ id: "default", label: "Default" }, { id: "fast", label: "Fast" }]);
+    expect(models.find(({ id }) => id === "preset:aliased")?.defaultReasoningEffort).toBe("high");
   });
 
   it("uses the first resolvable default candidate's metadata and pins every role-list candidate", () => {
@@ -688,12 +695,11 @@ describe("omp preset picker entries", () => {
       }],
     });
     expect(models.map(({ id }) => id))
-      .toEqual(["preset:fallbacks", "custom/old", "custom/hidden", "custom/new"]);
+      .toEqual(["custom/old", "preset:fallbacks", "custom/hidden", "custom/new"]);
     expect(selectedOnlyModels.map(({ id }) => id)).toEqual(["custom/unreferenced"]);
-    expect(models[0]?.defaultReasoningEffort).toBe("low");
-    expect(models[0]?.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort))
+    expect(models.find(({ id }) => id === "preset:fallbacks")?.defaultReasoningEffort).toBe("low");
+    expect(models.find(({ id }) => id === "preset:fallbacks")?.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort))
       .toEqual(["none", "low", "high"]);
-    expect(models[0]?.supportedServiceTiers).toEqual(models[1]?.supportedServiceTiers);
   });
 
   it.each([
@@ -705,7 +711,7 @@ describe("omp preset picker entries", () => {
       models: catalog,
       presets: [{ ...presets[0]!, modelRoles: { default: "custom/old" }, defaultThinkingLevel: level }],
     });
-    expect(models[0]?.defaultReasoningEffort).toBe(expected);
+    expect(models.find(({ id }) => id === "preset:best-coder")?.defaultReasoningEffort).toBe(expected);
   });
 
   it("prefers the default role's explicit suffix over preset-wide thinking", () => {
@@ -713,7 +719,7 @@ describe("omp preset picker entries", () => {
       models: catalog,
       presets: [{ ...presets[0]!, defaultThinkingLevel: "low" }],
     });
-    expect(models[0]?.defaultReasoningEffort).toBe("high");
+    expect(models.find(({ id }) => id === "preset:best-coder")?.defaultReasoningEffort).toBe("high");
   });
 
   it.each([
@@ -725,7 +731,7 @@ describe("omp preset picker entries", () => {
       models: catalog,
       presets: [{ ...presets[0]!, modelRoles: { default: selector } }],
     });
-    expect(models[0]?.defaultReasoningEffort).toBe(expected);
+    expect(models.find(({ id }) => id === "preset:best-coder")?.defaultReasoningEffort).toBe(expected);
   });
 
   it.each(["@slow", "custom/*", "missing/model:high", undefined])(
@@ -735,22 +741,21 @@ describe("omp preset picker entries", () => {
         models: catalog,
         presets: [{ ...presets[0]!, modelRoles: selector ? { default: selector } : { task: "@slow" } }],
       });
-      expect(models[0]?.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort))
+      const preset = models.find(({ id }) => id === "preset:best-coder");
+      expect(preset?.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort))
         .toEqual(["none", "minimal", "low", "medium", "high", "xhigh", "max"]);
-      expect(models[0]?.defaultReasoningEffort).toBe("medium");
-      expect(models[0]?.supportedServiceTiers).toBeUndefined();
-      if (selector) expect(models[0]?.description).toContain(`default ${selector}`);
+      expect(preset?.defaultReasoningEffort).toBe("medium");
+      if (selector) expect(preset?.description).toContain(`default ${selector}`);
     },
   );
 
-  it("uses a non-reasoning default model's actual ladder without guessing service tiers", () => {
+  it("uses a non-reasoning default model's actual ladder", () => {
     const { models } = buildOmpAvailableModels({
-      models: [{ ...oldModel, reasoning: false, serviceTiers: undefined }],
+      models: [{ ...oldModel, reasoning: false }],
       presets,
     });
-    expect(models[0]?.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort))
+    expect(models.find(({ id }) => id === "preset:best-coder")?.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort))
       .toEqual(["none"]);
-    expect(models[0]?.supportedServiceTiers).toBeUndefined();
   });
 
   it("still selects exactly one preset when there are no raw models", () => {

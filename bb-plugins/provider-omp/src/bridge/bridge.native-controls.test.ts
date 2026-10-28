@@ -20,8 +20,8 @@ const GOAL_WIDGET = "bb:omp:goal";
 const OPTIONS = {
   ...FULL_PERMISSION_OPTIONS,
   model: "fake-provider/fake-mini",
-  reasoningLevel: "medium",
-  serviceTier: "default",
+  // Fake Mini has no thinking; "none" is the only level bb offers for it.
+  reasoningLevel: "none",
 };
 const GOAL = {
   id: "goal-native-controls",
@@ -33,7 +33,8 @@ const GOAL = {
   createdAt: 1_700_000_000_000,
   updatedAt: 1_700_000_017_000,
 };
-const INITIAL_CONTROLS = {
+/** Selections older threads saved for controls omp's own config now owns. */
+const LEGACY_SESSION_OPTIONS = {
   steeringMode: "all",
   followUpMode: "all",
   interruptMode: "wait",
@@ -41,37 +42,14 @@ const INITIAL_CONTROLS = {
   autoRetryEnabled: "off",
   cacheWarmingMode: "streaming",
 };
-const NATIVE_CONTROLS = {
-  steeringMode: "native",
-  followUpMode: "native",
-  interruptMode: "native",
-  autoCompactionEnabled: "native",
-  autoRetryEnabled: "native",
-  cacheWarmingMode: "native",
-};
-const MATCHING_NATIVE_CONTROLS = {
-  steeringMode: "one-at-a-time",
-  followUpMode: "one-at-a-time",
-  interruptMode: "immediate",
-  autoCompactionEnabled: "on",
-  autoRetryEnabled: "native",
-  cacheWarmingMode: "native",
-};
-const CONTROL_CHANGES = [
-  { id: "steeringMode", value: "one-at-a-time", command: { type: "set_steering_mode", mode: "one-at-a-time" } },
-  { id: "followUpMode", value: "one-at-a-time", command: { type: "set_follow_up_mode", mode: "one-at-a-time" } },
-  { id: "interruptMode", value: "immediate", command: { type: "set_interrupt_mode", mode: "immediate" } },
-  { id: "autoCompactionEnabled", value: "on", command: { type: "set_auto_compaction", enabled: true } },
-  { id: "autoRetryEnabled", value: "on", command: { type: "set_auto_retry", enabled: true } },
-  { id: "cacheWarmingMode", value: "idle", command: { type: "set_cache_warming", mode: "idle" } },
-] as const;
-const CONTROL_COMMAND_TYPES: Record<string, true> = {
+const REMOVED_COMMAND_TYPES: Record<string, true> = {
   set_steering_mode: true,
   set_follow_up_mode: true,
   set_interrupt_mode: true,
   set_auto_compaction: true,
   set_auto_retry: true,
   set_cache_warming: true,
+  set_fast_mode: true,
 };
 const PICKER_COMMAND_TYPES: Record<string, true> = {
   set_model: true,
@@ -80,14 +58,7 @@ const PICKER_COMMAND_TYPES: Record<string, true> = {
 };
 const objectSchema = z.record(z.string(), z.unknown());
 const identitySchema = z.object({ threadId: z.string(), providerThreadId: z.string() });
-const sessionOptionsSchema = z.object({
-  options: z.array(z.object({
-    id: z.string(),
-    type: z.literal("select"),
-    value: z.string(),
-    values: z.array(z.object({ id: z.string() })),
-  })),
-});
+const sessionOptionsSchema = z.object({ options: z.array(z.object({ id: z.string() })) });
 
 describe("native OMP goals, configuration, and session controls", () => {
   let harness: FakeOmpBridgeHarness;
@@ -229,17 +200,13 @@ describe("native OMP goals, configuration, and session controls", () => {
     ]);
   }
 
-  function expectSessionOptions(threadId: string, selected: Record<string, string>): void {
+  function sessionOptionIds(threadId: string): string[] | undefined {
     const snapshot = [...harness.deltasOf(threadId)].reverse().find((delta) =>
       delta.kind === "extension.state" && delta.extensionKind === "bb/session-options",
     );
-    expect(snapshot).toBeDefined();
-    const { options } = sessionOptionsSchema.parse(snapshot?.payload);
-    expect(options).toHaveLength(6);
-    expect(Object.fromEntries(options.map(({ id, value }) => [id, value]))).toEqual(selected);
-    for (const option of options) {
-      expect(option.values.some(({ id }) => id === "native")).toBe(option.value === "native");
-    }
+    return snapshot === undefined
+      ? undefined
+      : sessionOptionsSchema.parse(snapshot.payload).options.map(({ id }) => id);
   }
 
   it("advertises the goal composer but not native goal clearing", () => {
@@ -366,31 +333,26 @@ describe("native OMP goals, configuration, and session controls", () => {
     expectNoNativeAgentTurn();
   }, TEST_TIMEOUT_MS);
 
-  it.each([
-    { inactive: false, active: "yes" },
-    { inactive: true, active: "no" },
-  ])("shows slash configuration and retains it across repeated BB choices (inactive=$inactive)", async ({ inactive, active }) => {
-    if (inactive) vi.stubEnv("FAKE_OMP_FAST_MODE_INACTIVE", "1");
+  it("shows slash configuration, passes /fast through, and retains it across repeated BB choices", async () => {
     const threadId = "thr_native_configuration";
     await start(threadId);
     const beforeSetters = commands(PICKER_COMMAND_TYPES);
     await turn(threadId, "/model fake-provider/fake-model");
     await waitForWidget(threadId, CONFIGURATION_WIDGET, ["Model: omp fake-provider/fake-model (bb selected fake-provider/fake-mini)"]);
     await turn(threadId, "/effort auto");
-    await waitForWidget(threadId, CONFIGURATION_WIDGET, ["Thinking: omp high (bb selected medium); configured: auto; resolved: high"]);
-    await turn(threadId, "/fast on");
     const nativeLines = [
       "Model: omp fake-provider/fake-model (bb selected fake-provider/fake-mini)",
-      "Thinking: omp high (bb selected medium); configured: auto; resolved: high",
-      `Fast: omp enabled (bb selected disabled); active: ${active}`,
+      "Thinking: omp high (bb selected off); configured: auto; resolved: high",
     ];
     await waitForWidget(threadId, CONFIGURATION_WIDGET, nativeLines);
+    await turn(threadId, "/fast on");
+    expect(commands({ prompt: true })).toContainEqual(expect.objectContaining({ message: "/fast on" }));
     expect(widgetLines(threadId, CONFIGURATION_WIDGET)).toEqual(nativeLines);
     expect(commands(PICKER_COMMAND_TYPES)).toEqual(beforeSetters);
     expectNoNativeAgentTurn();
 
     await turn(threadId, "Keep the native choices", { ...OPTIONS });
-    expect(widgetLines(threadId, CONFIGURATION_WIDGET)).toEqual(expect.arrayContaining(nativeLines));
+    expect(widgetLines(threadId, CONFIGURATION_WIDGET)).toEqual(nativeLines);
     expect(commands(PICKER_COMMAND_TYPES)).toEqual(beforeSetters);
     expect(readJsonLines(eventLog).filter((event) => event.type === "agent_start")).toHaveLength(1);
   }, TEST_TIMEOUT_MS);
@@ -411,8 +373,8 @@ describe("native OMP goals, configuration, and session controls", () => {
     const expectedSetters = [
       ...beforeMatching,
       { type: "set_model", provider: "fake-provider", modelId: "fake-mini" },
-      { type: "set_thinking_level", level: "medium" },
-      { type: "set_fast_mode", enabled: false },
+      { type: "set_thinking_level", level: "off" },
+      // A saved Fast service tier no longer drives omp's fast mode.
     ];
     expect(commands(PICKER_COMMAND_TYPES)).toEqual(expectedSetters);
     expect(widgetLines(threadId, CONFIGURATION_WIDGET)).toBeUndefined();
@@ -436,8 +398,7 @@ describe("native OMP goals, configuration, and session controls", () => {
     const configuration = widgetLines(threadId, CONFIGURATION_WIDGET);
     expect(configuration).toEqual(expect.arrayContaining([
       "Model: omp fake-provider/fake-model (bb selected fake-provider/fake-mini)",
-      "Thinking: omp high (bb selected medium); configured: auto; resolved: high",
-      "Fast: omp enabled (bb selected disabled); active: yes",
+      "Thinking: omp high (bb selected off); configured: auto; resolved: high",
     ]));
     const afterRebuild = commands(PICKER_COMMAND_TYPES);
     await turn(threadId, "The unchanged BB snapshot must still not override native", { ...replacementOptions });
@@ -447,7 +408,7 @@ describe("native OMP goals, configuration, and session controls", () => {
 
   it("hides thinking details when native resolution matches BB's selected level", async () => {
     const threadId = "thr_native_matching_thinking";
-    const options = { ...OPTIONS, reasoningLevel: "high" };
+    const options = { ...OPTIONS, model: "fake-provider/fake-model", reasoningLevel: "high" };
     await start(threadId, options);
     await turn(threadId, "/effort auto", options);
     expect(widgetLines(threadId, CONFIGURATION_WIDGET)).toBeUndefined();
@@ -477,128 +438,16 @@ describe("native OMP goals, configuration, and session controls", () => {
     expect(commands(PICKER_COMMAND_TYPES)).toEqual([]);
   }, TEST_TIMEOUT_MS);
 
-  it.each([
-    { key: "steeringMode", initial: "all", changed: "one-at-a-time", label: "Steering" },
-    { key: "followUpMode", initial: "all", changed: "one-at-a-time", label: "Follow-up" },
-    { key: "interruptMode", initial: "wait", changed: "immediate", label: "Interrupt" },
-    { key: "autoCompactionEnabled", initial: false, changed: true, label: "Auto-compaction" },
-  ])("shows only $key when it changes away from the user's startup default", async ({ key, initial, changed, label }) => {
-    const threadId = `thr_native_default_${key}`;
-    const nativeEvents = join(harness.workspaceDir, "native-events.jsonl");
-    writeFileSync(nativeEvents, "");
-    vi.stubEnv("FAKE_OMP_NATIVE_EVENTS_FILE", nativeEvents);
-    vi.stubEnv("FAKE_OMP_SESSION_CONTROLS", JSON.stringify({ [key]: initial }));
-    vi.stubEnv("FAKE_OMP_GOAL_STATE", JSON.stringify({ enabled: true, mode: "active", goal: GOAL }));
-    await start(threadId);
+  it("starts an old thread with saved removed options and a fast service tier without sending their setters", async () => {
+    const threadId = "thr_native_legacy_selections";
+    const legacy = { ...OPTIONS, serviceTier: "fast", sessionOptions: LEGACY_SESSION_OPTIONS };
+    await start(threadId, legacy);
     await waitForWidget(threadId, CONFIGURATION_WIDGET, null);
-    let since = harness.deltasOf(threadId).length;
-    appendFileSync(nativeEvents, `${JSON.stringify({
-      type: "config_update", sessionControls: { [key]: changed },
-    })}\n`);
-    const liveText = typeof changed === "boolean" ? (changed ? "on" : "off") : changed;
-    const defaultText = typeof initial === "boolean" ? (initial ? "on" : "off") : initial;
-    const line = `${label}: omp ${liveText} (omp default ${defaultText})`;
-    await waitForWidget(threadId, CONFIGURATION_WIDGET, [line], since);
-    expect(widgetLines(threadId, CONFIGURATION_WIDGET)).toEqual([line]);
-    expect(widgetLines(threadId, GOAL_WIDGET)).toEqual([
-      "Goal: active", GOAL.objective, "Tokens: 2345 / 12000",
-    ]);
-    expectSessionOptions(threadId, MATCHING_NATIVE_CONTROLS);
-    since = harness.deltasOf(threadId).length;
-    appendFileSync(nativeEvents, `${JSON.stringify({
-      type: "config_update", sessionControls: { [key]: initial },
-    })}\n`);
-    await waitForWidget(threadId, CONFIGURATION_WIDGET, null, since);
-    expect(widgetLines(threadId, GOAL_WIDGET)).toBeDefined();
-    expect(commands(CONTROL_COMMAND_TYPES)).toEqual([]);
-    expectNoNativeAgentTurn();
-  }, TEST_TIMEOUT_MS);
-
-  it("compares controls with the last BB choice after acknowledgements and environment rebuilds", async () => {
-    const threadId = "thr_native_chosen_control";
-    const nativeEvents = join(harness.workspaceDir, "native-events.jsonl");
-    writeFileSync(nativeEvents, "");
-    vi.stubEnv("FAKE_OMP_NATIVE_EVENTS_FILE", nativeEvents);
-    await start(threadId, {
-      ...OPTIONS, sessionOptions: { steeringMode: "all" },
-      envVars: { FAKE_OMP_ENV_MARKER: "original" },
-    });
-    await waitForWidget(threadId, CONFIGURATION_WIDGET, null);
-    const originalOptions = { ...OPTIONS, envVars: { FAKE_OMP_ENV_MARKER: "original" } };
-    await turn(threadId, "BB acknowledged its selection", originalOptions);
-    const since = harness.deltasOf(threadId).length;
-    appendFileSync(nativeEvents, `${JSON.stringify({
-      type: "config_update", sessionControls: { steeringMode: "one-at-a-time" },
-    })}\n`);
-    const line = "Steering: omp one-at-a-time (bb selected all)";
-    await waitForWidget(threadId, CONFIGURATION_WIDGET, [line], since);
-    expect(widgetLines(threadId, CONFIGURATION_WIDGET)).toEqual([line]);
-    const replacementOptions = { ...OPTIONS, envVars: { FAKE_OMP_ENV_MARKER: "replacement" } };
-    await turn(threadId, "Keep native state across the environment rebuild", replacementOptions);
-    expect(widgetLines(threadId, CONFIGURATION_WIDGET)).toEqual([line]);
-    expectSessionOptions(threadId, MATCHING_NATIVE_CONTROLS);
-    const beforeMatching = commands(CONTROL_COMMAND_TYPES);
-    await turn(threadId, "BB now chooses the live value", {
-      ...replacementOptions, sessionOptions: { steeringMode: "one-at-a-time" },
-    });
-    expect(widgetLines(threadId, CONFIGURATION_WIDGET)).toBeUndefined();
-    expect(commands(CONTROL_COMMAND_TYPES)).toEqual(beforeMatching);
-  }, TEST_TIMEOUT_MS);
-
-  it("applies all six controls at startup and only each changed key on later turns", async () => {
-    const threadId = "thr_native_session_controls";
-    let selections = { ...INITIAL_CONTROLS };
-    await start(threadId, { ...OPTIONS, sessionOptions: selections });
-    const startupCommands = [
-      { type: "set_steering_mode", mode: "all" },
-      { type: "set_follow_up_mode", mode: "all" },
-      { type: "set_interrupt_mode", mode: "wait" },
-      { type: "set_auto_compaction", enabled: false },
-      { type: "set_auto_retry", enabled: false },
-      { type: "set_cache_warming", mode: "streaming" },
-    ];
-    expect(commands(CONTROL_COMMAND_TYPES)).toEqual(startupCommands);
-    await waitForWidget(threadId, CONFIGURATION_WIDGET, null);
-    expectSessionOptions(threadId, selections);
-    await turn(threadId, "Repeat all six controls", { ...OPTIONS, sessionOptions: { ...selections } });
-    expect(commands(CONTROL_COMMAND_TYPES)).toEqual(startupCommands);
-
-    const applied: Record<string, unknown>[] = [...startupCommands];
-    for (const change of CONTROL_CHANGES) {
-      selections = { ...selections, [change.id]: change.value };
-      await turn(threadId, `Change only ${change.id}`, { ...OPTIONS, sessionOptions: selections });
-      applied.push(change.command);
-      expect(commands(CONTROL_COMMAND_TYPES)).toEqual(applied);
-      expectSessionOptions(threadId, selections);
-    }
-    expect(widgetLines(threadId, CONFIGURATION_WIDGET)).toBeUndefined();
-    await turn(threadId, "Repeat the changed controls", { ...OPTIONS, sessionOptions: { ...selections } });
-    await turn(threadId, "Native does not reset explicit native state", { ...OPTIONS, sessionOptions: NATIVE_CONTROLS });
-    await turn(threadId, "Omitting controls also leaves native state alone", { ...OPTIONS });
-    expect(commands(CONTROL_COMMAND_TYPES)).toEqual(applied);
-    expect(widgetLines(threadId, CONFIGURATION_WIDGET)).toBeUndefined();
-    expectSessionOptions(threadId, selections);
-  }, TEST_TIMEOUT_MS);
-
-  it.each<{ name: string; options: BridgeJsonRpcObject }>([
-    { name: "absent", options: {} },
-    { name: "native", options: { sessionOptions: NATIVE_CONTROLS } },
-    { name: "already matching native", options: { sessionOptions: MATCHING_NATIVE_CONTROLS } },
-  ])("leaves $name session defaults untouched at startup and across repeated records", async ({ name, options }) => {
-    const threadId = `thr_native_default_controls_${name.replaceAll(" ", "_")}`;
-    await start(threadId, { ...OPTIONS, ...options });
-    expect(commands(CONTROL_COMMAND_TYPES)).toEqual([]);
-    await waitForWidget(threadId, CONFIGURATION_WIDGET, null);
-    expectSessionOptions(threadId, MATCHING_NATIVE_CONTROLS);
-    await turn(threadId, "Keep the startup defaults", { ...OPTIONS, ...options });
-    await turn(threadId, "Choose the already matching known native values", {
-      ...OPTIONS, sessionOptions: { ...MATCHING_NATIVE_CONTROLS },
-    });
-    await turn(threadId, "Repeat the matching record", {
-      ...OPTIONS, sessionOptions: { ...MATCHING_NATIVE_CONTROLS },
-    });
-    expect(commands(CONTROL_COMMAND_TYPES)).toEqual([]);
-    expectSessionOptions(threadId, MATCHING_NATIVE_CONTROLS);
+    expect(sessionOptionIds(threadId)).toEqual([]);
+    await turn(threadId, "Run a turn with the saved selections", legacy);
+    await turn(threadId, "Switch the saved tier back", { ...OPTIONS, serviceTier: "default" });
+    expect(readJsonLines(eventLog).filter((event) => event.type === "agent_start")).toHaveLength(2);
+    expect(commands(REMOVED_COMMAND_TYPES)).toEqual([]);
     expect(widgetLines(threadId, CONFIGURATION_WIDGET)).toBeUndefined();
   }, TEST_TIMEOUT_MS);
 });

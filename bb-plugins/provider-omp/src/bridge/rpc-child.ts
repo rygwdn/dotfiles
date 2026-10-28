@@ -80,6 +80,7 @@ interface PendingRequest {
   resolve: (response: OmpRpcResponse) => void;
   reject: (error: Error) => void;
   timer: NodeJS.Timeout | undefined;
+  onAcknowledged: (() => void) | undefined;
 }
 
 interface PendingRpcChunks {
@@ -245,9 +246,15 @@ export class OmpRpcChild {
     return this.settlement.promise;
   }
 
+  /**
+   * `onAcknowledged` runs synchronously when a successful response line is
+   * read, before later lines from the same stdout chunk; awaiting the promise
+   * observes those later events first.
+   */
   async request(
     command: Record<string, unknown>,
     timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+    onAcknowledged?: () => void,
   ): Promise<OmpRpcResponse> {
     await this.ready;
     this.assertCanWrite();
@@ -270,7 +277,7 @@ export class OmpRpcChild {
             );
           }, timeoutMs);
     timer?.unref?.();
-    this.pending.set(id, { command: String(command.type), resolve, reject, timer });
+    this.pending.set(id, { command: String(command.type), resolve, reject, timer, onAcknowledged });
     if (command.type === "prompt" || command.type === "abort_and_prompt") {
       this.pendingPromptResults.add(id);
     }
@@ -288,8 +295,9 @@ export class OmpRpcChild {
   async requestOk(
     command: Record<string, unknown>,
     timeoutMs?: number,
+    onAcknowledged?: () => void,
   ): Promise<unknown> {
-    const response = await this.request(command, timeoutMs);
+    const response = await this.request(command, timeoutMs, onAcknowledged);
     if (!response.success) {
       throw new OmpRpcResponseError(response);
     }
@@ -520,6 +528,7 @@ export class OmpRpcChild {
         )) {
           this.pendingPromptResults.delete(id);
         }
+        if (message.success) pending.onAcknowledged?.();
         pending.resolve(message as unknown as OmpRpcResponse);
       } else if (!message.success && (id === undefined || !this.pendingPromptResults.has(id))) {
         this.args.onEvent({ ...message, type: "bb_rpc_response_error" });

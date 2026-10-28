@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSdk, type PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import { useSdk, type ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import {
   OMP_AGENTS_ROSTER_LIMIT,
   OMP_AGENTS_STATE_KIND,
+  OMP_CONTEXT_NOTES_STATE_KIND,
   ompAgentsStateSchema,
+  ompContextNotesStateSchema,
   type OmpHubAgent,
 } from "../hub-contract.js";
 import { AgentControls } from "./agent-controls.js";
@@ -58,7 +60,7 @@ function agentTree(agents: OmpHubAgent[]): AgentTreeNode[] {
   return roots;
 }
 
-export function OmpHubPanel(props: PluginThreadPanelProps) {
+export function OmpHubPanel(props: ExperimentalThreadActionTabProps) {
   const sdk = useSdk();
   const [attempt, setAttempt] = useState(0);
   const [thread, setThread] = useState<{
@@ -107,8 +109,9 @@ export function OmpHubPanel(props: PluginThreadPanelProps) {
   return <ThreadHub key={props.threadId} {...props} />;
 }
 
-function ThreadHub({ threadId, params }: PluginThreadPanelProps) {
+function ThreadHub({ threadId, params }: ExperimentalThreadActionTabProps) {
   const roster = useLatestExtensionState(threadId, OMP_AGENTS_STATE_KIND, ompAgentsStateSchema);
+  const contextNotes = useLatestExtensionState(threadId, OMP_CONTEXT_NOTES_STATE_KIND, ompContextNotesStateSchema);
   const [selectedId, selectAgent] = useHubSelection(threadId, params);
   const agents = roster?.agents ?? [];
   const tree = useMemo(() => agentTree(agents), [roster]);
@@ -158,6 +161,14 @@ function ThreadHub({ threadId, params }: PluginThreadPanelProps) {
         ) : null}
       </section>
       <OmpServices threadId={threadId} />
+      <section aria-label="Context notes" className="min-w-0 space-y-3">
+        <h2 className="text-sm font-semibold">Context notes</h2>
+        {contextNotes?.text ? (
+          <p className="whitespace-pre-wrap break-words text-xs">{contextNotes.text}</p>
+        ) : (
+          <p role="status" className="text-xs text-muted-foreground">No context notes in this session.</p>
+        )}
+      </section>
     </div>
   );
 }

@@ -35,12 +35,19 @@ function familyModel(
 }
 
 function filter(overrides: Partial<OmpModelFilter> = {}): OmpModelFilter {
-  return { ...DEFAULT_OMP_MODEL_FILTER, latestPerFamily: false, ...overrides };
+  return { ...DEFAULT_OMP_MODEL_FILTER, latestPerFamily: false, repairIdentity: false,
+    hideTaskModels: false, shareScores: false, hideOldGenerations: false, collapseCopies: false, ...overrides };
 }
 
 const expectedDefaults: OmpModelFilter = {
   modelPresetsInPicker: "both",
   latestPerFamily: true,
+  repairIdentity: true,
+  hideTaskModels: true,
+  shareScores: true,
+  hideOldGenerations: true,
+  collapseCopies: true,
+  providerRanking: [],
   minIntelligence: null,
   maxInputPrice: null,
   maxOutputPrice: null,
@@ -54,7 +61,7 @@ const expectedDefaults: OmpModelFilter = {
 };
 
 describe("parseOmpModelFilter", () => {
-  it("defaults to latest per family with every other filter disabled", () => {
+  it("defaults to the model-list noise rules without threshold filters", () => {
     expect(DEFAULT_OMP_MODEL_FILTER).toEqual(expectedDefaults);
     expect(parseOmpModelFilter({})).toEqual(expectedDefaults);
   });
@@ -70,6 +77,12 @@ describe("parseOmpModelFilter", () => {
     expect(parseOmpModelFilter({
       modelPresetsInPicker: "presets",
       latestPerFamily: false,
+      repairIdentity: false,
+      hideTaskModels: false,
+      shareScores: false,
+      hideOldGenerations: false,
+      collapseCopies: false,
+      providerRanking: [" ANTHROPIC* ", ""],
       minIntelligence: 35,
       maxInputPrice: 1.25,
       maxOutputPrice: null,
@@ -84,6 +97,12 @@ describe("parseOmpModelFilter", () => {
     })).toEqual({
       modelPresetsInPicker: "presets",
       latestPerFamily: false,
+      repairIdentity: false,
+      hideTaskModels: false,
+      shareScores: false,
+      hideOldGenerations: false,
+      collapseCopies: false,
+      providerRanking: ["ANTHROPIC*"],
       minIntelligence: 35,
       maxInputPrice: 1.25,
       maxOutputPrice: null,
@@ -100,6 +119,12 @@ describe("parseOmpModelFilter", () => {
   it("falls back field by field instead of discarding valid siblings", () => {
     expect(parseOmpModelFilter({
       latestPerFamily: "false",
+      repairIdentity: "false",
+      hideTaskModels: 0,
+      shareScores: null,
+      hideOldGenerations: [],
+      collapseCopies: {},
+      providerRanking: ["anthropic", 5],
       modelPresetsInPicker: "unknown",
       minIntelligence: -1,
       maxInputPrice: "2",
@@ -137,6 +162,7 @@ describe("parseOmpModelFilter", () => {
     first.providerAllow.push("anthropic");
     first.providerDeny.push("blocked");
     first.alwaysShow.push("favorite");
+    first.providerRanking.push("anthropic");
     expect(input.providerAllow).toEqual(["openai"]);
     expect(parseOmpModelFilter(input).providerAllow).toEqual(["openai"]);
     expect(parseOmpModelFilter({})).toEqual(expectedDefaults);
@@ -387,9 +413,9 @@ describe("omp model curation filters", () => {
     Object.freeze(rows);
     const options = Object.freeze(filter({ latestPerFamily: true }));
     const result = curateOmpModels(rows, options, Object.freeze(["openai/beta-1"]));
-    expect(result.shown).toEqual([unknown, beta, oldBeta, alpha]);
+    expect(result.shown).toEqual([oldBeta, unknown, beta, alpha]);
     expect(result.more).toEqual([oldAlpha, oldestAlpha]);
-    expect(result.shown[0]).toBe(unknown);
+    expect(result.shown[0]).toBe(oldBeta);
     expect(result.more[0]).toBe(oldAlpha);
     expect(rows).toEqual(original);
   });
@@ -431,7 +457,7 @@ describe("latest omp model per family", () => {
       familyModel("gemini-3.5-flash", "flash", "3.5.0", "google", "gemini"),
       familyModel("gemini-3.5-flash-image", "flash", "3.5.0", "google", "gemini"),
     ];
-    expect(curateOmpModels(rows, DEFAULT_OMP_MODEL_FILTER, [])).toEqual({
+    expect(curateOmpModels(rows, filter({ latestPerFamily: true }), [])).toEqual({
       shown: [rows[1], rows[3], rows[4], rows[5]], more: [rows[0], rows[2]],
     });
   });
@@ -521,7 +547,7 @@ describe("latest omp model per family", () => {
   });
 
   it("curates the captured fixture without hiding no-family models or dropping old revisions", () => {
-    const result = curateOmpModels(fixture.models, DEFAULT_OMP_MODEL_FILTER, []);
+    const result = curateOmpModels(fixture.models, filter({ latestPerFamily: true }), []);
     const shown = result.shown.map(({ provider, id }) => `${provider}/${id}`);
     const more = result.more.map(({ provider, id }) => `${provider}/${id}`);
     expect(shown).toContain("anthropic/claude-opus-5-5");
@@ -543,5 +569,224 @@ describe("latest omp model per family", () => {
     }
     expect(result.shown.length + result.more.length).toBe(fixture.models.length);
     expect(curateOmpModels(fixture.models, filter(), [])).toEqual({ shown: fixture.models, more: [] });
+  });
+});
+
+describe("omp model-list noise rules", () => {
+  const identified = (id: string, modelClass: string, family?: string, provider = "test") =>
+    model(id, { provider, identity: { class: modelClass, ...(family ? { family } : {}) } });
+
+  it("round-trips all noise-rule settings and provider ranking", () => {
+    const defaults = Object.fromEntries(Object.entries(OMP_MODEL_FILTER_SETTINGS)
+      .map(([key, descriptor]) => [key, descriptor.default])) as Parameters<typeof settingsToOmpModelFilter>[0];
+    const fromSettings = settingsToOmpModelFilter({
+      ...defaults,
+      modelFilterRepairIdentity: false,
+      modelFilterHideTaskModels: false,
+      modelFilterShareScores: false,
+      modelFilterHideOldGenerations: false,
+      modelFilterCollapseCopies: false,
+      modelFilterProviderRanking: " anthropic-250k*, , OPENAI ",
+    });
+    expect(fromSettings).toEqual({
+      ...expectedDefaults, repairIdentity: false, hideTaskModels: false, shareScores: false,
+      hideOldGenerations: false, collapseCopies: false, providerRanking: ["anthropic-250k*", "OPENAI"],
+    });
+    expect(parseOmpModelFilter(JSON.parse(JSON.stringify(fromSettings)))).toEqual(fromSettings);
+  });
+
+  describe("identity repair", () => {
+    it.each([
+      ["glm", ["glm-5.1", "glm-5.3"]],
+      ["qwen", ["qwen3.5", "qwen3.6"]],
+    ] as const)("folds %s rows without families to the newest", (modelClass, ids) => {
+      const rows = ids.map((id) => identified(id, modelClass));
+      const enabled = filter({ latestPerFamily: true, repairIdentity: true });
+      expect(curateOmpModels(rows, enabled, [])).toEqual({ shown: [rows[1]], more: [rows[0]] });
+      expect(curateOmpModels(rows, { ...enabled, repairIdentity: false }, [])).toEqual({ shown: rows, more: [] });
+    });
+
+    it("folds versioned Kimi families while preserving the code variant", () => {
+      const rows = ["k2.5", "k2.6", "k3", "k2.7-code"]
+        .map((family) => identified(`kimi-${family}`, "kimi", family));
+      expect(curateOmpModels(rows, filter({ latestPerFamily: true, repairIdentity: true }), []))
+        .toEqual({ shown: [rows[2], rows[3]], more: [rows[0], rows[1]] });
+    });
+
+    it("reads Minimax id revisions before the number embedded in its family", () => {
+      const rows = [identified("minimax-m2.5", "minimax", "m2"),
+        identified("minimax-m2.7", "minimax", "m2"), identified("minimax-m3", "minimax", "m3")];
+      const enabled = filter({ latestPerFamily: true, repairIdentity: true });
+      expect(curateOmpModels(rows.slice(0, 2), enabled, []))
+        .toEqual({ shown: [rows[1]], more: [rows[0]] });
+      expect(curateOmpModels(rows, enabled, [])).toEqual({ shown: [rows[2]], more: rows.slice(0, 2) });
+    });
+
+    it("reads Fireworks p-separated versions and missing o-series revisions", () => {
+      const glm = ["glm-5p2", "glm-5p3"].map((id) => identified(id, "glm", undefined, "fireworks"));
+      const reasoning = ["o1", "o3"].map((id) => identified(id, "openai", "o-series", "openai"));
+      expect(curateOmpModels([...glm, ...reasoning], filter({ latestPerFamily: true, repairIdentity: true }), []))
+        .toEqual({ shown: [glm[1], reasoning[1]], more: [glm[0], reasoning[0]] });
+    });
+
+    it("leaves unknown identities alone and does not read parameter sizes as generations", () => {
+      const unknown = ["unknown-1", "unknown-9"].map((id) => identified(id, "unknown"));
+      const sized = identified("qwen-qwq-32b", "qwen");
+      const current = identified("qwen3.6", "qwen");
+      const rows = [...unknown, sized, current];
+      expect(curateOmpModels(rows, DEFAULT_OMP_MODEL_FILTER, [])).toEqual({ shown: rows, more: [] });
+    });
+  });
+
+  describe("task models", () => {
+    it.each([
+      "embed", "embedding", "embeddings", "rerank", "reranker", "tts", "realtime",
+      "live", "imagine", "flux", "robotics", "safeguard", "compound",
+      "native-audio", "computer-use", "deep-research",
+    ])("moves whole-token marker %s to More", (marker) => {
+      const task = model(`vendor-${marker}-1`);
+      const chat = model("chat");
+      expect(curateOmpModels([task, chat], filter({ hideTaskModels: true }), []))
+        .toEqual({ shown: [chat], more: [task] });
+      expect(curateOmpModels([task, chat], filter(), [])).toEqual({ shown: [task, chat], more: [] });
+    });
+
+    it("uses non-chat kind without mistaking similar chat tokens for markers", () => {
+      const image = model("drawing-1", { kind: "image" });
+      const rows = ["gemini-3.5-flash-image", "gpt-5.6-terra", "deliver-1", "olive-2", "liveness-1", "gpt-4o-mini"]
+        .map((id) => model(id, { kind: "chat" }));
+      expect(curateOmpModels([image, ...rows], filter({ hideTaskModels: true }), []))
+        .toEqual({ shown: rows, more: [image] });
+    });
+
+    it("excludes a newer task row from latest-per-family competition", () => {
+      const chat = familyModel("gpt-5", "gpt", "5");
+      const task = { ...familyModel("gpt-6", "gpt", "6"), kind: "image" };
+      expect(curateOmpModels([task, chat], DEFAULT_OMP_MODEL_FILTER, []))
+        .toEqual({ shown: [chat], more: [task] });
+    });
+  });
+
+  describe("shared scores", () => {
+    it.each([
+      "vendor/glm-5.3", "accounts/fireworks/routers/glm-5p3", "glm-5.3-fast",
+      "glm-5.3-20261001",
+    ])("borrows a score for %s without changing the row", (id) => {
+      const scored = model("glm-5.3", { int: 20, provider: "direct" });
+      const copy = model(id);
+      const original = structuredClone(copy);
+      const flagship = model("glm-6");
+      const rows = [scored, copy, flagship];
+      const enabled = filter({ shareScores: true, minIntelligence: 30 });
+      expect(curateOmpModels(rows, enabled, [])).toEqual({ shown: [flagship], more: [scored, copy] });
+      expect(curateOmpModels(rows, { ...enabled, shareScores: false }, []))
+        .toEqual({ shown: [copy, flagship], more: [scored] });
+      expect(copy).toEqual(original);
+    });
+
+    it("does not borrow across pro, mini, new flagship, or conflicting loose identities", () => {
+      const low = model("gpt-5", { int: 20 });
+      const high = model("gpt-5-20261001", { int: 50 });
+      const unscored = ["gpt-5-pro", "gpt-5-mini", "gpt-6", "gpt-5-fast"].map((id) => model(id));
+      expect(curateOmpModels([low, high, ...unscored], filter({ shareScores: true, minIntelligence: 30 }), []))
+        .toEqual({ shown: [high, ...unscored], more: [low] });
+    });
+  });
+
+  describe("old generations", () => {
+    it("hides generations at least two behind within the same provider and class", () => {
+      const old = ["gpt-4o", "o3", "o4-mini"].map((id) => identified(id, "openai", undefined, "openai"));
+      const current = identified("gpt-6", "openai", undefined, "openai");
+      const geminiOld = identified("gemini-1.5", "gemini", undefined, "google");
+      const gemini = identified("gemini-3.8", "gemini", undefined, "google");
+      const rows = [...old, current, geminiOld, gemini];
+      const enabled = filter({ repairIdentity: true, hideOldGenerations: true });
+      expect(curateOmpModels(rows, enabled, [])).toEqual({ shown: [current, gemini], more: [...old, geminiOld] });
+      expect(curateOmpModels(rows, enabled, ["openai/o3"]))
+        .toEqual({ shown: [old[1], current, gemini], more: [old[0], old[2], geminiOld] });
+    });
+
+    it("keeps adjacent generations, different providers/classes, unknowns, and separately numbered lines", () => {
+      const rows = [
+        identified("gpt-5.6", "openai"), identified("gpt-6", "openai"),
+        identified("gemini-3.8", "gemini"), identified("gemini-4", "gemini"),
+        identified("gpt-1", "openai", undefined, "other"),
+        identified("gpt-1", "custom"), identified("gpt-1", "unknown"),
+        identified("grok-code-fast-1", "xai"), identified("grok-build-0.1", "xai"),
+        identified("grok-4", "xai"),
+      ];
+      expect(curateOmpModels(rows, filter({ repairIdentity: true, hideOldGenerations: true }), []))
+        .toEqual({ shown: rows, more: [] });
+    });
+  });
+
+  describe("provider copies", () => {
+    it("uses catalog order unless ranking, the default provider, or a pin takes precedence", () => {
+      const [direct, large] = ["anthropic", "anthropic-250k-prefer-using-this-one"]
+        .map((provider) => identified("claude-opus-4-5", "anthropic", "opus", provider));
+      const anchor = identified("claude-sonnet-5", "anthropic", "sonnet", large!.provider);
+      const rows = [direct!, large!, anchor];
+      const enabled = filter({ collapseCopies: true });
+      expect(curateOmpModels(rows, enabled, [])).toEqual({ shown: [direct, anchor], more: [large] });
+      expect(curateOmpModels(rows, enabled, [], `${anchor.provider}/${anchor.id}`))
+        .toEqual({ shown: [anchor, large], more: [direct] });
+      const ranked = { ...enabled, providerRanking: ["ANTHROPIC-250K*"] };
+      expect(curateOmpModels(rows, ranked, [])).toEqual({ shown: [large, anchor], more: [direct] });
+      const directDefault = identified("claude-haiku-5", "anthropic", "haiku", direct!.provider);
+      expect(curateOmpModels([...rows, directDefault], ranked, [], `${directDefault.provider}/${directDefault.id}`))
+        .toEqual({ shown: [directDefault, large, anchor], more: [direct] });
+      expect(curateOmpModels(rows, ranked, [`${direct!.provider}/${direct!.id}`]))
+        .toEqual({ shown: [direct, anchor], more: [large] });
+    });
+
+    it("honors ranking list order, whole-string matching, and the single-character wildcard", () => {
+      const rows = ["route-12", "route-1", "not-route-1"].map((provider) =>
+        identified("gpt-6", "openai", undefined, provider));
+      expect(curateOmpModels(rows, filter({ collapseCopies: true, providerRanking: ["ROUTE-?", "route-*"] }), []))
+        .toEqual({ shown: [rows[1]], more: [rows[0], rows[2]] });
+    });
+
+    it("collapses namespaced Groq and Fireworks copies but preserves routing suffixes and unknown classes", () => {
+      const groq = identified("openai/gpt-oss-120b", "openai", undefined, "groq");
+      const fireworks = identified("gpt-oss-120b", "openai", undefined, "fireworks");
+      const free = identified("gpt-oss-120b:free", "openai", undefined, "router");
+      const unknown = ["router-a", "router-b"].map((provider) => identified("shopify/auto", "unknown", undefined, provider));
+      const only = identified("unique-1", "custom");
+      const rows = [groq, fireworks, free, ...unknown, only];
+      expect(curateOmpModels(rows, filter({ collapseCopies: true }), []))
+        .toEqual({ shown: [groq, free, ...unknown, only], more: [fireworks] });
+      expect(curateOmpModels(rows, filter(), [])).toEqual({ shown: rows, more: [] });
+    });
+
+    it("keeps both pinned copies and falls through to an eligible copy when the preferred one is denied", () => {
+      const rows = ["anthropic", "anthropic-250k-prefer-using-this-one"]
+        .map((provider) => identified("claude-opus-4-5", "anthropic", "opus", provider));
+      const enabled = filter({ collapseCopies: true });
+      expect(curateOmpModels(rows, enabled, rows.map((row) => `${row.provider}/${row.id}`)))
+        .toEqual({ shown: rows, more: [] });
+      expect(curateOmpModels(rows, { ...enabled, providerRanking: ["anthropic"],
+        providerDeny: ["anthropic"] }, [])).toEqual({ shown: [rows[1]], more: [rows[0]] });
+    });
+  });
+
+  it("orders the late default first, other pins in input order, and the remaining rows in input order", () => {
+    const rows = ["regular-a", "favorite-a", "regular-b", "explicit-pin", "favorite-b", "default"]
+      .map((id) => model(id));
+    expect(curateOmpModels(rows, filter({ alwaysShow: ["favorite-*"] }), ["test/explicit-pin"], "test/default"))
+      .toEqual({ shown: [rows[5], rows[1], rows[3], rows[4], rows[0], rows[2]], more: [] });
+  });
+
+  it("keeps pinned rows despite all noise and threshold rules", () => {
+    const old = identified("gpt-1-live", "openai", undefined, "blocked");
+    Object.assign(old, { kind: "image", int: 0, reasoning: false, input: ["text"],
+      supportsTools: false, contextWindow: 1, cost: { input: 100, output: 100 } });
+    const copy = { ...old, provider: "copy" };
+    const always = { ...old, provider: "always" };
+    const newest = identified("gpt-6", "openai", undefined, "blocked");
+    const strict = { ...DEFAULT_OMP_MODEL_FILTER, minIntelligence: 100, maxInputPrice: 1,
+      maxOutputPrice: 1, minContextWindow: 1000, requireReasoning: true, requireImageInput: true,
+      requireTools: true, providerAllow: ["none"], providerDeny: ["*"], alwaysShow: ["always/*"] };
+    expect(curateOmpModels([newest, old, always, copy], strict, ["blocked/gpt-1-live"], "copy/gpt-1-live"))
+      .toEqual({ shown: [copy, old, always], more: [newest] });
   });
 });

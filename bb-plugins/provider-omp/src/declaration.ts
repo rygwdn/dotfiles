@@ -6,7 +6,7 @@ import {
   ompNoticeSchema,
   ompStatusStateSchema,
 } from "./extension-ui-contract.js";
-import { ompAgentsStateSchema } from "./hub-contract.js";
+import { ompAgentsStateSchema, ompContextNotesStateSchema } from "./hub-contract.js";
 import type { OmpModelFilter } from "./model-curation.js";
 import { OMP_NATIVE_ROOTS_DECLARATION } from "./native-roots.js";
 
@@ -45,7 +45,8 @@ export function ompProviderDeclaration(
       ],
     },
     capabilities: {
-      supportsServiceTier: true,
+      // omp's /fast owns fast mode; bb shows no Fast switch for omp models.
+      supportsServiceTier: false,
       supportsNativeUserQuestion: true,
       fork: "checkpoint",
       supportsManualCompaction: true,
@@ -62,6 +63,7 @@ export function ompProviderDeclaration(
       notice: { item: ompNoticeSchema },
       card: { item: ompCardSchema },
       agents: { state: ompAgentsStateSchema },
+      "context-notes": { state: ompContextNotesStateSchema },
     },
     reasoningLevels: [
       { id: "none", label: "None" },
@@ -71,10 +73,6 @@ export function ompProviderDeclaration(
       { id: "high", label: "High" },
       { id: "xhigh", label: "Extra High" },
       { id: "max", label: "Max" },
-    ],
-    serviceTiers: [
-      { id: "default", label: "Default" },
-      { id: "fast", label: "Fast" },
     ],
     ...OMP_NATIVE_ROOTS_DECLARATION,
     composerActions: ["goal"],

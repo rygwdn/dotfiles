@@ -120,29 +120,31 @@ describe("native omp catalog", () => {
       FAKE_OMP_STATE_MODEL: JSON.stringify(ADDED_MODEL),
     });
     writeFileSync(paths.modelsPath, JSON.stringify([
-      { ...FAKE_MODEL, serviceTiers: ["priority"] },
+      { ...FAKE_MODEL, serviceTiers: ["priority"], kind: "chat" },
       ADDED_MODEL,
+      { ...FAKE_MODEL, id: "specialist", kind: "embedding" },
     ]));
 
     const catalog = await getOmpCatalog(paths.workspace);
-    const { models } = await catalog.listModels(DEFAULT_OMP_MODEL_FILTER);
+    const { models, selectedOnlyModels } = await catalog.listModels(DEFAULT_OMP_MODEL_FILTER);
 
     expect(models.map((model) => model.id)).toEqual([
-      "fake-provider/fake-model",
       "added-provider/added-model",
+      "fake-provider/fake-model",
     ]);
     expect(
-      models[0]?.supportedReasoningEfforts.map(
+      models[1]?.supportedReasoningEfforts.map(
         (effort) => effort.reasoningEffort,
       ),
     ).toEqual(["none", "minimal", "low", "medium", "high", "xhigh", "max"]);
-    expect(models[0]?.defaultReasoningEffort).toBe("medium");
-    expect(models[0]?.supportedServiceTiers).toEqual([
-      { id: "default", label: "Default" },
-      { id: "fast", label: "Fast" },
-    ]);
-    expect(models[1]?.supportedServiceTiers).toBeUndefined();
-    expect(models[1]).toMatchObject({
+    expect(models[1]?.defaultReasoningEffort).toBe("medium");
+    expect(selectedOnlyModels.map(({ id }) => id)).toEqual(["fake-provider/specialist"]);
+    // omp's /fast owns fast mode, so even a priority-capable model gets no Fast switch.
+    for (const model of models) {
+      expect(model.supportedServiceTiers).toBeUndefined();
+      expect(model.sessionOptions).toBeUndefined();
+    }
+    expect(models[0]).toMatchObject({
       isDefault: true,
       supportedReasoningEfforts: [{ reasoningEffort: "none" }],
       defaultReasoningEffort: "none",

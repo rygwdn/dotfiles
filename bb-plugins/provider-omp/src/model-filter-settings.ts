@@ -25,6 +25,48 @@ export const OMP_MODEL_FILTER_SETTINGS = {
       "Show only the newest model of each family and variant (for example the newest Opus, the newest GPT mini). Models without a known family always show.",
     default: true,
   },
+  modelFilterRepairIdentity: {
+    type: "boolean",
+    label: "Fill in missing model families and versions",
+    description:
+      "Before grouping, read a missing family from the model class (glm, qwen, gemma), split versions out of family names (kimi k2.5, minimax m2), and read a missing version from the model id. Lets older glm, kimi, minimax, qwen and o1 models fold under their newest version.",
+    default: true,
+  },
+  modelFilterHideTaskModels: {
+    type: "boolean",
+    label: "Hide task models",
+    description:
+      "Move models built for one job to More models: embedding, reranker, text-to-speech, realtime and live audio, image generation, robotics, computer use, deep research, safeguard and Groq compound models.",
+    default: true,
+  },
+  modelFilterShareScores: {
+    type: "boolean",
+    label: "Share intelligence scores between copies",
+    description:
+      "An unscored model uses the score of a scored model with the same id on another provider (ignoring Fireworks paths, -fast and date stamps), so the minimum score applies to it too. Different models such as -pro or -mini never share.",
+    default: true,
+  },
+  modelFilterHideOldGenerations: {
+    type: "boolean",
+    label: "Hide old generations",
+    description:
+      "Move models two or more major versions behind the newest from the same provider and maker to More models, for example gpt-4o and o3 once gpt-6 exists.",
+    default: true,
+  },
+  modelFilterCollapseCopies: {
+    type: "boolean",
+    label: "Show each model once across providers",
+    description:
+      "When the same model comes from several providers, show one copy and move the others to More models. A pinned copy wins, then the provider ranking, then the current model's provider, then catalog order.",
+    default: true,
+  },
+  modelFilterProviderRanking: {
+    type: "string",
+    label: "Preferred providers for copies",
+    description:
+      "Comma-separated omp provider names or globs, best first, for example `anthropic-250k*, openai, fireworks`. Picks which copy shows when a model comes from several providers.",
+    default: "",
+  },
   modelFilterMinIntelligence: {
     type: "number",
     label: "Minimum intelligence score",
@@ -82,7 +124,7 @@ export const OMP_MODEL_FILTER_SETTINGS = {
     type: "string",
     label: "Always show these models",
     description:
-      "Comma-separated model ids or globs, as `provider/model` or just `model`. omp's current model and its modelRoles models always show.",
+      "Comma-separated model ids or globs, as `provider/model` or just `model`. These, omp's current model, its modelRoles models and models your presets use always show, at the top of the list (current model first).",
     default: "",
   },
 } as const;
@@ -116,6 +158,12 @@ export function settingsToOmpModelFilter(values: FilterSettingValues): OmpModelF
           ? "off"
           : "both",
     latestPerFamily: values.modelFilterLatestPerFamily,
+    repairIdentity: values.modelFilterRepairIdentity,
+    hideTaskModels: values.modelFilterHideTaskModels,
+    shareScores: values.modelFilterShareScores,
+    hideOldGenerations: values.modelFilterHideOldGenerations,
+    collapseCopies: values.modelFilterCollapseCopies,
+    providerRanking: list(values.modelFilterProviderRanking),
     minIntelligence: positiveOrNull(values.modelFilterMinIntelligence),
     maxInputPrice: positiveOrNull(values.modelFilterMaxInputPrice),
     maxOutputPrice: positiveOrNull(values.modelFilterMaxOutputPrice),

@@ -38,6 +38,9 @@ export function boundOmpCard(card: OmpCard): OmpCard {
   const result: OmpCard = {
     type: clean(card.type, L.typeLength),
     title: clean(card.title, L.titleLength),
+    ...(card.summary !== undefined && stripOmpAnsi(card.summary).trim()
+      ? { summary: clean(card.summary, L.titleLength) }
+      : {}),
     ...(card.tone ? { tone: card.tone } : {}),
     sections: card.sections.slice(0, L.sections).map((section) => ({
       ...(section.heading !== undefined
@@ -94,9 +97,27 @@ function items(value: unknown): RecordValue[] {
     return entry ? [entry] : [];
   });
 }
+const plural = (count: number, noun: string, nouns = `${noun}s`) =>
+  `${count} ${count === 1 ? noun : nouns}`;
+/** One item reads as its name; several read as a count. */
+const nameOrCount = (names: string[], noun: string, nouns?: string) =>
+  names.length === 1 ? names[0] : names.length ? plural(names.length, noun, nouns) : undefined;
+const severities = ["blocker", "concern", "nit"] as const;
+type Severity = typeof severities[number];
+const isSeverity = (value: string | undefined): value is Severity =>
+  severities.includes(value as Severity);
+/** "1 blocker, 2 concerns" over notes with a known severity; else "3 notes". */
+function advisorSummary(noteSeverities: Array<string | undefined>): string | undefined {
+  if (!noteSeverities.length) return undefined;
+  const counts = severities.map((severity) =>
+    noteSeverities.filter((value) => value === severity).length);
+  if (!counts.some(Boolean)) return plural(noteSeverities.length, "note");
+  return severities.flatMap((severity, index) =>
+    counts[index] ? [plural(counts[index]!, severity)] : []).join(", ");
+}
 const titles: Record<string, string> = {
   advisor: "Advisor",
-  "async-result": "Background job completed",
+  "async-result": "Background job result",
   "launch-completion": "Supervised process completed",
   "lsp-late-diagnostic": "Late diagnostics",
   "skill-prompt": "Skill",
@@ -111,18 +132,23 @@ export function buildOmpCustomMessageCard(message: unknown): OmpCard | null {
   const fallback = content(m.content);
   const sections: OmpCardSection[] = [];
   let title = titles[type];
+  let summary: string | undefined;
   let tone: OmpCard["tone"] = "info";
   if (type.startsWith("irc:")) {
-    const from = text(d?.from);
-    const to = text(d?.to);
-    const pool = text(d?.pool);
+    const from = text(d?.from)?.trim();
+    const to = text(d?.to)?.trim();
+    const pool = text(d?.pool)?.trim();
     const replyTo = text(d?.replyTo);
     const mode = text(d?.mode);
-    title = pool
-      ? `Pool ${pool}${to ? ` → ${to}` : ""}`
-      : `IRC${from ? ` ${from}` : ""}${to ? ` → ${to}` : ""}`;
-    const body = text(d?.message) ?? text(d?.body) ?? fallback;
+    const route = from && to ? `${from} → ${to}`
+      : from || (to ? `to ${to}` : undefined);
+    title = join([route ? `IRC ${route}` : "IRC", pool ? `Pool ${pool}` : undefined]);
+    const body = [text(d?.message), text(d?.body), fallback]
+      .find((value) => value?.trim());
     if (body) {
+      // IRC emitters provide message bodies, not a separate reason. Preview the
+      // actual text without turning transport metadata into an invented intent.
+      summary = clip(body.replace(/\s+/gu, " ").trim(), L.titleLength);
       sections.push({
         body,
         meta: join([
@@ -136,10 +162,13 @@ export function buildOmpCustomMessageCard(message: unknown): OmpCard | null {
       });
     }
   } else if (type === "advisor") {
+    const noteSeverities: Array<string | undefined> = [];
     for (const note of items(d?.notes)) {
       const body = text(note.note);
       if (!body) continue;
-      const severity = text(note.severity) ?? "nit";
+      const declared = text(note.severity);
+      noteSeverities.push(isSeverity(declared) ? declared : undefined);
+      const severity = declared ?? "nit";
       const severityTone = severity === "blocker" ? "error"
         : severity === "concern" ? "warning" : "info";
       if (severityTone === "error" || (severityTone === "warning" && tone !== "error")) {
@@ -155,11 +184,15 @@ export function buildOmpCustomMessageCard(message: unknown): OmpCard | null {
         ]),
       });
     }
+    summary = advisorSummary(noteSeverities);
   } else if (type === "async-result") {
+    const jobs: string[] = [];
     for (const job of items(d?.jobs)) {
       const id = text(job.jobId);
       if (!id) continue;
-      const status = text(job.status) ?? "completed";
+      const heading = text(job.label) ?? id;
+      jobs.push(heading);
+      const status = text(job.status) ?? "unknown";
       const jobTone = status === "failed" ? "error"
         : status === "cancelled" ? "warning"
         : status === "completed" ? "success" : "info";
@@ -168,7 +201,7 @@ export function buildOmpCustomMessageCard(message: unknown): OmpCard | null {
       }
       const warning = artifact(job.meta);
       sections.push({
-        heading: text(job.label) ?? id,
+        heading,
         badge: { label: status, tone: jobTone },
         meta: join([text(job.type), id, text(job.agentId), duration(job.durationMs)]),
         ...(warning ? { body: warning } : {}),
@@ -181,10 +214,13 @@ export function buildOmpCustomMessageCard(message: unknown): OmpCard | null {
         body: warning,
       });
     }
+    summary = nameOrCount(jobs, "job");
   } else if (type === "launch-completion") {
+    const names: string[] = [];
     for (const daemon of items(d?.daemons)) {
       const name = text(daemon.name);
       if (!name) continue;
+      names.push(name);
       const exitCode = number(daemon.exitCode);
       const failed = daemon.state === "failed" || (exitCode !== undefined && exitCode !== 0);
       const exitedAt = number(daemon.exitedAt);
@@ -211,10 +247,13 @@ export function buildOmpCustomMessageCard(message: unknown): OmpCard | null {
         ...(reason ? { body: reason } : {}),
       });
     }
+    summary = nameOrCount(names, "process", "processes");
   } else if (type === "lsp-late-diagnostic") {
+    const paths: string[] = [];
     for (const file of items(d?.files)) {
       const path = text(file.path);
       if (!path) continue;
+      paths.push(path);
       if (file.errored === true) tone = "error";
       const messages = Array.isArray(file.messages)
         ? file.messages.flatMap((value) => {
@@ -232,6 +271,7 @@ export function buildOmpCustomMessageCard(message: unknown): OmpCard | null {
         body: messages?.join("\n"),
       });
     }
+    summary = nameOrCount(paths, "file");
   } else if (type === "skill-prompt") {
     const name = text(d?.name);
     if (name) {
@@ -249,6 +289,7 @@ export function buildOmpCustomMessageCard(message: unknown): OmpCard | null {
     const id = text(d?.jobId);
     const work = text(d?.work);
     if (id || work) {
+      summary = id;
       sections.push({
         heading: id,
         body: work,
@@ -259,7 +300,7 @@ export function buildOmpCustomMessageCard(message: unknown): OmpCard | null {
   } else return null;
   if (!sections.length && fallback) sections.push({ body: fallback });
   if (!title || !sections.length) return null;
-  return boundOmpCard({ type, title, tone, sections });
+  return boundOmpCard({ type, title, ...(summary ? { summary } : {}), tone, sections });
 }
 
 export function buildOmpEventCard(event: unknown): OmpCard | null {
@@ -285,6 +326,7 @@ export function buildOmpEventCard(event: unknown): OmpCard | null {
     return sections.length ? boundOmpCard({
       type: e.type,
       title: "Rule applied",
+      summary: nameOrCount(sections.map((section) => section.heading!), "rule"),
       tone: "warning",
       sections,
     }) : null;

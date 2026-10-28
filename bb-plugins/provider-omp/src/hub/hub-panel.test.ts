@@ -8,9 +8,10 @@ import {
   type PluginRpcTestHandlers,
   type PluginSdkTestFakes,
 } from "@get-bb/plugin-sdk/testing/app";
-import type { JsonValue, PluginBrowserBbSdk, PluginThreadPanelProps } from "@get-bb/plugin-sdk/app";
+import type { ExperimentalThreadActionTabProps, JsonValue, PluginBrowserBbSdk } from "@get-bb/plugin-sdk/app";
 import {
   OMP_AGENTS_STATE_KIND,
+  OMP_CONTEXT_NOTES_STATE_KIND,
   OMP_HUB_PANEL_ACTION_ID,
   type OmpHubAgent,
   type OmpHubRpcContract,
@@ -18,7 +19,15 @@ import {
 } from "../hub-contract.js";
 
 const app = await loadPluginApp(() => import("../../app"));
-const panel = app.threadPanelActions.find((action) => action.id === OMP_HUB_PANEL_ACTION_ID)!;
+type ThreadActionTab = Extract<
+  (typeof app.tabs)[number],
+  { context: { kind: "thread" }; availability: "action" }
+>;
+const panel = app.tabs.find((tab): tab is ThreadActionTab =>
+  tab.id === OMP_HUB_PANEL_ACTION_ID &&
+  tab.context.kind === "thread" &&
+  tab.availability === "action"
+)!;
 
 function agent(id: string, overrides: Partial<OmpHubAgent> = {}): OmpHubAgent {
   return {
@@ -38,8 +47,9 @@ function bbItemId(agent: OmpHubAgent): string {
 
 type Subscription = Parameters<PluginBrowserBbSdk["subscribe"]>[0];
 
-function host(threadId: string, initialAgents: OmpHubAgent[]) {
+function host(threadId: string, initialAgents: OmpHubAgent[], initialContextNotes?: string) {
   let agents = initialAgents;
+  let contextNotes = initialContextNotes;
   const listeners: Subscription[] = [];
   const get = vi.fn<PluginBrowserBbSdk["threads"]["get"]>()
     .mockResolvedValue(makeThreadResponse({ id: threadId, providerId: "omp" }));
@@ -76,8 +86,16 @@ function host(threadId: string, initialAgents: OmpHubAgent[]) {
       threadId,
       scope: { kind: "thread" as const },
       type: "thread/extensionState/updated" as const,
-      data: { providerThreadId: "omp_test", kind: OMP_AGENTS_STATE_KIND, payload: { agents } },
-    }];
+      data: { providerThreadId: "omp_test", kind: OMP_AGENTS_STATE_KIND as `${string}/${string}`, payload: { agents } as JsonValue },
+    }, ...(contextNotes === undefined ? [] : [{
+      id: "context-notes",
+      seq: 101,
+      createdAt: 101,
+      threadId,
+      scope: { kind: "thread" as const },
+      type: "thread/extensionState/updated" as const,
+      data: { providerThreadId: "omp_test", kind: OMP_CONTEXT_NOTES_STATE_KIND as `${string}/${string}`, payload: { text: contextNotes } as JsonValue },
+    }])];
   });
   const sdk: PluginSdkTestFakes = {
     subscribe: (subscription) => {
@@ -101,6 +119,7 @@ function host(threadId: string, initialAgents: OmpHubAgent[]) {
     details,
     send,
     setAgents(next: OmpHubAgent[]) { agents = next; },
+    setContextNotes(text: string) { contextNotes = text; },
     changed() {
       for (const listener of [...listeners]) {
         if (listener.event === "thread:changed") {
@@ -123,7 +142,7 @@ function renderHub(
   params: JsonValue | null = null,
   rpc: PluginRpcTestHandlers<OmpHubRpcContract> = noServices,
 ) {
-  return renderSlot<PluginThreadPanelProps, OmpHubRpcContract>(panel, { threadId, params }, {
+  return renderSlot<ExperimentalThreadActionTabProps, OmpHubRpcContract>(panel, { threadId, params }, {
     pluginId: "provider-omp",
     sdk,
     rpc,
@@ -175,6 +194,35 @@ afterEach(() => {
 });
 
 describe("omp Hub", () => {
+  it("renders context notes as read-only text and refreshes their latest state", async () => {
+    const text = "Keep this decision.\n<experimental-context-notes>literal closing tag: </experimental-context-notes>\n<script>not executable</script>";
+    const fixture = host("hub-context-notes", [], text);
+    const view = renderHub("hub-context-notes", fixture.sdk);
+    const section = await view.findByRole("region", { name: "Context notes" });
+    await vi.waitFor(() => expect(section.textContent).toContain(text));
+    expect(section.querySelector("script")).toBeNull();
+    expect(within(section).queryByRole("textbox")).toBeNull();
+    expect(within(section).queryByRole("button")).toBeNull();
+
+    fixture.setContextNotes("Updated notebook");
+    await act(async () => fixture.changed());
+    await within(section).findByText("Updated notebook");
+    expect(section.textContent).not.toContain(text);
+
+    fixture.setContextNotes("");
+    await act(async () => fixture.changed());
+    await vi.waitFor(() => expect(within(section).getByRole("status").textContent).toBe("No context notes in this session."));
+    expect(section.textContent).not.toContain("Updated notebook");
+  });
+
+  it.each([undefined, ""])("shows an accessible empty state for context notes %s", async (text) => {
+    const fixture = host("hub-context-notes-empty", [], text);
+    const view = renderHub("hub-context-notes-empty", fixture.sdk);
+    const section = await view.findByRole("region", { name: "Context notes" });
+    expect(within(section).getByRole("heading", { name: "Context notes" })).toBeDefined();
+    expect(within(section).getByRole("status").textContent).toBe("No context notes in this session.");
+  });
+
   it("renders the latest agents as a parent tree with live counts and usage", async () => {
     const parent = agent("Parent", {
       description: "Coordinate the change",

@@ -1,11 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
+  LOCAL_BASH_TASK_TYPE,
   ZERO_TOKEN_USAGE,
   addTokenUsage,
   bashArgsSchema,
   errorEnvelopeSchema,
   extractResultText,
+  experimental_presentationDetail as presentationDetail,
+  experimental_presentationTitle as presentationTitle,
+  experimental_toolPresentation as toolPresentation,
   jsonRpcEnvelopeSchema,
   normalizeProviderCommandOutput,
   providerRawEventSchema,
@@ -15,8 +19,10 @@ import {
   toNonNegativeNumber,
   toOptionalString,
   toPositiveNumber,
+  type DeltaBackgroundTaskShape,
   type DeltaItemShape,
   type DeltaNoTurnFallback,
+  type DeltaPresentation,
   type JsonRpcMessage,
   type ProviderRawEvent,
   type ThreadDelta,
@@ -197,8 +203,28 @@ const ompAgentEndEventSchema = z
 const ompAssistantMessageStartEventSchema = z.object({
   type: z.literal("message_start"),
   messageId: z.string().optional(),
-  message: z.object({ role: z.literal("assistant") }),
+  message: z.object({ role: z.literal("assistant"), api: z.string().optional() }),
 });
+
+// omp flags narration only from Claude thinking signatures.
+const ompNarrationApis: Record<string, true> = {
+  "anthropic-messages": true,
+  "bedrock-converse-stream": true,
+};
+
+const ompThinkingEndPartialSchema = z.object({
+  content: z.array(z.unknown()),
+});
+
+const ompThinkingBlockFlagsSchema = z.object({
+  type: z.literal("thinking"),
+  narration: z.boolean().optional(),
+});
+
+function isNarrationBlock(block: unknown): boolean {
+  const parsed = ompThinkingBlockFlagsSchema.safeParse(block);
+  return parsed.success && parsed.data.narration === true;
+}
 
 const ompAssistantMessageEndEventSchema = z.object({
   type: z.literal("message_end"),
@@ -318,12 +344,66 @@ const ompToolExecutionEndEventSchema = z
   .passthrough();
 
 const ompFailedToolResultSchema = z.object({ isError: z.literal(true) });
+const ompSkippedToolResultSchema = z.object({
+  details: z.union([
+    z.object({ __synthetic: z.literal(true) }),
+    z.object({ executed: z.literal(false) }),
+  ]),
+});
 
 const ompBashResultSchema = z.object({
   details: z.object({
     exitCode: z.number().int().optional().catch(undefined),
     wallTimeMs: z.number().nonnegative().optional().catch(undefined),
   }),
+});
+
+const ompAsyncJobStatusSchema = z.enum(["running", "completed", "failed", "cancelled"]);
+const ompBashAsyncResultSchema = z.object({
+  details: z.object({
+    async: z.object({
+      state: ompAsyncJobStatusSchema,
+      jobId: z.string().min(1),
+      type: z.literal("bash"),
+    }),
+    exitCode: z.number().int().optional().catch(undefined),
+  }),
+});
+const ompJobsResultSchema = z.object({
+  details: z.object({ jobs: z.array(z.unknown()) }),
+});
+const ompWaitJobsResultSchema = z.object({
+  details: ompJobsResultSchema.shape.details.extend({
+    op: z.literal("wait"),
+    __synthetic: z.literal(false).optional(),
+    executed: z.literal(true).optional(),
+  }),
+});
+const ompWaitProgressJobsSchema = z.array(z.object({
+  id: z.string().min(1),
+  type: z.enum(["bash", "task", "eval"]),
+  status: ompAsyncJobStatusSchema,
+  label: z.string(),
+  durationMs: z.number().nonnegative(),
+  exitCode: z.number().int().optional().catch(undefined),
+  completionPercent: z.number().min(0).max(100).optional().catch(undefined),
+  stage: z.string().optional().catch(undefined),
+}));
+const ompWaitProseResultSchema = z.object({
+  content: z.array(textBlockSchema),
+});
+const ompWaitBashJobSchema = z.object({
+  id: z.string().min(1),
+  type: z.literal("bash").optional(),
+  status: ompAsyncJobStatusSchema,
+  resultText: z.string().optional().catch(undefined),
+  errorText: z.string().optional().catch(undefined),
+  exitCode: z.number().int().optional().catch(undefined),
+});
+const ompDeliveredBashJobSchema = z.object({
+  jobId: z.string().min(1),
+  type: z.literal("bash").optional(),
+  status: ompAsyncJobStatusSchema.optional(),
 });
 
 const ompExtensionErrorSchema = z.object({
@@ -344,6 +424,7 @@ const ompToolExecutionUpdateEventSchema = z
     type: z.literal("tool_execution_update"),
     toolCallId: z.string(),
     toolName: z.string(),
+    args: z.unknown().optional(),
     partialResult: z.unknown().optional(),
   })
   .passthrough();
@@ -548,12 +629,32 @@ interface StartedOmpTool {
   intent?: string;
   presentation?: ClassifiedOmpTool["presentation"];
   deferred: boolean;
+  waitProgress?: string;
+}
+
+interface OmpBashJobObservation {
+  status: z.infer<typeof ompAsyncJobStatusSchema>;
+  resultText?: string;
+  errorText?: string;
+  exitCode?: number;
+}
+
+interface OmpBashJob extends OmpBashJobObservation {
+  jobId: string;
+  key: { providerItemId: string; parentRef?: string };
+  description: string;
 }
 
 interface OmpAssistantStream {
   id: string;
   closed: boolean;
+  /** Thinking block index -> whether its item has settled. */
   thinking: Map<number, boolean>;
+  /** Narration blocks shown as answer text rather than reasoning. */
+  narration: Set<number>;
+  /** Settle thinking at message_end, the first point narration is known. */
+  deferThinking: boolean;
+  answerStreamed: boolean;
 }
 
 interface OmpAssistantStreams {
@@ -577,6 +678,10 @@ export function createOmpDeltaTranslator(
 
   const startedToolShapes = new Map<string, StartedOmpTool>();
   const pendingToolPreviews = new Map<string, string>();
+  // Detached jobs outlive tool invocations and turns; only a session reset
+  // discards their associations and terminal-state tombstones.
+  const bashJobsByCall = new Map<string, OmpBashJob>();
+  const bashJobsById = new Map<string, OmpBashJob>();
   const lastAssistantByThreadId = new Map<
     string,
     Map<string, OmpAssistantMessage>
@@ -597,6 +702,13 @@ export function createOmpDeltaTranslator(
     lastReportedUsageByThreadId.delete(threadId);
     lastAssistantByThreadId.delete(threadId);
     clearThreadToolShapes({ threadId });
+    const prefix = `${threadId} `;
+    for (const key of bashJobsByCall.keys()) {
+      if (key.startsWith(prefix)) bashJobsByCall.delete(key);
+    }
+    for (const key of bashJobsById.keys()) {
+      if (key.startsWith(prefix)) bashJobsById.delete(key);
+    }
   }
 
   function forgetAssistant(context: OmpDeltaTranslationContext | undefined): void {
@@ -643,7 +755,10 @@ export function createOmpDeltaTranslator(
         `${streams.generation}:local-${++streams.nextMessage}`;
     let stream = streams.messages.get(id);
     if (!stream) {
-      stream = { id, closed: false, thinking: new Map() };
+      stream = {
+        id, closed: false, thinking: new Map(), narration: new Set(),
+        deferThinking: false, answerStreamed: false,
+      };
       streams.messages.set(id, stream);
     }
     streams.activeMessageId = id;
@@ -729,16 +844,24 @@ export function createOmpDeltaTranslator(
     const parentRefField = parentRef ? { parentRef } : {};
     const deltas: ThreadDelta[] = [];
     for (const [index, block] of message.content.entries()) {
-      if (block.type === "thinking" && typeof block.thinking === "string" &&
-        !stream.thinking.get(index)) {
+      if (block.type !== "thinking" || typeof block.thinking !== "string") continue;
+      const settled = stream.thinking.get(index);
+      if (isNarrationBlock(block)) {
+        // A narration block that already settled as reasoning stays there.
+        if (settled === true) continue;
+        if (settled === false) deltas.push(retractedReasoningDelta(stream, index, parentRef));
         stream.thinking.set(index, true);
-        deltas.push({
-          kind: "item.textClose",
-          key: { providerItemId: `${stream.id}:thinking-${index}`, ...parentRefField },
-          channel: "reasoningText",
-          text: rewriteOmpFileLinks(block.thinking, context?.fileRoots),
-        });
+        stream.narration.add(index);
+        continue;
       }
+      if (settled) continue;
+      stream.thinking.set(index, true);
+      deltas.push({
+        kind: "item.textClose",
+        key: { providerItemId: `${stream.id}:thinking-${index}`, ...parentRefField },
+        channel: "reasoningText",
+        text: rewriteOmpFileLinks(block.thinking, context?.fileRoots),
+      });
     }
     for (const [index, closed] of stream.thinking) {
       if (closed) continue;
@@ -749,7 +872,7 @@ export function createOmpDeltaTranslator(
         channel: "reasoningText",
       });
     }
-    const text = extractAssistantText(message);
+    const text = extractAssistantText(message, stream.narration);
     if (text) deltas.push({
       kind: "item.textClose",
       key: { providerItemId: stream.id, ...parentRefField },
@@ -785,6 +908,133 @@ export function createOmpDeltaTranslator(
     toolCallId: string,
   ): string {
     return `${context?.threadId ?? ""} ${JSON.stringify([context?.parentToolCallId ?? "", toolCallId])}`;
+  }
+
+  function bashJobShape(job: OmpBashJob): DeltaBackgroundTaskShape {
+    const summary = [
+      job.resultText,
+      ...(job.exitCode !== undefined ? [`Exit code: ${job.exitCode}`] : []),
+    ].filter(Boolean).join("\n\n");
+    return {
+      type: "backgroundTask",
+      familyId: job.key.providerItemId,
+      taskType: LOCAL_BASH_TASK_TYPE,
+      description: job.description,
+      workflowName: `Bash job ${job.jobId}`,
+      status: job.status === "running" ? "pending"
+        : job.status === "cancelled" ? "interrupted" : job.status,
+      taskStatus: job.status === "cancelled" ? "stopped" : job.status,
+      skipTranscript: false,
+      ...(summary ? { summary } : {}),
+      ...(job.errorText ? { error: job.errorText } : {}),
+    };
+  }
+
+  function bashJobPresentation(job: OmpBashJob): DeltaPresentation {
+    return {
+      ...toolPresentation("bash"),
+      label: { pending: "Running background bash", completed: "Background bash finished" },
+      title: presentationTitle(job.jobId),
+      detail: presentationDetail(job.description),
+    };
+  }
+
+  function jobText(value: string | undefined): string | undefined {
+    const text = value === undefined ? undefined : stripOmpAnsi(value);
+    return text?.trim() ? text : undefined;
+  }
+
+  function updateBashJob(job: OmpBashJob, observation: OmpBashJobObservation): ThreadDelta[] {
+    const settled = job.status !== "running";
+    // A terminal observation is immutable. Replays cannot reopen or reverse it,
+    // but a matching later snapshot can fill in diagnostics omitted by delivery.
+    if (settled && observation.status !== job.status) return [];
+    const resultText = jobText(observation.resultText) ?? job.resultText;
+    const errorText = jobText(observation.errorText) ?? job.errorText;
+    const exitCode = observation.exitCode ?? job.exitCode;
+    if (
+      job.status === observation.status && job.resultText === resultText &&
+      job.errorText === errorText && job.exitCode === exitCode
+    ) return [];
+    job.status = observation.status;
+    job.resultText = resultText;
+    job.errorText = errorText;
+    job.exitCode = exitCode;
+    const item = bashJobShape(job);
+    if (!settled && job.status !== "running") {
+      return [{
+        kind: "item.close", key: job.key, status: item.status, item,
+        presentation: bashJobPresentation(job),
+      }];
+    }
+    return [{ kind: "item.progress", key: job.key, snapshot: item, ...(settled ? { flush: true } : {}) }];
+  }
+
+  function bashAsyncDeltas(
+    event: { toolCallId: string; toolName: string },
+    result: z.infer<typeof ompBashAsyncResultSchema>,
+    resultText: string,
+    args: unknown,
+    context: OmpDeltaTranslationContext | undefined,
+    canRegister: boolean,
+  ): ThreadDelta[] {
+    const { async, exitCode } = result.details;
+    const callKey = toolShapeKey(context, event.toolCallId);
+    let job = bashJobsByCall.get(callKey);
+    if (job && job.jobId !== async.jobId) return [];
+    const output = jobText(resultText);
+    const observation: OmpBashJobObservation = {
+      status: async.state, resultText: output, exitCode,
+      ...(async.state === "failed" && output ? { errorText: output } : {}),
+    };
+    const deltas: ThreadDelta[] = [];
+    if (!job) {
+      if (!canRegister) return [];
+      const command = bashArgsSchema.safeParse(args);
+      const fingerprint = createHash("sha256").update(JSON.stringify([
+        assistantStreams(context).generation, event.toolCallId, async.jobId,
+      ])).digest("hex");
+      job = {
+        ...observation,
+        status: "running",
+        jobId: async.jobId,
+        key: {
+          providerItemId: `omp-bash-job:${fingerprint}`,
+          ...(context?.parentToolCallId ? { parentRef: context.parentToolCallId } : {}),
+        },
+        description: `${(command.success ? toOptionalString(command.data.command) : undefined) ?? "Bash"} [job ${async.jobId}]`,
+      };
+      bashJobsByCall.set(callKey, job);
+      bashJobsById.set(toolShapeKey(context, async.jobId), job);
+      deltas.push({
+        kind: "item.open", key: job.key, item: bashJobShape(job),
+        presentation: bashJobPresentation(job), attach: "currentOrLast",
+        noTurnFallback: noTurnFallbackFor(event, context),
+      });
+    }
+    return [...deltas, ...updateBashJob(job, observation)];
+  }
+
+  function waitBashJobDeltas(jobs: unknown[], context: OmpDeltaTranslationContext | undefined): ThreadDelta[] {
+    const deltas: ThreadDelta[] = [];
+    for (const value of jobs) {
+      const snapshot = ompWaitBashJobSchema.safeParse(value);
+      if (!snapshot.success) continue;
+      const job = bashJobsById.get(toolShapeKey(context, snapshot.data.id));
+      if (job) deltas.push(...updateBashJob(job, snapshot.data));
+    }
+    return deltas;
+  }
+
+  function deliveredBashJobDeltas(jobs: unknown[], context: OmpDeltaTranslationContext | undefined): ThreadDelta[] {
+    const deltas: ThreadDelta[] = [];
+    for (const value of jobs) {
+      const snapshot = ompDeliveredBashJobSchema.safeParse(value);
+      if (!snapshot.success || snapshot.data.status === undefined) continue;
+      const job = bashJobsById.get(toolShapeKey(context, snapshot.data.jobId));
+      if (job) deltas.push(...updateBashJob(job, { status: snapshot.data.status }));
+    }
+    return deltas;
   }
 
   function rememberStartedToolShape(key: string, started: StartedOmpTool): void {
@@ -1244,7 +1494,9 @@ export function createOmpDeltaTranslator(
           const start = ompAssistantMessageStartEventSchema.safeParse(event);
           if (start.success) {
             const streams = assistantStreams(context);
-            assistantStream(streams, start.data.messageId, true);
+            const stream = assistantStream(streams, start.data.messageId, true);
+            const api = start.data.message.api;
+            stream.deferThinking = api !== undefined && Object.hasOwn(ompNarrationApis, api);
             streams.snapshotHandled = false;
             return [];
           }
@@ -1253,24 +1505,28 @@ export function createOmpDeltaTranslator(
         if (!ompEvent.success) {
           return [];
         }
+        const message = ompEvent.data.message;
+        const delivered = message.customType === "async-result"
+          ? ompJobsResultSchema.safeParse(message) : undefined;
+        const jobDeltas = delivered?.success
+          ? deliveredBashJobDeltas(delivered.data.details.jobs, context) : [];
         if (
           ompEvent.data.type === "message_end" ||
-          !ompEvent.data.message.display
+          !message.display
         ) {
-          return [];
+          return jobDeltas;
         }
-        const message = ompEvent.data.message;
         const card = buildOmpCustomMessageCard(message);
         if (card) {
-          return cardDeltas(
+          return [...jobDeltas, ...cardDeltas(
             card,
             cardMessageIdentity(message, ompEvent.data.messageId),
             context,
-          );
+          )];
         }
         const text = extractCustomMessageText(ompEvent.data.message.content);
         if (text === undefined) {
-          return [];
+          return jobDeltas;
         }
         if (message.customType === "collab-prompt") {
           const author = ompCollabPromptDetailsSchema.safeParse(message.details);
@@ -1479,6 +1735,7 @@ export function createOmpDeltaTranslator(
           if (!delta) {
             return [];
           }
+          stream.answerStreamed = true;
           return [
             {
               kind: "item.textDelta",
@@ -1517,15 +1774,45 @@ export function createOmpDeltaTranslator(
           if (typeof assistantEvent.contentIndex !== "number") {
             return unexpectedSdkEventDeltas(event, context);
           }
-          if (stream.thinking.get(assistantEvent.contentIndex)) return [];
-          stream.thinking.set(assistantEvent.contentIndex, true);
+          const index = assistantEvent.contentIndex;
+          if (stream.thinking.get(index)) return [];
+          // `messageUpdates: "delta"` strips `partial`; then narration is
+          // first known at message_end. Full frames (e.g. subagents) carry it.
+          const partial = ompThinkingEndPartialSchema.safeParse(assistantEvent.partial);
+          const block = partial.success ? partial.data.content[index] : undefined;
+          if (block !== undefined && isNarrationBlock(block)) {
+            const streamed = stream.thinking.get(index) === false;
+            stream.thinking.set(index, true);
+            stream.narration.add(index);
+            // message_end presents an unstreamed block with the answer text.
+            if (!streamed) return [];
+            const preview: ThreadDelta = {
+              kind: "item.textDelta",
+              key: { providerItemId: stream.id, ...parentRefField },
+              channel: "agentMessage",
+              // message_end replaces this preview with the joined answer text.
+              text: stream.answerStreamed ? `\n${content}` : content,
+            };
+            stream.answerStreamed = true;
+            return [retractedReasoningDelta(stream, index, context?.parentToolCallId), preview];
+          }
+          if (block === undefined && stream.deferThinking) {
+            if (stream.thinking.has(index)) return [];
+            stream.thinking.set(index, false);
+            return [
+              {
+                kind: "item.textDelta",
+                key: { providerItemId: `${stream.id}:thinking-${index}`, ...parentRefField },
+                channel: "reasoningText",
+                text: content,
+              },
+            ];
+          }
+          stream.thinking.set(index, true);
           return [
             {
               kind: "item.textClose",
-              key: {
-                providerItemId: `${stream.id}:thinking-${assistantEvent.contentIndex}`,
-                ...parentRefField,
-              },
+              key: { providerItemId: `${stream.id}:thinking-${index}`, ...parentRefField },
               channel: "reasoningText",
               text: rewriteOmpFileLinks(content, context?.fileRoots),
             },
@@ -1587,7 +1874,6 @@ export function createOmpDeltaTranslator(
         if (!ompEvent.success) {
           return unexpectedSdkEventDeltas(event, context);
         }
-        const resultText = extractResultText(ompEvent.data.result);
         const aggregatedOutput = OMP_COMMAND_TOOL_NAMES.has(
           ompEvent.data.toolName,
         )
@@ -1597,7 +1883,7 @@ export function createOmpDeltaTranslator(
         const started = startedToolShapes.get(shapeKey);
         startedToolShapes.delete(shapeKey);
         pendingToolPreviews.delete(shapeKey);
-        const failed = ompEvent.data.isError === true ||
+        let failed = ompEvent.data.isError === true ||
           ompFailedToolResultSchema.safeParse(ompEvent.data.result).success;
         const classified = started?.deferred || !started
           ? classifyTypedOmpTool(ompEvent.data.toolName, started?.args, {
@@ -1607,11 +1893,33 @@ export function createOmpDeltaTranslator(
               cwd: context?.cwd,
             })
           : undefined;
+        const result = classified?.result ?? ompEvent.data.result;
+        failed ||= ompFailedToolResultSchema.safeParse(result).success;
+        // Device dispatches normally mirror the output on the outer envelope.
+        // Keep those bytes (including dispatcher diagnostics), falling back to
+        // the validated inner result when the envelope carries only metadata.
+        const output = typeof ompEvent.data.result === "object" &&
+          ompEvent.data.result !== null && "content" in ompEvent.data.result
+          ? ompEvent.data.result : result;
+        const resultText = extractResultText(output);
+        const bashAsync = ompEvent.data.toolName === "bash"
+          ? ompBashAsyncResultSchema.safeParse(ompEvent.data.result) : undefined;
         let terminalShape: DeltaItemShape = classified?.item ??
           started?.shape ?? classifyOmpToolResultFallback(ompEvent.data.toolName);
-        const presentation = classified
+        let presentation = classified
           ? ompToolPresentation(classified, ompEvent.data.toolName, started?.intent)
           : started?.presentation;
+        if (bashAsync?.success) {
+          const jobId = bashAsync.data.details.async.jobId;
+          presentation = {
+            ...(presentation ?? toolPresentation("bash")),
+            label: { pending: "Dispatching background bash", completed: "Dispatched background bash" },
+            title: presentation?.title ?? presentationTitle(`Bash job ${jobId}`),
+            detail: presentationDetail(
+              [presentation?.detail, `Background job: ${jobId}`].filter(Boolean).join("\n"),
+            ),
+          };
+        }
         if (
           terminalShape.type === "tool" &&
           ompEvent.data.result !== undefined
@@ -1621,7 +1929,7 @@ export function createOmpDeltaTranslator(
         const bashResult = terminalShape.type === "command"
           ? ompBashResultSchema.safeParse(ompEvent.data.result) : undefined;
         const exitCode = (bashResult?.success ? bashResult.data.details.exitCode : undefined) ??
-          (failed ? 1 : 0);
+          (bashAsync?.success ? undefined : failed ? 1 : 0);
         if (terminalShape.type === "command") {
           const durationMs = bashResult?.success ? bashResult.data.details.wallTimeMs : undefined;
           terminalShape = {
@@ -1639,6 +1947,13 @@ export function createOmpDeltaTranslator(
           started?.deferred
             ? [{ kind: "item.open", key, item: terminalShape, noTurnFallback, ...(presentation ? { presentation } : {}) }]
             : [];
+        const jobDeltas = bashAsync?.success
+          ? bashAsyncDeltas(
+              ompEvent.data, bashAsync.data, resultText, started?.args, context, true,
+            )
+          : [];
+        const waited = ompEvent.data.toolName === "wait"
+          ? ompWaitJobsResultSchema.safeParse(ompEvent.data.result) : undefined;
         return [
           ...deferredOpen,
           {
@@ -1652,6 +1967,8 @@ export function createOmpDeltaTranslator(
             ...(presentation ? { presentation } : {}),
             noTurnFallback,
           },
+          ...jobDeltas,
+          ...(waited?.success ? waitBashJobDeltas(waited.data.details.jobs, context) : []),
         ];
       }
 
@@ -1688,6 +2005,40 @@ export function createOmpDeltaTranslator(
         const started = startedToolShapes.get(
           toolShapeKey(context, ompEvent.data.toolCallId),
         );
+        const bashAsync = ompEvent.data.toolName === "bash"
+          ? ompBashAsyncResultSchema.safeParse(ompEvent.data.partialResult) : undefined;
+        if (bashAsync?.success) {
+          return bashAsyncDeltas(
+            ompEvent.data, bashAsync.data, extractResultText(ompEvent.data.partialResult),
+            started?.args ?? ompEvent.data.args, context, started !== undefined,
+          );
+        }
+        if (ompEvent.data.toolName === "wait") {
+          if (ompSkippedToolResultSchema.safeParse(ompEvent.data.partialResult).success) return [];
+          const waited = ompWaitJobsResultSchema.safeParse(ompEvent.data.partialResult);
+          // Job observations remain independent of the wait invocation's display.
+          const jobDeltas = waited.success ? waitBashJobDeltas(waited.data.details.jobs, context) : [];
+          if (
+            started === undefined || started.deferred ||
+            started.shape.type !== "tool" || started.shape.tool !== "wait"
+          ) return jobDeltas;
+          const prose = ompWaitProseResultSchema.safeParse(ompEvent.data.partialResult);
+          const message = (waited.success ? formatOmpWaitProgress(waited.data.details.jobs) : undefined) ??
+            (prose.success ? extractResultText(prose.data.content).trim() : "");
+          // Native snapshots arrive every 500 ms. Elapsed time and repeated
+          // status frames are not progress, and empty frames need no placeholder.
+          if (!message || started.waitProgress === message) return jobDeltas;
+          started.waitProgress = message;
+          return [
+            ...jobDeltas,
+            {
+              kind: "item.progress",
+              key: { providerItemId: ompEvent.data.toolCallId, ...parentRefField },
+              message,
+              noTurnFallback: noTurnFallbackFor(ompEvent.data, context),
+            },
+          ];
+        }
         if (started?.deferred) {
           return [];
         }
@@ -1744,17 +2095,40 @@ function findLastAssistantMessage(
   return undefined;
 }
 
-function extractAssistantText(message: OmpAssistantMessage): string | undefined {
-  const content = message.content;
+/** Answer text in content order; `narration` indexes thinking blocks presented as answer text. */
+function extractAssistantText(
+  message: OmpAssistantMessage,
+  narration: ReadonlySet<number>,
+): string | undefined {
   const chunks: string[] = [];
-  for (const block of content) {
+  for (const [index, block] of message.content.entries()) {
     const parsedBlock = textBlockSchema.safeParse(block);
     if (parsedBlock.success) {
       chunks.push(parsedBlock.data.text);
+    } else if (narration.has(index) && typeof block.thinking === "string") {
+      chunks.push(block.thinking);
     }
   }
   const text = chunks.join("\n").trim();
   return text.length > 0 ? text : undefined;
+}
+
+/**
+ * Retracts a reasoning item whose block turned out to be narration. bb settles
+ * an item once and cannot remove a started one; a blank final text replaces
+ * the streamed reasoning, and bb renders no row for blank reasoning.
+ */
+function retractedReasoningDelta(
+  stream: OmpAssistantStream,
+  index: number,
+  parentRef: string | undefined,
+): ThreadDelta {
+  return {
+    kind: "item.textClose",
+    key: { providerItemId: `${stream.id}:thinking-${index}`, ...(parentRef ? { parentRef } : {}) },
+    channel: "reasoningText",
+    text: " ",
+  };
 }
 
 function extractCustomMessageText(
@@ -1798,6 +2172,18 @@ function extractOmpCommandExecutionOutput(content: unknown): string | undefined 
 function extractOmpToolProgressText(event: OmpToolExecutionUpdateEvent): string {
   const text = extractResultText(event.partialResult).trim();
   return text.length > 0 ? text : `${event.toolName} progress update`;
+}
+
+function formatOmpWaitProgress(jobs: unknown[]): string | undefined {
+  const parsed = ompWaitProgressJobsSchema.safeParse(jobs);
+  if (!parsed.success || parsed.data.length === 0) return undefined;
+  return parsed.data.map((job) => [
+    `${job.id} [${job.type}]: ${job.status}`,
+    job.status === "running" && job.completionPercent !== undefined ? `${job.completionPercent}%` : undefined,
+    job.label.trim() || undefined,
+    job.stage?.trim() || undefined,
+    job.exitCode !== undefined ? `exit ${job.exitCode}` : undefined,
+  ].filter(Boolean).join(" — ")).join("\n");
 }
 
 function toAssistantUsageBreakdown(

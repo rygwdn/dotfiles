@@ -46,7 +46,6 @@ export type OmpPermissionPolicy = Exclude<
 type OmpSessionOptions = (RuntimePermissionPolicy | { permissionMode?: undefined }) & {
   model?: string | undefined;
   reasoningLevel?: ReasoningLevel | undefined;
-  serviceTier?: string | undefined;
   sessionOptions?: Record<string, string | boolean> | undefined;
   instructions?: string | undefined;
   envVars?: Record<string, string> | undefined;
@@ -69,7 +68,6 @@ export interface OmpSessionParams {
   baseInstructions?: string;
   cwd: string;
   dynamicTools?: readonly DynamicTool[];
-  fastModeEnabled?: boolean;
   model?: string;
   /** Snapshot the chosen preset so child rebuilds cannot pick up later edits. */
   modelPreset?: OmpModelPreset;
@@ -83,16 +81,9 @@ export interface OmpSessionParams {
 
 export interface OmpTurnOptions {
   model: string | undefined;
-  fastModeEnabled: boolean | undefined;
   permissionPolicy?: OmpPermissionPolicy;
   sessionControls: OmpSessionControls;
   thinkingLevel: OmpReasoningLevel | undefined;
-}
-
-function toOmpFastMode(serviceTier: string | undefined): boolean | undefined {
-  if (serviceTier === "fast") return true;
-  if (serviceTier === "default") return false;
-  return undefined;
 }
 
 function toOmpPermissionPolicy(
@@ -122,7 +113,6 @@ export function buildOmpTurnOptions(options: OmpSessionOptions): OmpTurnOptions 
   const permissionPolicy = toOmpPermissionPolicy(options);
   return {
     model: options.model ? options.model : undefined,
-    fastModeEnabled: toOmpFastMode(options.serviceTier),
     ...(permissionPolicy === undefined ? {} : { permissionPolicy }),
     sessionControls: parseOmpSessionControls(options.sessionOptions),
     thinkingLevel: toOmpThinkingLevel(options.reasoningLevel),
@@ -134,12 +124,10 @@ export function buildOmpSessionParams(
 ): OmpSessionParams {
   const instructions = args.options.instructions?.trim();
   const thinkingLevel = toOmpThinkingLevel(args.options.reasoningLevel);
-  const fastModeEnabled = toOmpFastMode(args.options.serviceTier);
   const sessionControls = parseOmpSessionControls(args.options.sessionOptions);
   const permissionPolicy = toOmpPermissionPolicy(args.options);
   return {
     cwd: args.cwd,
-    ...(fastModeEnabled === undefined ? {} : { fastModeEnabled }),
     ...(permissionPolicy === undefined ? {} : { permissionPolicy }),
     ...(Object.keys(sessionControls).length > 0 ? { sessionControls } : {}),
     shellEnvOverrides: {

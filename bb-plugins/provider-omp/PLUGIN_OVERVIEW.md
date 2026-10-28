@@ -9,6 +9,7 @@ Start a thread, pick OMP, and work in your repository from bb. The plugin runs y
 - File-read, search, web-search, web-fetch and reasoning rows. File-read and search rows cannot retain result bodies in bb's SDK; `xd://` device calls are not shown as file changes.
 - OMP extension status chips and text widgets above the composer, plus durable notifications and streaming cache-warming notices. Idle cache warming is silent unless it fails.
 - Native To-do checklists, expandable subagent delegations with child transcripts, and background workflow cards for detached agents.
+- Read-only display of the current notes-backed context notebook in the omp Hub, loaded on session start and refreshed after OMP `context_notes` calls or notebook-message events.
 - `/omp-agent cancel <id>` and `/omp-agent steer <id> <message>` to control a running child without a model round trip, also available as Cancel and Steer buttons in the omp Hub.
 - `/btw <question>` streams a side answer; `/btw cancel`, `/btw history` and `/btw follow <recordId> <question>` manage side questions.
 - `/omp-bash <command>` runs a shell command through OMP and records its result; `/omp-bash abort` cancels user shell commands.

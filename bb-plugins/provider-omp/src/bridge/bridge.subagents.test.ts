@@ -76,12 +76,12 @@ function withoutRequestId(command: Record<string, unknown>): Record<string, unkn
 }
 
 interface FixtureSpec {
-  scenario: "batch" | "backfill" | "reset" | "detached" | "yielded" | "error";
+  scenario: "batch" | "backfill" | "reset" | "rewrite" | "detached" | "yielded" | "error";
   id?: string;
   holdParent?: boolean;
   followUpOnCancel?: boolean;
   holdFollowUp?: boolean;
-  tasks?: Array<{ name: string; task?: string; description?: string; assignment?: string }>;
+  tasks?: Array<{ name: string; task?: string; description?: string; assignment?: string; narration?: string }>;
 }
 
 describe("native OMP subagents through the bb bridge", () => {
@@ -247,6 +247,37 @@ describe("native OMP subagents through the bb bridge", () => {
     }
     expect(rootBoundaries(deltas)).toHaveLength(1);
     expect(deltas.filter((delta) => isItem(delta, "delegation", "item.close"))).toHaveLength(1);
+  }, 90_000);
+
+  it("re-reads a transcript OMP replaced under the byte cursor instead of failing the parent turn", async () => {
+    const threadId = "thr_subagent_rewrite";
+    const providerThreadId = await start(threadId);
+    const id = "rewrite-worker";
+    const deltas = await fixture(threadId, providerThreadId, { scenario: "rewrite", id });
+    expectSingleChildTranscript(deltas, providerThreadId, id,
+      [`${id} live analysis café 🧪`, `${id} final answer: café ✅`, `${id} after rewrite: naïve ✅`], true);
+    const cursors = readJsonLines(rpcLog)
+      .filter((command) => command.type === "get_subagent_messages" && command.subagentId === id)
+      .map((command) => z.number().parse(command.fromByte));
+    // The rewrite grew the file, so OMP's reader would not reset the old cursor itself.
+    expect(cursors.some((cursor, index) => cursor === 0 && index > 0 && cursors[index - 1]! > 0)).toBe(true);
+    expect(rootBoundaries(deltas)).toEqual([expect.objectContaining({ status: "completed" })]);
+    expect(harness.messages.filter((message) => message.method === "error")).toEqual([]);
+  }, 90_000);
+
+  it.each(["batch", "backfill"] as const)("presents %s narration as answer text, not reasoning", async (scenario) => {
+    const threadId = `thr_subagent_narration_${scenario}`;
+    const providerThreadId = await start(threadId);
+    const id = "narrator";
+    const narration = `${id} narration café`;
+    const deltas = await fixture(threadId, providerThreadId, { scenario, tasks: [{ name: id, narration }] });
+    const children = deltas.filter((delta) =>
+      itemKeySchema.parse(delta.key ?? {}).parentRef === `omp-subagent:${providerThreadId}:${id}`);
+    expect(children.filter((delta) => delta.kind === "item.textClose" && delta.channel === "agentMessage")
+      .map((delta) => delta.text)).toEqual([`${id} live analysis café 🧪\n${narration}`, `${id} final answer: café ✅`]);
+    // A narration block that streamed as reasoning closes blank, which bb renders as no row.
+    expect(children.filter((delta) => delta.kind === "item.textClose" && delta.channel === "reasoningText")
+      .map((delta) => delta.text)).toEqual(scenario === "batch" ? [`${id} reasoning café`, " "] : [`${id} reasoning café`]);
   }, 90_000);
 
   it("restores the active roster with an events subscription and defers transcript publication to a root turn", async () => {

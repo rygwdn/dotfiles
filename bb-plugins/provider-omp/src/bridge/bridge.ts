@@ -19,6 +19,8 @@ import {
   createBridgeIo,
   createBridgeLineHandler,
   createPendingToolCallTracker,
+  commandListParamsSchema,
+  type commandListResultSchema,
   decodeBridgeJsonRpcResponse,
   experimental_defineProviderBridge,
   initializeParamsSchema,
@@ -44,7 +46,8 @@ import {
   type ThreadEventContextWindowUsage,
 } from "@get-bb/plugin-sdk/provider-bridge";
 import { createOmpDeltaTranslator } from "../delta-translation.js";
-import { parseOmpModelFilter } from "../model-curation.js";
+import { DEFAULT_OMP_MODEL_FILTER, parseOmpModelFilter } from "../model-curation.js";
+import { bbDisplayedReasoningLevel } from "../model-list.js";
 import {
   OMP_MODEL_PRESET_NAME_PATTERN,
   parseOmpModelPresetId,
@@ -79,6 +82,7 @@ import {
   getOmpProviderUsage,
   ompHealthResult,
   resetOmpInstallGateForTests,
+  type OmpInstallGate,
 } from "./provider-maintenance.js";
 import {
   closeAllOmpCatalogs,
@@ -90,6 +94,7 @@ import {
   ompAvailableCommandsSchema,
   ompBtwRecordSchema,
   ompGoalUpdatedSchema,
+  readOmpContextNotes,
   type OmpGoal,
   type OmpAvailableCommand,
   type OmpBtwRecord,
@@ -118,6 +123,7 @@ const ompCommandSchema = z.discriminatedUnion("method", [
     params: initializeParamsSchema,
   }),
   z.object({ method: z.literal("model/list"), params: modelListParamsSchema }),
+  z.object({ method: z.literal("commands/list"), params: commandListParamsSchema }),
   z.object({
     method: z.literal("provider/health"),
     params: providerMaintenanceParamsSchema,
@@ -269,6 +275,7 @@ interface ThreadSession {
   todos: OmpTodoCoordinator;
   subagents: OmpSubagentCoordinator;
   sessionSerial: number;
+  contextNotesRevision: number;
   closing: boolean;
   providerThreadId: string;
   cwd: string;
@@ -277,9 +284,10 @@ interface ThreadSession {
   pickerOptions: {
     model: string | undefined;
     thinkingLevel: string | undefined;
-    fastModeEnabled: boolean | undefined;
   };
   pickerModel: { provider: string; id: string } | undefined;
+  /** Last bb picker level matched to what bb shows for its model; skips repeat catalog reads. */
+  thinkingRequest?: { model: string | undefined; requested: string | undefined; level: string | undefined };
   chosenSessionControls: OmpSessionControls;
   reportedSessionControls?: OmpSessionControls & {
     slowModeSupported: boolean;
@@ -295,7 +303,7 @@ interface ThreadSession {
 }
 
 type ThreadPickerSelection = Pick<ThreadSession, "pickerOptions" | "chosenSessionControls"> &
-  Partial<Pick<ThreadSession, "pickerModel">>;
+  Partial<Pick<ThreadSession, "pickerModel" | "thinkingRequest">>;
 
 let sessionSerialCounter = 0;
 const THREAD_STOP_CLOSE_TIMEOUT_MS = 8_000;
@@ -647,10 +655,6 @@ function publishNativeConfiguration(threadId: string, threadSession: ThreadSessi
       ...(selection.resolved ? [`resolved: ${selection.resolved}`] : []),
     ].join("; "));
   }
-  if (pickers.fastModeEnabled !== undefined &&
-      pickers.fastModeEnabled !== (state.fastModeEnabled ?? false)) {
-    lines.push(`Fast: omp ${state.fastModeEnabled ? "enabled" : "disabled"} (bb selected ${pickers.fastModeEnabled ? "enabled" : "disabled"}); active: ${state.fastModeActive ? "yes" : "no"}`);
-  }
   const controls = threadSession.session.getSessionControls();
   const reportedControls = {
     ...controls,
@@ -667,12 +671,6 @@ function publishNativeConfiguration(threadId: string, threadSession: ThreadSessi
   }
   const baseline = threadSession.session.getInitialSessionControls();
   const labels: Record<keyof OmpSessionControls, string> = {
-    steeringMode: "Steering",
-    followUpMode: "Follow-up",
-    interruptMode: "Interrupt",
-    autoCompactionEnabled: "Auto-compaction",
-    autoRetryEnabled: "Auto-retry",
-    cacheWarmingMode: "Cache warming",
     slowModeEnabled: "Slow mode",
   };
   for (const key of Object.keys(labels) as (keyof OmpSessionControls)[]) {
@@ -873,12 +871,52 @@ function publishBtwRecord(
   finishNativeControlTurn(threadId, threadSession, presentation.control, status, resultText);
 }
 
+async function refreshContextNotes(args: CurrentThreadSessionArgs, toolText?: string): Promise<void> {
+  const threadSession = getCurrentThreadSession(args);
+  if (!threadSession) return;
+  const revision = ++threadSession.contextNotesRevision;
+  if (toolText !== undefined) {
+    sendThreadDeltas(args.threadId, [{
+      kind: "extension.state",
+      extensionKind: "provider-omp/context-notes",
+      payload: { text: toolText },
+    }]);
+    return;
+  }
+  try {
+    // Unlike get_messages_page, get_messages also works during streaming/compaction.
+    const text = await threadSession.session.readContextNotes();
+    if (getCurrentThreadSession(args) !== threadSession ||
+      threadSession.contextNotesRevision !== revision) return;
+    sendThreadDeltas(args.threadId, [{
+      kind: "extension.state",
+      extensionKind: "provider-omp/context-notes",
+      payload: { text },
+    }]);
+  } catch (error) {
+    if (getCurrentThreadSession(args) !== threadSession ||
+      threadSession.contextNotesRevision !== revision) return;
+    sendOmpWarning(args.threadId, `Could not read OMP notebook: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 function createOnOmpEvent(
   args: CurrentThreadSessionArgs,
 ): (event: Record<string, unknown>) => Promise<void> {
   return async (event) => {
     const threadSession = getCurrentThreadSession(args);
     if (!threadSession) return;
+    if (event.type === "message_start" || event.type === "message_end") {
+      const custom = z.object({
+        role: z.literal("custom"),
+        customType: z.literal("experimental_context_notes"),
+        content: z.string(),
+      }).safeParse(event.message);
+      if (custom.success) {
+        await refreshContextNotes(args, readOmpContextNotes([custom.data]));
+        return;
+      }
+    }
     if (event.type === "available_commands_update") {
       publishProviderCommands(args.threadId, ompAvailableCommandsSchema.parse(event.commands));
       return;
@@ -953,6 +991,13 @@ function createOnOmpEvent(
     }
     if (event.type === "agent_start") await threadSession.subagents.onTurnStart();
     if (event.type !== "agent_end") await threadSession.todos.handleEvent(event);
+    if (event.type === "tool_execution_end" &&
+      event.toolName === "context_notes" && event.isError !== true) {
+      const details = z.object({ result: z.object({
+        details: z.object({ text: z.string() }),
+      }) }).safeParse(event);
+      await refreshContextNotes(args, details.success ? details.data.result.details.text : undefined);
+    }
     if (
       event.type === "turn_end" ||
       event.type === "auto_compaction_end" ||
@@ -984,6 +1029,7 @@ function createOnExtensionUiReset(args: CurrentThreadSessionArgs): () => void {
   return () => {
     const threadSession = getCurrentThreadSession(args);
     if (!threadSession) return;
+    threadSession.contextNotesRevision += 1;
     activeTurnThreads.delete(args.threadId);
     extensionUi.cancelPendingForScope(threadSession);
     extensionUi.resetStatus({
@@ -1090,6 +1136,7 @@ async function handleRequest(
           grammarVersions: [THREAD_DELTA_GRAMMAR_V3, THREAD_DELTA_GRAMMAR_V3],
           steerMode: "inject",
           skills: { configure: true },
+          commands: { list: true },
         },
       };
       sendResult(request.id, result);
@@ -1097,6 +1144,9 @@ async function handleRequest(
     }
     case "model/list":
       await handleModelList(request.id, request.params);
+      break;
+    case "commands/list":
+      await handleCommandList(request.id, request.params.cwd);
       break;
     case "provider/health":
       await handleProviderHealth(request.id, request.params);
@@ -1189,21 +1239,28 @@ function toOmpSessionParams(
   });
 }
 
+function sendOmpInstallGateError(
+  id: string | number,
+  gate: Extract<OmpInstallGate, { ok: false }>,
+): void {
+  sendError(
+    id,
+    gate.status === "not_installed"
+      ? BRIDGE_JSON_RPC_ERRORS.MISSING_EXECUTABLE
+      : -32000,
+    gate.status === "not_installed"
+      ? "Could not find the omp CLI on this host. Install OMP from https://github.com/can1357/oh-my-pi and retry."
+      : (gate.statusMessage ?? "OMP is not supported on this host."),
+  );
+}
+
 async function handleModelList(
   id: string | number,
   params: z.infer<typeof modelListParamsSchema>,
 ): Promise<void> {
   const gate = await getOmpInstallGate();
   if (!gate.ok) {
-    sendError(
-      id,
-      gate.status === "not_installed"
-        ? BRIDGE_JSON_RPC_ERRORS.MISSING_EXECUTABLE
-        : -32000,
-      gate.status === "not_installed"
-        ? "Could not find the omp CLI on this host. Install OMP from https://github.com/can1357/oh-my-pi and retry."
-        : (gate.statusMessage ?? "OMP is not supported on this host."),
-    );
+    sendOmpInstallGateError(id, gate);
     return;
   }
   try {
@@ -1220,6 +1277,23 @@ async function handleModelList(
     const [raw, list] = await Promise.all([catalog.rawModels(), catalog.listModels(filter)]);
     contextWindows.learn(raw);
     sendResult(id, list);
+  } catch (error) {
+    sendOmpError(id, error);
+  }
+}
+
+// bb asks before a thread has a session (composer typeahead). The per-cwd
+// sessionless catalog child answers, so a warm cwd costs one RPC and a cold one
+// a single omp spawn that later model reads reuse. Failures are not cached.
+async function handleCommandList(id: string | number, cwd: string): Promise<void> {
+  const gate = await getOmpInstallGate();
+  if (!gate.ok) {
+    sendOmpInstallGateError(id, gate);
+    return;
+  }
+  try {
+    const catalog = await getOmpCatalog(cwd);
+    sendResult(id, toProviderCommandsState(await catalog.availableCommands()));
   } catch (error) {
     sendOmpError(id, error);
   }
@@ -1296,6 +1370,44 @@ function findOmpModel(
     throw new Error(`Failed to resolve OMP model "${modelStr}"`);
   }
   return { provider: match.provider, id: modelStr };
+}
+
+const BB_MATCHED_THINKING_LEVELS: Record<string, true> = {
+  off: true, minimal: true, low: true, medium: true, high: true, xhigh: true, max: true,
+};
+
+/**
+ * bb's composer shows the nearest level its picker model supports but sends the
+ * stored one: a `medium` default reaches a low/high-only model as `medium`, and
+ * OMP rounds that down to `low` while bb shows High. Run the level bb shows.
+ */
+async function displayedThinkingLevel<T extends string | undefined>(
+  model: string | undefined,
+  level: T,
+  cwd: string,
+  shellEnvOverrides: Record<string, string>,
+): Promise<T> {
+  if (!model || level === undefined || !Object.hasOwn(BB_MATCHED_THINKING_LEVELS, level)) return level;
+  const catalog = await getOmpCatalog(cwd, shellEnvOverrides);
+  const { models, selectedOnlyModels } = await catalog.listModels(DEFAULT_OMP_MODEL_FILTER);
+  const entry = models.find((candidate) => candidate.model === model) ??
+    selectedOnlyModels.find((candidate) => candidate.model === model);
+  if (!entry) return level;
+  const shown = bbDisplayedReasoningLevel(level === "off" ? "none" : level, entry);
+  return (shown === "none" ? "off" : shown) as T;
+}
+
+async function threadDisplayedThinkingLevel<T extends string | undefined>(
+  threadSession: ThreadSession,
+  model: string | undefined,
+  requested: T,
+  shellEnvOverrides: Record<string, string>,
+): Promise<T> {
+  const memo = threadSession.thinkingRequest;
+  if (memo && memo.model === model && memo.requested === requested) return memo.level as T;
+  const level = await displayedThinkingLevel(model, requested, threadSession.cwd, shellEnvOverrides);
+  threadSession.thinkingRequest = { model, requested, level };
+  return level;
 }
 
 function readOmpSessionPresets(
@@ -1399,19 +1511,25 @@ function publishProviderCommands(threadId: string, commands: readonly OmpAvailab
   sendThreadDeltas(threadId, [{
     kind: "extension.state",
     extensionKind: "bb/provider-commands",
-    payload: { commands: [
-      ...OMP_BRIDGE_COMMANDS,
-      ...commands
-        .filter((command) => !OMP_BRIDGE_COMMANDS.some((bridge) => bridge.name === command.name))
-        // BB accepts at most 500 entries, including bridge-owned commands.
-        .slice(0, 500 - OMP_BRIDGE_COMMANDS.length)
-        .map((command) => ({
-          name: command.name,
-          description: command.description ?? "",
-          ...withInputHint(command),
-        })),
-    ] },
+    payload: toProviderCommandsState(commands),
   }]);
+}
+
+function toProviderCommandsState(
+  commands: readonly OmpAvailableCommand[],
+): z.infer<typeof commandListResultSchema> {
+  return { commands: [
+    ...OMP_BRIDGE_COMMANDS,
+    ...commands
+      .filter((command) => !OMP_BRIDGE_COMMANDS.some((bridge) => bridge.name === command.name))
+      // BB accepts at most 500 entries, including bridge-owned commands.
+      .slice(0, 500 - OMP_BRIDGE_COMMANDS.length)
+      .map((command) => ({
+        name: command.name,
+        description: command.description ?? "",
+        ...withInputHint(command),
+      })),
+  ] };
 }
 
 // bb has no argument completion, so omp's subcommands only reach the user through the hint.
@@ -1456,7 +1574,6 @@ async function buildSessionOptions(args: {
     (presetSelected ? presetDefault?.thinking ?? args.params.modelPreset?.defaultThinkingLevel : undefined);
   return {
     cwd: args.params.cwd,
-    ...(args.params.fastModeEnabled === undefined ? {} : { fastModeEnabled: args.params.fastModeEnabled }),
     ...(args.params.sessionControls === undefined ? {} : { sessionControls: args.params.sessionControls }),
     ...(args.params.permissionPolicy === undefined ? {} : { permissionPolicy: args.params.permissionPolicy }),
     ...(model ? { model } : {}),
@@ -1529,8 +1646,10 @@ async function constructOmpThreadSession(
       resolveModelContextWindow: contextWindows.resolve,
       getFileRoots: () => session.getFileRoots(),
       emit: (deltas) => sendThreadDeltas(threadId, deltas),
+      warn: (message) => sendOmpWarning(threadId, message),
     }),
     sessionSerial,
+    contextNotesRevision: 0,
     closing: false,
     providerThreadId,
     cwd: params.cwd,
@@ -1539,7 +1658,6 @@ async function constructOmpThreadSession(
     pickerOptions: {
       model: params.model,
       thinkingLevel: params.thinkingLevel,
-      fastModeEnabled: params.fastModeEnabled,
     },
     pickerModel: sessionOptions.model,
     chosenSessionControls: { ...params.sessionControls },
@@ -1550,6 +1668,7 @@ async function constructOmpThreadSession(
   sessions.set(threadId, threadSession);
   try {
     await session.start();
+    await refreshContextNotes({ sessionSerial, threadId });
     await threadSession.todos.refresh();
     await threadSession.subagents.restore();
     publishNativeConfiguration(threadId, threadSession);
@@ -1704,7 +1823,16 @@ async function handleThreadConstruction(
         params = { ...params, modelPreset, effectiveModelRoles: modelRoles };
       }
     }
+    const requestedThinking = params.thinkingLevel;
+    const thinkingLevel = await displayedThinkingLevel(
+      params.model,
+      requestedThinking,
+      params.cwd,
+      params.shellEnvOverrides,
+    );
+    if (thinkingLevel !== requestedThinking) params = { ...params, thinkingLevel };
     threadSession = await constructOmpThreadSession(threadId, nextProviderThreadId, params);
+    threadSession.thinkingRequest = { model: params.model, requested: requestedThinking, level: thinkingLevel };
   } catch (error) {
     if (relocate) rmSync(targetDir, { recursive: true, force: true });
     throw error;
@@ -1868,16 +1996,25 @@ async function reconcileTurnOptions(
   threadSession: ThreadSession,
   options: TurnStartParams["options"],
 ): Promise<ThreadSession> {
-  const turnOptions = buildOmpTurnOptions(options);
+  const requestedOptions = buildOmpTurnOptions(options);
   const construction = threadSession.construction;
   const previousPickers = threadSession.pickerOptions;
-  const permissionPolicy = turnOptions.permissionPolicy ?? construction.permissionPolicy;
-  const permissionModeChanged =
-    permissionPolicy?.permissionMode !== construction.permissionPolicy?.permissionMode;
   const shellEnvOverrides =
     options.envVars !== undefined
       ? { BB_THREAD_ID: threadId, ...buildShellEnvOverrides(options.envVars) }
       : undefined;
+  const turnOptions = {
+    ...requestedOptions,
+    thinkingLevel: await threadDisplayedThinkingLevel(
+      threadSession,
+      requestedOptions.model ?? previousPickers.model,
+      requestedOptions.thinkingLevel,
+      shellEnvOverrides ?? construction.shellEnvOverrides,
+    ),
+  };
+  const permissionPolicy = turnOptions.permissionPolicy ?? construction.permissionPolicy;
+  const permissionModeChanged =
+    permissionPolicy?.permissionMode !== construction.permissionPolicy?.permissionMode;
   const environmentChanged =
     shellEnvOverrides !== undefined &&
     !isDeepStrictEqual(shellEnvOverrides, construction.shellEnvOverrides);
@@ -1896,9 +2033,6 @@ async function reconcileTurnOptions(
   const thinkingPickerChanged =
     turnOptions.thinkingLevel !== undefined &&
     turnOptions.thinkingLevel !== previousPickers.thinkingLevel;
-  const fastPickerChanged =
-    turnOptions.fastModeEnabled !== undefined &&
-    turnOptions.fastModeEnabled !== previousPickers.fastModeEnabled;
   // Unlike model pickers, BB transports session options as unacknowledged
   // differences from bb/session-options, so each supplied value is fresh intent.
   const requestedControls = turnOptions.sessionControls;
@@ -1912,7 +2046,6 @@ async function reconcileTurnOptions(
     !permissionModeChanged &&
     changedModelRequest === undefined &&
     !thinkingPickerChanged &&
-    !fastPickerChanged &&
     !controlsChanged
   ) {
     threadSession.pickerOptions = turnOptions;
@@ -1956,7 +2089,6 @@ async function reconcileTurnOptions(
       thinkingLevel: presetChanged ? turnOptions.thinkingLevel
         : thinkingPickerChanged ? turnOptions.thinkingLevel
         : threadSession.session.getThinkingSelection().configured ?? state.thinkingLevel ?? construction.thinkingLevel,
-      fastModeEnabled: fastPickerChanged ? turnOptions.fastModeEnabled : state.fastModeEnabled,
       sessionControls: { ...threadSession.session.getSessionControls(), ...requestedControls },
     };
     const replacement = await rebuildThreadSession(
@@ -1967,6 +2099,7 @@ async function reconcileTurnOptions(
         pickerOptions: turnOptions,
         ...(!presetChanged ? { pickerModel: nextModel ?? threadSession.pickerModel } : {}),
         chosenSessionControls,
+        thinkingRequest: threadSession.thinkingRequest,
       },
     );
     sendThreadIdentity(threadId, replacement.providerThreadId);
@@ -2003,13 +2136,6 @@ async function reconcileTurnOptions(
     )
   ) {
     await threadSession.session.setThinkingLevel(turnOptions.thinkingLevel);
-  }
-  if (
-    fastPickerChanged &&
-    turnOptions.fastModeEnabled !== undefined &&
-    turnOptions.fastModeEnabled !== threadSession.session.getFastModeEnabled()
-  ) {
-    await threadSession.session.setFastMode(turnOptions.fastModeEnabled);
   }
   await threadSession.session.applySessionControls(requestedControls);
   construction.permissionPolicy = permissionPolicy;

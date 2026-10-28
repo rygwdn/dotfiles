@@ -39,7 +39,6 @@ export interface OmpRpcSessionOptions {
   modelPreset?: OmpModelPreset;
   effectiveModelRoles?: Record<string, string>;
   thinkingLevel?: string;
-  fastModeEnabled?: boolean;
   sessionControls?: OmpSessionControls;
   permissionPolicy?: OmpPermissionPolicy;
   additionalSkillPaths?: readonly string[];
@@ -82,6 +81,36 @@ export const ompAvailableCommandsSchema = z.array(z.object({
   subcommands: z.array(z.object({ name: z.string() })).optional(),
 }));
 export type OmpAvailableCommand = z.infer<typeof ompAvailableCommandsSchema>[number];
+
+export function parseOmpAvailableCommands(data: unknown): OmpAvailableCommand[] {
+  return z.object({ commands: ompAvailableCommandsSchema }).parse(data).commands;
+}
+
+export interface OmpMessage {
+  role: string;
+  customType?: string;
+  content?: unknown;
+}
+
+/** The notebook is untrusted text, not XML: embedded closing tags are literal. */
+export function readOmpContextNotes(messages: readonly unknown[]): string {
+  const header = "Latest notebook revision:\n";
+  const closing = "\n</experimental-context-notes>";
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message || typeof message !== "object") continue;
+    if (!("role" in message) || message.role !== "custom" ||
+      !("customType" in message) || message.customType !== "experimental_context_notes") continue;
+    const content = "content" in message ? message.content : undefined;
+    if (typeof content !== "string" || !content.startsWith("<experimental-context-notes>")) continue;
+    const start = content.indexOf(header);
+    const end = content.lastIndexOf(closing);
+    if (start >= 0 && end >= start + header.length) {
+      return content.slice(start + header.length, end);
+    }
+  }
+  return "";
+}
 
 const btwTurnSchema = z.object({
   question: z.string(),
@@ -278,9 +307,6 @@ export const ompGoalUpdatedSchema = z.object({
   goal: ompGoalSchema.nullable(),
   state: goalModeStateSchema.optional(),
 });
-const cacheWarmingResultSchema = z.object({
-  mode: z.enum(["off", "streaming", "idle"]),
-});
 export type OmpGoal = z.infer<typeof ompGoalSchema>;
 export type OmpGoalResult = z.infer<typeof goalResultSchema>;
 
@@ -291,15 +317,9 @@ const sessionStateSchema = z.object({
     contextWindow: z.number().optional(),
   }).optional(),
   thinkingLevel: ompThinkingLevelSchema.optional(),
-  fastModeEnabled: z.boolean().optional(),
-  fastModeActive: z.boolean().optional(),
   slowModeSupported: z.boolean().default(false),
   slowModeEnabled: z.boolean().default(false),
   slowModeScope: z.enum(["session", "global"]).optional(),
-  steeringMode: z.enum(["all", "one-at-a-time"]).optional(),
-  followUpMode: z.enum(["all", "one-at-a-time"]).optional(),
-  interruptMode: z.enum(["immediate", "wait"]).optional(),
-  autoCompactionEnabled: z.boolean().optional(),
   isStreaming: z.boolean(),
   isCompacting: z.boolean(),
   isSettled: z.boolean().optional(),
@@ -315,7 +335,6 @@ export class OmpRpcSession {
   private child: OmpRpcChild | undefined;
   private closed = false;
   private isProcessing = false;
-  private fastModeEnabled = false;
   private isCompacting = false;
   private compactionInterrupted = false;
   private activity: SessionActivity | undefined;
@@ -358,10 +377,6 @@ export class OmpRpcSession {
 
   getLiveModel(): OmpRpcSessionState["model"] | undefined {
     return this.liveModel;
-  }
-
-  getFastModeEnabled(): boolean {
-    return this.fastModeEnabled;
   }
 
   getLiveState(): OmpRpcSessionState | undefined {
@@ -500,10 +515,6 @@ export class OmpRpcSession {
         ),
       };
     }
-    const fastModeEnabled = this.options.fastModeEnabled;
-    if (fastModeEnabled !== undefined && state.fastModeEnabled !== fastModeEnabled) {
-      await this.setFastMode(fastModeEnabled);
-    }
     await this.applySessionControls(this.options.sessionControls ?? {});
     await this.refreshContextUsage();
     return { ok: true };
@@ -513,22 +524,12 @@ export class OmpRpcSession {
     const data = await this.requireChild().requestOk({ type: "get_state" }, timeoutMs);
     const state = sessionStateSchema.parse(data);
     this.liveState = state;
-    this.liveSessionControls = {
-      ...this.liveSessionControls,
-      ...(state.steeringMode === undefined ? {} : { steeringMode: state.steeringMode }),
-      ...(state.followUpMode === undefined ? {} : { followUpMode: state.followUpMode }),
-      ...(state.interruptMode === undefined ? {} : { interruptMode: state.interruptMode }),
-      ...(state.autoCompactionEnabled === undefined ? {} : { autoCompactionEnabled: state.autoCompactionEnabled }),
-    };
-    if (state.slowModeSupported) {
-      this.liveSessionControls.slowModeEnabled = state.slowModeEnabled;
-    } else {
-      delete this.liveSessionControls.slowModeEnabled;
-    }
+    this.liveSessionControls = state.slowModeSupported
+      ? { slowModeEnabled: state.slowModeEnabled }
+      : {};
     // Preserve the user's native defaults before startup applies BB's choices.
     this.initialSessionControls ??= { ...this.liveSessionControls };
     this.liveModel = state.model;
-    this.fastModeEnabled = state.fastModeEnabled ?? false;
     if (this.sessionFile !== state.sessionFile || !this.fileRoots) {
       this.sessionFile = state.sessionFile;
       this.fileRoots = undefined;
@@ -554,8 +555,9 @@ export class OmpRpcSession {
   }
 
   async getAvailableCommands(): Promise<OmpAvailableCommand[]> {
-    const data = await this.requireChild().requestOk({ type: "get_available_commands" });
-    return z.object({ commands: ompAvailableCommandsSchema }).parse(data).commands;
+    return parseOmpAvailableCommands(
+      await this.requireChild().requestOk({ type: "get_available_commands" }),
+    );
   }
 
   async askBtw(question: string, recordId?: string): Promise<OmpBtwRecord> {
@@ -646,6 +648,18 @@ export class OmpRpcSession {
     return resolve(this.options.cwd, z.object({ path: z.string() }).parse(data).path);
   }
 
+  async getMessages(): Promise<unknown[]> {
+    const data = await this.requireChild().requestOk({ type: "get_messages" });
+    if (typeof data !== "object" || data === null || !("messages" in data) || !Array.isArray(data.messages)) {
+      throw new Error("OMP get_messages returned invalid messages");
+    }
+    return data.messages;
+  }
+
+  async readContextNotes(): Promise<string> {
+    return readOmpContextNotes(await this.getMessages());
+  }
+
   async getSubagents(): Promise<OmpSubagentSnapshot[]> {
     const data = await this.requireChild().requestOk({ type: "get_subagents" });
     return z.object({ subagents: z.array(ompSubagentSnapshotSchema) }).parse(data).subagents;
@@ -677,11 +691,6 @@ export class OmpRpcSession {
   async setThinkingLevel(level: string): Promise<void> {
     this.thinkingSelection = {};
     await this.requireChild().requestOk({ type: "set_thinking_level", level });
-    await this.getState();
-  }
-
-  async setFastMode(enabled: boolean): Promise<void> {
-    await this.requireChild().requestOk({ type: "set_fast_mode", enabled });
     await this.getState();
   }
 
@@ -720,40 +729,6 @@ export class OmpRpcSession {
     return result;
   }
 
-  async setSteeringMode(mode: NonNullable<OmpSessionControls["steeringMode"]>): Promise<void> {
-    await this.requireChild().requestOk({ type: "set_steering_mode", mode });
-    this.liveSessionControls.steeringMode = mode;
-    if (this.liveState) this.liveState.steeringMode = mode;
-  }
-
-  async setFollowUpMode(mode: NonNullable<OmpSessionControls["followUpMode"]>): Promise<void> {
-    await this.requireChild().requestOk({ type: "set_follow_up_mode", mode });
-    this.liveSessionControls.followUpMode = mode;
-    if (this.liveState) this.liveState.followUpMode = mode;
-  }
-
-  async setInterruptMode(mode: NonNullable<OmpSessionControls["interruptMode"]>): Promise<void> {
-    await this.requireChild().requestOk({ type: "set_interrupt_mode", mode });
-    this.liveSessionControls.interruptMode = mode;
-    if (this.liveState) this.liveState.interruptMode = mode;
-  }
-
-  async setAutoCompaction(enabled: boolean): Promise<void> {
-    await this.requireChild().requestOk({ type: "set_auto_compaction", enabled });
-    this.liveSessionControls.autoCompactionEnabled = enabled;
-    if (this.liveState) this.liveState.autoCompactionEnabled = enabled;
-  }
-
-  async setAutoRetry(enabled: boolean): Promise<void> {
-    await this.requireChild().requestOk({ type: "set_auto_retry", enabled });
-    this.liveSessionControls.autoRetryEnabled = enabled;
-  }
-
-  async setCacheWarming(mode: NonNullable<OmpSessionControls["cacheWarmingMode"]>): Promise<void> {
-    const data = await this.requireChild().requestOk({ type: "set_cache_warming", mode });
-    this.liveSessionControls.cacheWarmingMode = cacheWarmingResultSchema.parse(data).mode;
-  }
-
   async setSlowMode(enabled: boolean): Promise<void> {
     if (!this.liveState?.slowModeSupported) {
       throw new Error(
@@ -771,24 +746,6 @@ export class OmpRpcSession {
           controls.slowModeEnabled !== current.slowModeEnabled) {
         await this.setSlowMode(controls.slowModeEnabled);
       }
-    }
-    if (controls.steeringMode !== undefined && controls.steeringMode !== current.steeringMode) {
-      await this.setSteeringMode(controls.steeringMode);
-    }
-    if (controls.followUpMode !== undefined && controls.followUpMode !== current.followUpMode) {
-      await this.setFollowUpMode(controls.followUpMode);
-    }
-    if (controls.interruptMode !== undefined && controls.interruptMode !== current.interruptMode) {
-      await this.setInterruptMode(controls.interruptMode);
-    }
-    if (controls.autoCompactionEnabled !== undefined && controls.autoCompactionEnabled !== current.autoCompactionEnabled) {
-      await this.setAutoCompaction(controls.autoCompactionEnabled);
-    }
-    if (controls.autoRetryEnabled !== undefined && controls.autoRetryEnabled !== current.autoRetryEnabled) {
-      await this.setAutoRetry(controls.autoRetryEnabled);
-    }
-    if (controls.cacheWarmingMode !== undefined && controls.cacheWarmingMode !== current.cacheWarmingMode) {
-      await this.setCacheWarming(controls.cacheWarmingMode);
     }
   }
 
@@ -817,13 +774,13 @@ export class OmpRpcSession {
     };
     // Native commands and extensions can switch sessions between inputs. Keep
     // linked thread storage current before OMP admits another prompt.
+    const acknowledged = () => this.settleAcknowledgedInput(pending.input);
     const dispatch = this.options.shellEnvOverrides?.BB_THREAD_STORAGE
-      ? this.getState().then(() => this.dispatchWithTransientAuthRetry(child, command, NO_REQUEST_TIMEOUT))
-      : this.dispatchWithTransientAuthRetry(child, command, NO_REQUEST_TIMEOUT);
+      ? this.getState().then(() => this.dispatchWithTransientAuthRetry(child, command, NO_REQUEST_TIMEOUT, acknowledged))
+      : this.dispatchWithTransientAuthRetry(child, command, NO_REQUEST_TIMEOUT, acknowledged);
     void dispatch.then(
       async (data) => {
         this.pendingPromptAcks.delete(id);
-        if (pending.input.queuedText === null) this.resolvePendingInputConsumption(pending.input);
         if (promptAckSchema.parse(data)?.agentInvoked === false && this.prompts.has(id)) {
           this.removePrompt(id, pending);
           // Command output precedes this ack. Let the bridge render it before
@@ -860,13 +817,12 @@ export class OmpRpcSession {
         type: "steer",
         message: text,
         ...(images && images.length > 0 ? { images } : {}),
-      });
+      }, undefined, () => this.settleAcknowledgedInput(tracked.pending));
     } catch (error) {
       this.rejectPendingInputConsumption(tracked.pending, asError(error));
       throw error;
     }
-    if (tracked.pending.queuedText === null) this.resolvePendingInputConsumption(tracked.pending);
-    else void tracked.promise.catch((error: unknown) => this.onDone(error));
+    void tracked.promise.catch((error: unknown) => this.onDone(error));
   }
 
   async compact(): Promise<OmpPromptRunOutcome> {
@@ -1089,10 +1045,11 @@ export class OmpRpcSession {
     child: OmpRpcChild,
     command: Record<string, unknown>,
     timeoutMs?: number,
+    onAcknowledged?: () => void,
   ): Promise<unknown> {
     for (let attempt = 0; ; attempt += 1) {
       try {
-        return await child.requestOk(command, timeoutMs);
+        return await child.requestOk(command, timeoutMs, onAcknowledged);
       } catch (error) {
         if (!(error instanceof Error) || error instanceof OmpRpcChildExitedError ||
           !error.message.startsWith("No API key found for ") || attempt >= OMP_TRANSIENT_AUTH_MAX_RETRIES) {
@@ -1257,25 +1214,30 @@ export class OmpRpcSession {
     void this.deliverInOrder(async () => {
       const leafId = await checkpoint;
       const boundaryDelivered = activity.started;
-      if (boundaryDelivered) {
-        await this.onEvent({
-          type: "agent_end", messages, settlementOnly: true,
-          ...(activity.interrupted ? { settlementStatus: "interrupted" } : {}),
-          ...(errorMessage ? { settlementError: errorMessage } : {}),
-          ...(errorInfo ? { settlementErrorInfo: errorInfo } : {}),
-          ...(errorMessage && activity.reportedErrors.has(errorMessage) ? { settlementErrorReported: true } : {}),
-          ...(leafId ? { providerCheckpointId: leafId } : {}),
-        });
+      try {
+        if (boundaryDelivered) {
+          await this.onEvent({
+            type: "agent_end", messages, settlementOnly: true,
+            ...(activity.interrupted ? { settlementStatus: "interrupted" } : {}),
+            ...(errorMessage ? { settlementError: errorMessage } : {}),
+            ...(errorInfo ? { settlementErrorInfo: errorInfo } : {}),
+            ...(errorMessage && activity.reportedErrors.has(errorMessage) ? { settlementErrorReported: true } : {}),
+            ...(leafId ? { providerCheckpointId: leafId } : {}),
+          });
+        }
+      } finally {
+        // A throwing handler is reported through deliverInOrder; it must not
+        // also strand this run's prompts and steering consumers.
+        for (const [id, pending] of activity.prompts) {
+          this.removePrompt(id, pending);
+          const promptError = activity.interrupted ? undefined : pending.result && promptResultError(pending.result);
+          pending.resolve({
+            ...(boundaryDelivered ? { boundaryDelivered: true } : {}),
+            ...((promptError ?? errorMessage) ? { error: new Error(promptError ?? errorMessage) } : {}),
+          });
+        }
+        if (!this.activity) this.rejectPendingInputConsumptions("OMP turn ended before steer was consumed", "steering");
       }
-      for (const [id, pending] of activity.prompts) {
-        this.removePrompt(id, pending);
-        const promptError = activity.interrupted ? undefined : pending.result && promptResultError(pending.result);
-        pending.resolve({
-          ...(boundaryDelivered ? { boundaryDelivered: true } : {}),
-          ...((promptError ?? errorMessage) ? { error: new Error(promptError ?? errorMessage) } : {}),
-        });
-      }
-      if (!this.activity) this.rejectPendingInputConsumptions("OMP turn ended before steer was consumed", "steering");
     });
   }
 
@@ -1453,6 +1415,16 @@ export class OmpRpcSession {
       const pending = this.pendingInputConsumptions.find((entry) => entry.queue === queue && entry.queuedText === queuedText);
       if (pending) this.resolvePendingInputConsumption(pending);
     }
+  }
+
+  /**
+   * OMP reports queued input before acknowledging it, so input still without
+   * queued text when its ack is read was consumed on admission. Runs while the
+   * ack line is read: a queue update later in the same stdout chunk belongs to
+   * other input and must not claim this one.
+   */
+  private settleAcknowledgedInput(pending: PendingInputConsumption): void {
+    if (pending.queuedText === null) this.resolvePendingInputConsumption(pending);
   }
 
   private resolvePendingInputConsumption(pending: PendingInputConsumption): void {

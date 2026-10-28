@@ -2,7 +2,10 @@ import { expect, it, vi } from "vitest";
 import { OmpRpcSession, type OmpRpcEvent, type ToolCallForwarder } from "./rpc-session.js";
 import { createOmpDeltaTranslator } from "../delta-translation.js";
 
-function harness(forward: ToolCallForwarder = async () => ({ content: "tool result" })) {
+function harness(
+  forward: ToolCallForwarder = async () => ({ content: "tool result" }),
+  onEvent: (event: OmpRpcEvent) => void = () => undefined,
+) {
   const events: OmpRpcEvent[] = [];
   const done = vi.fn();
   let leafId = "checkpoint";
@@ -34,7 +37,12 @@ function harness(forward: ToolCallForwarder = async () => ({ content: "tool resu
   });
   const child = {
     exited: false,
-    requestOk,
+    // Like the real child: a successful reply is acknowledged before its promise settles.
+    async requestOk(command: Record<string, unknown>, _timeoutMs?: number, onAcknowledged?: () => void) {
+      const data = await requestOk(command);
+      onAcknowledged?.();
+      return data;
+    },
     request: vi.fn(async () => ({ type: "response", success: true })),
     send: vi.fn(),
     kill: vi.fn(),
@@ -42,7 +50,7 @@ function harness(forward: ToolCallForwarder = async () => ({ content: "tool resu
   };
   const session = new OmpRpcSession({
     cwd: ".", sessionDir: ".", scratchDir: ".", recordThreadId: "settlement-test",
-  }, forward, (event) => { events.push(event); }, done);
+  }, forward, (event) => { events.push(event); onEvent(event); }, done);
   const control = session as unknown as {
     child: typeof child;
     handleEvent(event: OmpRpcEvent): void;
@@ -104,6 +112,19 @@ it("retains final message snapshots but waits for the correlated native result",
     expect.objectContaining({ messages: [message], providerCheckpointId: "final-leaf" }),
   ]);
   expect(h.done).not.toHaveBeenCalled();
+});
+
+it("settles the prompt and reports the error when the settlement handler throws", async () => {
+  const failure = new Error("Could not read a subagent transcript");
+  const h = harness(undefined, (event) => {
+    if (event.settlementOnly) throw failure;
+  });
+  const dispatch = await h.prompt();
+  h.run("pong");
+  h.result(dispatch.id);
+  expect(await dispatch.settled).toEqual({ boundaryDelivered: true });
+  await h.flush();
+  expect(h.done).toHaveBeenCalledWith(failure);
 });
 
 it("retains every assistant message identity when the native ending omits its snapshots", async () => {

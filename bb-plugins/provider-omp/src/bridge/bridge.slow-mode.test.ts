@@ -17,7 +17,6 @@ const OPTIONS = {
   ...FULL_PERMISSION_OPTIONS,
   model: "fake-provider/fake-mini",
   reasoningLevel: "medium",
-  serviceTier: "default",
 };
 const objectSchema = z.record(z.string(), z.unknown());
 const errorSchema = z.object({ code: z.number(), message: z.string() });
@@ -269,25 +268,5 @@ describe("native OMP slow-mode session controls", () => {
     expect(commands("set_slow_mode")).toEqual(initialSetters);
     expect(slowModeOption(threadId)?.value).toBe("off");
     expect(configurationLines(threadId)).toContain(warning);
-  }, TEST_TIMEOUT_MS);
-
-  it.each(["session", "global"] as const)("refreshes native fast-mode state after changing %s-scoped slow mode", async (scope) => {
-    vi.stubEnv("FAKE_OMP_SLOW_MODE_SUPPORTED", "1");
-    vi.stubEnv("FAKE_OMP_SLOW_MODE_SCOPE", scope);
-    const threadId = "thr_slow_fast_interaction";
-    const fastOptions = { ...OPTIONS, serviceTier: "fast" };
-    const providerThreadId = await start(threadId, fastOptions);
-    const fastSetters = commands("set_fast_mode");
-    expect(fastSetters).toEqual([{ type: "set_fast_mode", enabled: true }]);
-    await turn(threadId, providerThreadId, {
-      ...fastOptions, sessionOptions: { slowModeEnabled: "on" },
-    });
-    const fastWarning = "Fast: omp disabled (bb selected enabled); active: no";
-    if (scope === "session") expect(configurationLines(threadId)).toContain(fastWarning);
-    else expect(configurationLines(threadId)).not.toContain(fastWarning);
-    await turn(threadId, providerThreadId, fastOptions);
-    expect(commands("set_fast_mode")).toEqual(fastSetters);
-    expect(commands("set_slow_mode")).toEqual([{ type: "set_slow_mode", enabled: true }]);
-    expect(slowModeOption(threadId)?.value).toBe("on");
   }, TEST_TIMEOUT_MS);
 });

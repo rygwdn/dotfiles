@@ -100,7 +100,7 @@ it("isolates model/list catalogs and native defaults by envVars while sharing re
 
   const alpha = await listModels(2, alphaEnv);
   expect(alpha.models.map((model) => model.id)).toEqual([
-    "env-provider/alpha-first", "env-provider/alpha-active",
+    "env-provider/alpha-active", "env-provider/alpha-first",
   ]);
   expect(alpha.models.filter((model) => model.isDefault).map((model) => model.id))
     .toEqual(["env-provider/alpha-active"]);
@@ -155,16 +155,16 @@ it("resolves environment-scoped agent and overlay presets with their effective d
 
   const alpha = await listModels(2, alphaEnv, "presets");
   expect(alpha.models).toEqual([
-    { id: "preset:alpha_base", isDefault: false, defaultReasoningEffort: "medium" },
     { id: "preset:alpha_selected", isDefault: true, defaultReasoningEffort: "low" },
+    { id: "preset:alpha_base", isDefault: false, defaultReasoningEffort: "medium" },
   ]);
   expect(alpha.selectedOnlyModels.map((model) => model.id)).toEqual([
     "env-provider/first", "env-provider/second",
   ]);
   const beta = await listModels(3, betaEnv, "presets");
   expect(beta.models).toEqual([
-    { id: "preset:beta_base", isDefault: false, defaultReasoningEffort: "medium" },
     { id: "preset:beta_selected", isDefault: true, defaultReasoningEffort: "low" },
+    { id: "preset:beta_base", isDefault: false, defaultReasoningEffort: "medium" },
   ]);
   expect(await listModels(4, alphaEnv, "presets")).toEqual(alpha);
   expect(await listModels(5, undefined, "presets")).toEqual(inherited);

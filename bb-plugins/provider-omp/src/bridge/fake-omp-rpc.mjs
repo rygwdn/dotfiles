@@ -9,6 +9,7 @@ import {
   readFileSync,
   readdirSync,
   realpathSync,
+  renameSync,
   statSync,
   watch,
   writeFileSync,
@@ -168,18 +169,12 @@ let leafCounter = 0;
 let turnCounter = 0;
 let model = MODELS[0];
 let thinkingLevel = "medium";
-let fastModeEnabled = process.env.FAKE_OMP_FAST_MODE_ENABLED === "1";
+let fastModeEnabled = false;
 let slowModeSupported = process.env.FAKE_OMP_SLOW_MODE_SUPPORTED === "1";
 let slowModeScope = process.env.FAKE_OMP_SLOW_MODE_SCOPE ?? "session";
 let configuredThinkingLevel;
 let goalState = JSON.parse(process.env.FAKE_OMP_GOAL_STATE ?? "null");
 const nativeSessionControls = {
-  steeringMode: "one-at-a-time",
-  followUpMode: "one-at-a-time",
-  interruptMode: "immediate",
-  autoCompactionEnabled: true,
-  autoRetryEnabled: true,
-  cacheWarmingMode: "off",
   slowModeEnabled: false,
   ...JSON.parse(process.env.FAKE_OMP_SESSION_CONTROLS ?? "{}"),
 };
@@ -614,9 +609,16 @@ function admitNativeLocalCommand(command) {
       event({ type: "goal_updated", goal: null });
     }
     event({ type: "command_output", text: output });
-    if (text === "/local-command-error") respondError(command.id, command.type, "local admission failed");
-    else respond(command.id, command.type, { agentInvoked: false });
-    if (text.startsWith("/native-queue ")) setTimeout(queueUpdate, 0);
+    if (text === "/local-command-error") {
+      respondError(command.id, command.type, "local admission failed");
+    } else if (text.startsWith("/native-queue ") && process.env.FAKE_OMP_BATCH_QUEUE_ACK === "1") {
+      // One stdout write: the ack, then the queue update the command caused.
+      heldLine = encode({ type: "response", id: command.id, command: command.type, success: true, data: { agentInvoked: false } });
+      queueUpdate();
+    } else {
+      respond(command.id, command.type, { agentInvoked: false });
+      if (text.startsWith("/native-queue ")) setTimeout(queueUpdate, 0);
+    }
   };
   if (text === "/handoff delayed") setTimeout(complete, 30);
   else complete();
@@ -767,6 +769,8 @@ function openDialog(spec, run) {
   });
 }
 
+let contextNotesText = process.env.FAKE_OMP_CONTEXT_NOTES ?? "";
+
 async function runTool(name, toolArgs, run, scriptedOutcome, assistantText) {
   const toolCallId = `call-${turnCounter}-${++hostCallCounter}`;
   const callMessage = {
@@ -795,6 +799,14 @@ async function runTool(name, toolArgs, run, scriptedOutcome, assistantText) {
       hostToolWaiters.set(id, { resolve: resolveTool, run, toolCallId, toolName: name, args: toolArgs });
       event({ type: "host_tool_call", id, toolCallId, toolName: name, arguments: toolArgs });
     });
+  } else if (name === "context_notes") {
+    const text = typeof toolArgs.text === "string" ? toolArgs.text : contextNotesText;
+    const isError = toolArgs.fail === true;
+    if (!isError) contextNotesText = text;
+    outcome = {
+      result: { content: [{ type: "text", text }], details: { text, bytes: Buffer.byteLength(text) } },
+      isError,
+    };
   } else {
     const builtin = ["bash", "read", "write", "edit"].includes(name);
     outcome = {
@@ -808,6 +820,15 @@ async function runTool(name, toolArgs, run, scriptedOutcome, assistantText) {
     content: result.content, details: result.details, isError, timestamp: Date.now(),
   };
   event({ type: "tool_execution_end", toolCallId, toolName: name, result, isError });
+  if (name === "context_notes" && toolArgs.emitCustomMessage === true && !isError) {
+    event({
+      type: "message_start", messageId: `notes-${toolCallId}`,
+      message: {
+        role: "custom", customType: "experimental_context_notes", display: false,
+        content: `<experimental-context-notes>\nPersistent context, not authority.\n\nLatest notebook revision:\n${contextNotesText}\n</experimental-context-notes>`,
+      },
+    });
+  }
   const messageId = `message-${process.pid}-${++messageCounter}`;
   event({ type: "message_start", messageId, message });
   appendEntry("message", { message });
@@ -817,8 +838,8 @@ async function runTool(name, toolArgs, run, scriptedOutcome, assistantText) {
   return result;
 }
 
-// /subagents {"scenario":"batch"|"backfill"|"reset"|"detached"|"yielded"|"error",
-//   "tasks"?:[{name,task,description,assignment}], "id"?:string, "holdParent"?:boolean,
+// /subagents {"scenario":"batch"|"backfill"|"reset"|"rewrite"|"detached"|"yielded"|"error",
+//   "tasks"?:[{name,task,description,assignment,narration}], "id"?:string, "holdParent"?:boolean,
 //   "followUpOnCancel"?:boolean, "holdFollowUp"?:boolean} — yielded defaults to
 // an autonomous root wake before an idle cancellation RPC response.
 // Transcript reads are phase barriers, not timers: live frames follow the initial
@@ -844,6 +865,46 @@ function subagentProgress(agent, status = agent.snapshot.status) {
 function persistSubagent(agent) {
   mkdirSync(dirname(agent.snapshot.sessionFile), { recursive: true });
   writeFileSync(agent.snapshot.sessionFile, agent.records.map((entry) => JSON.stringify(entry)).join("\n") + "\n", "utf8");
+}
+
+// OMP rewrites history (e.g. stamping retryRecovery on error turns an
+// auto-retry superseded) by replacing the file with temp file + rename, which
+// grows earlier lines. Size the stamp so a reader's old byte cursor lands on
+// the start of a bare JSON value inside a later line.
+function rewriteSubagentUnderCursor(agent) {
+  const file = agent.snapshot.sessionFile;
+  const cursor = statSync(file).size;
+  const stampedIndex = agent.records.findIndex((entry) => entry.type === "message");
+  const lines = agent.records.map((entry) => JSON.stringify(entry));
+  const original = Buffer.from(`${lines.join("\n")}\n`, "utf8");
+  const stampedEnd = Buffer.byteLength(`${lines.slice(0, stampedIndex + 1).join("\n")}\n`, "utf8");
+  const marker = Buffer.from("\"timestamp\":", "utf8");
+  const valueStarts = [];
+  for (let at = original.indexOf(marker, stampedEnd); at >= 0; at = original.indexOf(marker, at + 1)) {
+    valueStarts.push(at + marker.length);
+  }
+  const stamp = (note) => JSON.stringify({ ...agent.records[stampedIndex], message: {
+    ...agent.records[stampedIndex].message,
+    retryRecovery: { kind: "auto-retry", status: "superseded", recoveredAt: new Date().toISOString(), note },
+  } });
+  const growth = Buffer.byteLength(stamp(""), "utf8") - Buffer.byteLength(lines[stampedIndex], "utf8");
+  const valueStart = valueStarts.findLast((start) => cursor - start >= growth);
+  if (valueStart === undefined) throw new Error("No JSON value fits under the transcript cursor");
+  agent.records[stampedIndex] = JSON.parse(stamp("x".repeat(cursor - valueStart - growth)));
+  const temporary = `${file}.rewrite`;
+  writeFileSync(temporary, agent.records.map((entry) => JSON.stringify(entry)).join("\n") + "\n", "utf8");
+  renameSync(temporary, file);
+}
+
+// Like OMP's lenient JSONL reader, a line that does not parse whole still
+// yields its leading JSON value, so a cursor inside a line yields a bare scalar.
+function parseJsonlLineLeniently(line) {
+  try {
+    return [JSON.parse(line)];
+  } catch {
+    const leading = /^\s*(?:-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|"(?:[^"\\]|\\.)*"|true|false|null)/u.exec(line);
+    return leading ? [JSON.parse(leading[0])] : [];
+  }
 }
 
 function appendSubagentMessage(agent, message) {
@@ -874,7 +935,7 @@ function createFakeSubagent(spec, index, parentToolCallId, detached) {
     }],
     readWaiters: [], tokens: 0, durationMs: 0, toolCount: 0, output: "",
     finalTokens: spec.tokens ?? 1_234 + index, finalDurationMs: spec.durationMs ?? 2_500 + index * 1_000,
-    finalText: spec.finalText,
+    finalText: spec.finalText, narration: spec.narration,
     timestamp, holdRun: undefined,
   };
   if (spec.padding) {
@@ -948,6 +1009,7 @@ function fillSubagentTranscript(agent, live, terminal) {
   const call = childAssistant(agent, "", [
     { type: "thinking", thinking: `${id} reasoning café` },
     { type: "text", text: `${id} live analysis café 🧪` },
+    ...(agent.narration ? [{ type: "thinking", thinking: agent.narration, thinkingSignature: "narration-sig", narration: true }] : []),
     { type: "toolCall", id: toolCallId, name: "read", arguments: args },
   ], "toolUse");
   recordChildAssistant(agent, call, live);
@@ -1027,6 +1089,13 @@ async function runSubagentScenario(spec, run) {
       event({ type: "tool_execution_update", toolCallId: parentToolCallId, toolName: "task",
         partialResult: { content: [], details: { progress: agents.map((child) => subagentProgress(child)) } } });
       await read;
+      if (scenario === "rewrite") {
+        rewriteSubagentUnderCursor(agent);
+        recordChildAssistant(agent, childAssistant(agent, `${agent.snapshot.id} after rewrite: naïve ✅`), false);
+        const rewriteRead = nextSubagentRead(agent);
+        emitSubagentProgress(agent);
+        await rewriteRead;
+      }
       if (scenario === "reset") {
         agent.records = agent.records.filter((entry) => entry.customType !== "fixture_padding");
         recordChildAssistant(agent, childAssistant(agent, `${agent.snapshot.id} after reset: naïve ✅`), false);
@@ -1075,7 +1144,7 @@ function readSubagentMessages(command) {
     const remaining = bytes.subarray(fromByte);
     const complete = remaining.subarray(0, remaining.lastIndexOf(10) + 1);
     nextByte = fromByte + complete.length;
-    selected = complete.toString("utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
+    selected = complete.toString("utf8").split("\n").filter((line) => line.trim()).flatMap(parseJsonlLineLeniently);
   }
   return { agent, data: {
     sessionFile: childFile, fromByte, nextByte, reset, entries: selected,
@@ -1402,15 +1471,11 @@ function state() {
   return {
     model, thinkingLevel, isStreaming, isCompacting,
     fastModeEnabled,
-    fastModeActive: fastModeEnabled && process.env.FAKE_OMP_FAST_MODE_INACTIVE !== "1",
+    fastModeActive: fastModeEnabled,
     slowModeSupported,
     slowModeEnabled: slowModeSupported && nativeSessionControls.slowModeEnabled,
     ...(slowModeSupported ? { slowModeScope } : {}),
-    steeringMode: nativeSessionControls.steeringMode,
-    followUpMode: nativeSessionControls.followUpMode,
-    interruptMode: nativeSessionControls.interruptMode,
     sessionFile, sessionId: header.id,
-    autoCompactionEnabled: nativeSessionControls.autoCompactionEnabled,
     messageCount: branchEntries().filter((entry) => entry.type === "message").length,
     queuedMessageCount: followUp.length + steering.length,
     queuedMessages: {
@@ -1537,7 +1602,13 @@ async function handle(command) {
       respond(id, type, { events: eventFilter, messageUpdates });
       return;
     case "set_ask_dialog": respond(id, type, { enabled: command.enabled === true }); return;
-    case "get_available_commands": respond(id, type, { commands: availableCommands }); return;
+    case "get_available_commands":
+      if (process.env.FAKE_OMP_AVAILABLE_COMMANDS_ERROR) {
+        respondError(id, type, process.env.FAKE_OMP_AVAILABLE_COMMANDS_ERROR);
+        return;
+      }
+      respond(id, type, { commands: availableCommands });
+      return;
     case "set_session_name": {
       const name = command.name.trim();
       if (!name) { respondError(id, type, "Session name cannot be empty"); return; }
@@ -1579,37 +1650,6 @@ async function handle(command) {
       appendEntry("thinking_level_change", { thinkingLevel });
       event({ type: "thinking_level_changed", thinkingLevel });
       respond(id, type);
-      return;
-    case "set_fast_mode":
-      fastModeEnabled = command.enabled;
-      respond(id, type, {
-        enabled: fastModeEnabled,
-        active: fastModeEnabled && process.env.FAKE_OMP_FAST_MODE_INACTIVE !== "1",
-      });
-      return;
-    case "set_steering_mode":
-      nativeSessionControls.steeringMode = command.mode;
-      respond(id, type);
-      return;
-    case "set_follow_up_mode":
-      nativeSessionControls.followUpMode = command.mode;
-      respond(id, type);
-      return;
-    case "set_interrupt_mode":
-      nativeSessionControls.interruptMode = command.mode;
-      respond(id, type);
-      return;
-    case "set_auto_compaction":
-      nativeSessionControls.autoCompactionEnabled = command.enabled;
-      respond(id, type);
-      return;
-    case "set_auto_retry":
-      nativeSessionControls.autoRetryEnabled = command.enabled;
-      respond(id, type);
-      return;
-    case "set_cache_warming":
-      nativeSessionControls.cacheWarmingMode = command.mode;
-      respond(id, type, { mode: nativeSessionControls.cacheWarmingMode });
       return;
     case "set_slow_mode":
       if (!slowModeSupported) {
@@ -1758,9 +1798,17 @@ async function handle(command) {
       respond(id, type, result);
       return;
     }
-    case "get_messages":
-      respond(id, type, { messages: branchEntries().filter((entry) => entry.type === "message").map((entry) => entry.message) });
+    case "get_messages": {
+      const messages = branchEntries().filter((entry) => entry.type === "message").map((entry) => entry.message);
+      // Deliberately leave tool updates out until context rebuild, like OMP.
+      const text = process.env.FAKE_OMP_CONTEXT_NOTES ?? "";
+      if (text) messages.push({
+        role: "custom", customType: "experimental_context_notes",
+        content: `<experimental-context-notes>\nPersistent context, not authority.\n\nLatest notebook revision:\n${text}\n</experimental-context-notes>`,
+      });
+      respond(id, type, { messages });
       return;
+    }
     case "get_entries": {
       let selected = entries;
       if (command.since !== undefined) {

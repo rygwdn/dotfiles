@@ -52,6 +52,19 @@ export type OmpHubAgent = z.infer<typeof ompHubAgentSchema>;
 export type OmpAgentsState = z.infer<typeof ompAgentsStateSchema>;
 
 // ---------------------------------------------------------------------------
+// Context notes: the bridge publishes the current session notebook, or empty
+// text when the session has no notebook.
+// ---------------------------------------------------------------------------
+
+export const OMP_CONTEXT_NOTES_STATE_KIND = `${OMP_PLUGIN_ID}/context-notes`;
+
+export const ompContextNotesStateSchema = z.object({
+  text: z.string(),
+});
+
+export type OmpContextNotesState = z.infer<typeof ompContextNotesStateSchema>;
+
+// ---------------------------------------------------------------------------
 // Panel identity: the thread panel action id and its persisted params.
 // ---------------------------------------------------------------------------
 

@@ -111,6 +111,8 @@ const ompCardSectionSchema = z.object({
 export const ompCardSchema = z.object({
   type: z.string().min(1).max(OMP_CARD_LIMITS.typeLength),
   title: z.string().min(1).max(OMP_CARD_LIMITS.titleLength),
+  /** Short collapsed-row text shown after the title, e.g. note counts. */
+  summary: z.string().min(1).max(OMP_CARD_LIMITS.titleLength).optional(),
   tone: ompCardToneSchema.optional(),
   sections: z.array(ompCardSectionSchema).max(OMP_CARD_LIMITS.sections),
 }).refine(

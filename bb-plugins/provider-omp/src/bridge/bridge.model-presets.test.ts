@@ -364,8 +364,6 @@ it("keeps a preset's role snapshot when a raw model is selected and the environm
   const rawOptions = {
     model: "fake-provider/fake-model",
     reasoningLevel: "low",
-    serviceTier: "fast",
-    sessionOptions: { interruptMode: "wait" },
   };
   expect((await turn(1, threadId, providerThreadId, rawOptions)).error).toBeUndefined();
   let seen = await harness.waitForTurnBoundary(threadId, 0);
@@ -376,7 +374,6 @@ it("keeps a preset's role snapshot when a raw model is selected and the environm
     { type: "set_model", provider: "fake-provider", modelId: "fake-model" },
   ]);
   expect(rpcCommands()).toContainEqual({ type: "set_thinking_level", level: "low" });
-  expect(rpcCommands()).toContainEqual({ type: "set_fast_mode", enabled: true });
 
   writeConfig({
     modelRoles: { plan: "fake-provider/fake-model" },

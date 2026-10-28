@@ -18,7 +18,6 @@ import {
   toOmpModelPresetId,
   type OmpModelPreset,
 } from "./native-roots.js";
-import { OMP_SESSION_OPTIONS } from "./session-options.js";
 
 const NONE_REASONING_EFFORT: ModelReasoningEffort = {
   reasoningEffort: "none",
@@ -52,7 +51,6 @@ export interface OmpCatalogModel {
   name: string;
   provider: string;
   reasoning: boolean;
-  serviceTiers?: readonly string[];
   thinking?: {
     efforts?: readonly string[];
     defaultLevel?: string;
@@ -65,6 +63,8 @@ export interface OmpCatalogModel {
   int?: number;
   /** Only `false` means the model has no tool support. */
   supportsTools?: boolean;
+  /** omp's model kind; anything but `chat` is a task model. */
+  kind?: string;
 }
 
 interface BuildOmpAvailableModelsArgs {
@@ -104,8 +104,6 @@ function buildOmpAvailableModel(model: OmpCatalogModel): AvailableModel {
     description: describeOmpModel(model),
     supportedReasoningEfforts,
     defaultReasoningEffort,
-    sessionOptions: OMP_SESSION_OPTIONS,
-    ...ompServiceTierOptions(model),
     isDefault: false,
   };
 }
@@ -126,7 +124,7 @@ export function buildOmpAvailableModels(
   const presetsOnly = filter.modelPresetsInPicker === "presets" && presets.length > 0;
   const curated = presetsOnly
     ? { shown: [], more: args.models }
-    : curateOmpModels(args.models, filter, pinnedIds);
+    : curateOmpModels(args.models, filter, pinnedIds, args.preferredDefaultId);
   const rawModels = curated.shown.map(buildOmpAvailableModel);
   const presetModels = presets.map((preset) => buildOmpPresetModel(preset, args.models));
   const models = [...presetModels, ...rawModels];
@@ -140,27 +138,17 @@ export function buildOmpAvailableModels(
     : rawModels.find((model) => model.id === args.preferredDefaultId)?.id ??
       rawModels[0]?.id ??
       presetModels[0]?.id;
+  // The default entry (raw model or active preset) sorts to the very top.
+  const defaultModel = models.find((model) => model.id === defaultId);
   return {
-    models: models.map((model) =>
-      model.id === defaultId ? { ...model, isDefault: true } : model,
-    ),
+    models: defaultModel === undefined
+      ? models
+      : [
+          { ...defaultModel, isDefault: true },
+          ...models.filter((model) => model !== defaultModel),
+        ],
     selectedOnlyModels: curated.more.map(buildOmpAvailableModel),
   };
-}
-
-function ompServiceTierOptions(
-  model: OmpCatalogModel | undefined,
-): Pick<AvailableModel, "supportedServiceTiers"> {
-  return model?.serviceTiers === undefined
-    ? {}
-    : {
-        supportedServiceTiers: [
-          { id: "default", label: "Default" },
-          ...(model.serviceTiers.includes("priority")
-            ? [{ id: "fast", label: "Fast" }]
-            : []),
-        ],
-      };
 }
 
 function sameModelRoles(
@@ -221,8 +209,6 @@ function buildOmpPresetModel(
           MAX_REASONING_EFFORT,
         ],
     defaultReasoningEffort: thinking === "off" ? "none" : thinking === "auto" ? "medium" : thinking,
-    sessionOptions: OMP_SESSION_OPTIONS,
-    ...ompServiceTierOptions(defaultModel),
     isDefault: false,
   };
 }
@@ -232,6 +218,32 @@ export function toCanonicalOmpModelId(
   modelId: string,
 ): string {
   return `${provider}/${modelId}`;
+}
+
+// bb's ranked reasoning ladder. "minimal" is not on it, so bb never rounds to it.
+const BB_REASONING_RANKS = ["none", "low", "medium", "high", "xhigh", "ultracode", "max", "ultra"];
+
+/**
+ * The level bb's composer shows for `level` on `model`: the nearest supported
+ * level, ties going up (bb's `reconcileReasoningLevel`). bb still sends the
+ * stored level, so the bridge runs this one to make OMP match the picker.
+ */
+export function bbDisplayedReasoningLevel(level: string, model: AvailableModel): string {
+  const supported = model.supportedReasoningEfforts.map(({ reasoningEffort }) => reasoningEffort);
+  if (supported.length === 0 || supported.includes(level)) return level;
+  const levelRank = BB_REASONING_RANKS.indexOf(level);
+  const fromRank = levelRank === -1 ? BB_REASONING_RANKS.indexOf("medium") : levelRank;
+  let best: { level: string; rank: number; distance: number } | undefined;
+  for (const candidate of supported) {
+    const rank = BB_REASONING_RANKS.indexOf(candidate);
+    if (rank === -1) continue;
+    const distance = Math.abs(rank - fromRank);
+    if (!best || distance < best.distance || (distance === best.distance && rank > best.rank)) {
+      best = { level: candidate, rank, distance };
+    }
+  }
+  if (best) return best.level;
+  return supported.includes(model.defaultReasoningEffort) ? model.defaultReasoningEffort : supported[0]!;
 }
 
 function getOmpReasoningEfforts(model: OmpCatalogModel): ModelReasoningEffort[] {

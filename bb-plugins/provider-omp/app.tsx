@@ -720,11 +720,13 @@ export default definePluginApp((app) => {
     kind: OMP_CARD_KIND,
     component: ExtensionCard,
   });
-  app.slots.threadPanelAction({
+  app.slots.experimental_tab({
     id: OMP_HUB_PANEL_ACTION_ID,
     title: "omp Hub",
     icon: "Bot",
     layout: "padded",
+    context: { kind: "thread" },
+    availability: "action",
     component: OmpHubPanel,
   });
   app.slots.messageDirective({

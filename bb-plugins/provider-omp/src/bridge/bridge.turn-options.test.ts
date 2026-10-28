@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -101,126 +101,11 @@ function turnStart(
   });
 }
 
-function rpcCommands(): { type: string; enabled?: boolean | undefined }[] {
-  return readFileSync(rpcLogPath, "utf8")
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => z.object({
-      type: z.string(),
-      enabled: z.boolean().optional(),
-    }).parse(JSON.parse(line)));
-}
-
 function liveLaunches() {
   return readFileSync(launchLogPath, "utf8").trim().split("\n")
     .map((line) => launchSchema.parse(JSON.parse(line)))
     .filter((launch) => launch.args[1] === "rpc-ui");
 }
-
-it(
-  "sets fast mode once per explicit tier change and returns to default before prompting",
-  async () => {
-    const threadId = "thr_turn_options_fast";
-    await harness.startThread(threadId, { options: MINI });
-    expect(rpcCommands().filter((command) => command.type === "set_fast_mode")).toEqual([]);
-    const fast = { ...MINI, serviceTier: "fast" };
-
-    expect((await turnStart(1, threadId, "first", fast)).error).toBeUndefined();
-    let seen = await harness.waitForTurnBoundary(threadId, 0);
-    expect(rpcCommands().filter((command) => command.type === "set_fast_mode")).toEqual([
-      { type: "set_fast_mode", enabled: true },
-    ]);
-
-    expect((await turnStart(2, threadId, "second", fast)).error).toBeUndefined();
-    seen = await harness.waitForTurnBoundary(threadId, seen);
-    expect(rpcCommands().filter((command) => command.type === "set_fast_mode")).toHaveLength(1);
-
-    const normal = { ...MINI, serviceTier: "default" };
-    expect((await turnStart(3, threadId, "third", normal)).error).toBeUndefined();
-    await harness.waitForTurnBoundary(threadId, seen);
-    expect(rpcCommands().filter((command) => command.type === "set_fast_mode")).toEqual([
-      { type: "set_fast_mode", enabled: true },
-      { type: "set_fast_mode", enabled: false },
-    ]);
-    expect(rpcCommands()
-      .map((command) => command.type)
-      .filter((type) => type === "set_fast_mode" || type === "prompt"))
-      .toEqual(["set_fast_mode", "prompt", "prompt", "set_fast_mode", "prompt"]);
-    expect(sessionReplacements(threadId)).toEqual([]);
-  },
-  TURN_OPTIONS_TEST_TIMEOUT_MS,
-);
-
-it(
-  "applies fast mode at launch and does not confuse inactive with disabled",
-  async () => {
-    vi.stubEnv("FAKE_OMP_FAST_MODE_INACTIVE", "1");
-    const threadId = "thr_turn_options_fast_launch";
-    const options = { ...MINI, serviceTier: "fast" };
-    await harness.startThread(threadId, { options });
-    expect(rpcCommands().filter((command) => command.type === "set_fast_mode")).toEqual([
-      { type: "set_fast_mode", enabled: true },
-    ]);
-
-    expect((await turnStart(1, threadId, "first", options)).error).toBeUndefined();
-    const seen = await harness.waitForTurnBoundary(threadId, 0);
-    expect((await turnStart(2, threadId, "second", options)).error).toBeUndefined();
-    await harness.waitForTurnBoundary(threadId, seen);
-    expect(rpcCommands().filter((command) => command.type === "set_fast_mode")).toHaveLength(1);
-  },
-  TURN_OPTIONS_TEST_TIMEOUT_MS,
-);
-
-it(
-  "preserves inherited fast mode when launch and turn options omit the service tier",
-  async () => {
-    vi.stubEnv("FAKE_OMP_FAST_MODE_ENABLED", "1");
-    const threadId = "thr_turn_options_fast_default";
-    await harness.startThread(threadId, { options: MINI });
-    expect(rpcCommands().filter((command) => command.type === "set_fast_mode")).toEqual([]);
-    expect((await turnStart(1, threadId, "first", MINI)).error).toBeUndefined();
-    await harness.waitForTurnBoundary(threadId, 0);
-    expect(rpcCommands().filter((command) => command.type === "set_fast_mode")).toEqual([]);
-  },
-  TURN_OPTIONS_TEST_TIMEOUT_MS,
-);
-
-it(
-  "leaves a previously selected fast tier unchanged when later turns omit it",
-  async () => {
-    const threadId = "thr_turn_options_fast_omitted";
-    await harness.startThread(threadId, { options: MINI });
-    expect((await turnStart(1, threadId, "enable", { ...MINI, serviceTier: "fast" })).error).toBeUndefined();
-    let seen = await harness.waitForTurnBoundary(threadId, 0);
-
-    expect((await turnStart(2, threadId, "omit", MINI)).error).toBeUndefined();
-    seen = await harness.waitForTurnBoundary(threadId, seen);
-    expect((await turnStart(3, threadId, "still omitted", MINI)).error).toBeUndefined();
-    await harness.waitForTurnBoundary(threadId, seen);
-    expect(rpcCommands().filter((command) => command.type === "set_fast_mode")).toEqual([
-      { type: "set_fast_mode", enabled: true },
-    ]);
-    expect(sessionReplacements(threadId)).toEqual([]);
-  },
-  TURN_OPTIONS_TEST_TIMEOUT_MS,
-);
-
-it(
-  "disables inherited fast mode for an explicit default tier",
-  async () => {
-    vi.stubEnv("FAKE_OMP_FAST_MODE_ENABLED", "1");
-    const threadId = "thr_turn_options_fast_explicit_default";
-    const options = { ...MINI, serviceTier: "default" };
-    await harness.startThread(threadId, { options });
-    expect(rpcCommands().filter((command) => command.type === "set_fast_mode")).toEqual([
-      { type: "set_fast_mode", enabled: false },
-    ]);
-    expect((await turnStart(1, threadId, "retain default", options)).error).toBeUndefined();
-    await harness.waitForTurnBoundary(threadId, 0);
-    expect(rpcCommands().filter((command) => command.type === "set_fast_mode")).toHaveLength(1);
-  },
-  TURN_OPTIONS_TEST_TIMEOUT_MS,
-);
 
 it(
   "rebuilds the session with environment from a later turn",
@@ -467,6 +352,42 @@ it(
       options: FULL_MODEL,
     });
     expect(steer.result).toMatchObject({ threadId });
+    expect(sessionReplacements(threadId)).toEqual([]);
+  },
+  TURN_OPTIONS_TEST_TIMEOUT_MS,
+);
+
+it(
+  "runs the level bb shows when the picker model lacks the stored level",
+  async () => {
+    const modelsFile = join(harness.workspaceDir, "low-high-models.json");
+    writeFileSync(modelsFile, JSON.stringify([{
+      id: "low-high",
+      name: "Low High",
+      provider: "fake-provider",
+      input: ["text"],
+      reasoning: true,
+      thinking: { mode: "effort", efforts: ["low", "high", "max"] },
+      contextWindow: 100_000,
+    }]));
+    vi.stubEnv("FAKE_OMP_MODELS_FILE", modelsFile);
+    const threadId = "thr_turn_options_displayed_thinking";
+    // bb shows High for a stored medium here, but sends medium.
+    const options = { ...FULL_PERMISSION_OPTIONS, model: "fake-provider/low-high", reasoningLevel: "medium" };
+    const thinkingSetters = () => readFileSync(rpcLogPath, "utf8").split("\n").filter(Boolean)
+      .map((line) => z.object({ type: z.string(), level: z.string().optional() }).parse(JSON.parse(line)))
+      .filter((command) => command.type === "set_thinking_level");
+    await harness.startThread(threadId, { options });
+    const [launch] = liveLaunches();
+    expect(launch!.args[launch!.args.indexOf("--thinking") + 1]).toBe("high");
+
+    expect((await turnStart(1, threadId, "same picker", options)).error).toBeUndefined();
+    const seen = await harness.waitForTurnBoundary(threadId, 0);
+    expect(thinkingSetters()).toEqual([]);
+
+    expect((await turnStart(2, threadId, "now low", { ...options, reasoningLevel: "low" })).error).toBeUndefined();
+    await harness.waitForTurnBoundary(threadId, seen);
+    expect(thinkingSetters()).toEqual([{ type: "set_thinking_level", level: "low" }]);
     expect(sessionReplacements(threadId)).toEqual([]);
   },
   TURN_OPTIONS_TEST_TIMEOUT_MS,

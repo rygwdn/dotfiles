@@ -19,6 +19,7 @@ import {
   OmpRpcChildExitedError,
   buildOmpChildEnv,
 } from "./rpc-child.js";
+import { parseOmpAvailableCommands, type OmpAvailableCommand } from "./rpc-session.js";
 
 interface OmpRpcModel {
   id: string;
@@ -29,11 +30,11 @@ interface OmpRpcModel {
   contextWindow?: number;
   maxTokens?: unknown;
   thinking?: OmpCatalogModel["thinking"];
-  serviceTiers?: unknown;
   cost?: unknown;
   identity?: unknown;
   int?: unknown;
   supportsTools?: unknown;
+  kind?: unknown;
 }
 
 const finiteNumber = (value: unknown): number | undefined =>
@@ -85,19 +86,13 @@ function toCatalogModel(model: OmpRpcModel): OmpCatalogModel | undefined {
     provider: model.provider,
     reasoning: model.reasoning === true,
     thinking: model.thinking,
-    ...(Array.isArray(model.serviceTiers)
-      ? {
-          serviceTiers: model.serviceTiers.filter(
-            (entry): entry is string => typeof entry === "string",
-          ),
-        }
-      : {}),
     cost: toCost(model.cost),
     contextWindow: finiteNumber(model.contextWindow) ?? null,
     maxTokens: finiteNumber(model.maxTokens) ?? null,
     identity: toIdentity(model.identity),
     int: finiteNumber(model.int),
     supportsTools: typeof model.supportsTools === "boolean" ? model.supportsTools : undefined,
+    ...(typeof model.kind === "string" && model.kind !== "" ? { kind: model.kind } : {}),
   };
 }
 
@@ -108,6 +103,8 @@ export interface OmpCatalog {
   }>;
   rawModels(): Promise<OmpRpcModel[]>;
   probe(): Promise<Record<string, unknown>>;
+  /** omp's slash commands as this sessionless child loaded them for `cwd`. */
+  availableCommands(): Promise<OmpAvailableCommand[]>;
   close(): Promise<void>;
 }
 
@@ -125,6 +122,7 @@ async function spawnCatalog(
   interface CatalogChildGeneration {
     child: OmpRpcChild;
     reading: Promise<ModelSnapshot> | null;
+    readingCommands: Promise<OmpAvailableCommand[]> | null;
   }
 
   let generation: CatalogChildGeneration | null = null;
@@ -140,6 +138,7 @@ async function spawnCatalog(
           recordThreadId: null,
         }),
         reading: null,
+        readingCommands: null,
       };
     }
     return generation;
@@ -187,6 +186,26 @@ async function spawnCatalog(
         throw error;
       }
       return readModels(activeGeneration());
+    }
+  };
+  const readCommands = (
+    active: CatalogChildGeneration,
+  ): Promise<OmpAvailableCommand[]> => {
+    active.readingCommands ??= (async () => {
+      const data = await active.child.requestOk({ type: "get_available_commands" });
+      touch();
+      return parseOmpAvailableCommands(data);
+    })().finally(() => {
+      active.readingCommands = null;
+    });
+    return active.readingCommands;
+  };
+  const availableCommands = async (): Promise<OmpAvailableCommand[]> => {
+    try {
+      return await readCommands(activeGeneration());
+    } catch (error) {
+      if (!(error instanceof OmpRpcChildExitedError)) throw error;
+      return readCommands(activeGeneration());
     }
   };
   const probe = async (): Promise<Record<string, unknown>> => {
@@ -244,6 +263,7 @@ async function spawnCatalog(
     },
     rawModels: async () => (await fetchModels()).raw,
     probe,
+    availableCommands,
     close,
   };
 }

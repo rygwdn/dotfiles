@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildOmpLiveSessionOptions,
-  OMP_SESSION_OPTIONS,
   parseOmpSessionControls,
-  type OmpSessionControls,
 } from "./session-options.js";
 
 describe("parseOmpSessionControls", () => {
@@ -12,255 +10,48 @@ describe("parseOmpSessionControls", () => {
     {},
     { futureControl: "enabled" },
     { futureControl: true },
+    { slowModeEnabled: "native" },
   ])(
-    "leaves native settings alone for omitted or unrecognized options: %j",
+    "leaves native settings alone for omitted, native or unrecognized options: %j",
     (options) => {
       expect(parseOmpSessionControls(options)).toEqual({});
     },
   );
 
-  it("does not turn descriptor defaults into session overrides", () => {
-    const defaults = Object.fromEntries(
-      (OMP_SESSION_OPTIONS ?? []).map(({ id, value }) => [id, value]),
-    );
-    expect(parseOmpSessionControls(defaults)).toEqual({});
-  });
-
-  it.each([
-    ["steeringMode", "all", "all"],
-    ["steeringMode", "one-at-a-time", "one-at-a-time"],
-    ["followUpMode", "all", "all"],
-    ["followUpMode", "one-at-a-time", "one-at-a-time"],
-    ["interruptMode", "immediate", "immediate"],
-    ["interruptMode", "wait", "wait"],
-    ["autoCompactionEnabled", "on", true],
-    ["autoCompactionEnabled", "off", false],
-    ["autoRetryEnabled", "on", true],
-    ["autoRetryEnabled", "off", false],
-    ["slowModeEnabled", "on", true],
-    ["slowModeEnabled", "off", false],
-    ["cacheWarmingMode", "off", "off"],
-    ["cacheWarmingMode", "streaming", "streaming"],
-    ["cacheWarmingMode", "idle", "idle"],
-  ] as const)("maps %s=%s to a typed override", (id, value, expected) => {
-    expect(parseOmpSessionControls({ [id]: value })).toEqual({ [id]: expected });
-  });
-
-  it.each([
-    "steeringMode",
-    "followUpMode",
-    "interruptMode",
-    "autoCompactionEnabled",
-    "autoRetryEnabled",
-    "cacheWarmingMode",
-    "slowModeEnabled",
-  ])("omits %s when native is selected", (id) => {
-    expect(parseOmpSessionControls({ [id]: "native" })).toEqual({});
-  });
-
-  it("keeps explicit choices alongside native and unknown selections", () => {
-    expect(
-      parseOmpSessionControls({
-        steeringMode: "all",
-        interruptMode: "native",
-        autoCompactionEnabled: "off",
-        cacheWarmingMode: "off",
-        futureControl: true,
-      }),
-    ).toEqual({
+  it("ignores selections older threads saved for controls omp's config now owns", () => {
+    expect(parseOmpSessionControls({
       steeringMode: "all",
-      autoCompactionEnabled: false,
-      cacheWarmingMode: "off",
-    });
+      followUpMode: "bogus",
+      interruptMode: "wait",
+      autoCompactionEnabled: "off",
+      autoRetryEnabled: true,
+      cacheWarmingMode: "streaming",
+      slowModeEnabled: "on",
+    })).toEqual({ slowModeEnabled: true });
   });
 
   it.each([
-    ["steeringMode", "one", "all, one-at-a-time"],
-    ["followUpMode", "ALL", "all, one-at-a-time"],
-    ["interruptMode", "later", "immediate, wait"],
-    ["autoCompactionEnabled", "false", "on, off"],
-    ["autoRetryEnabled", "enabled", "on, off"],
-    ["cacheWarmingMode", "on", "off, streaming, idle"],
-    ["steeringMode", true, "all, one-at-a-time"],
-    ["autoCompactionEnabled", false, "on, off"],
-    ["autoRetryEnabled", true, "on, off"],
-    ["slowModeEnabled", "enabled", "on, off"],
-    ["slowModeEnabled", false, "on, off"],
-    ["cacheWarmingMode", "", "off, streaming, idle"],
-  ] as const)("rejects invalid %s=%s with valid choices", (id, value, choices) => {
-    expect(() => parseOmpSessionControls({ [id]: value })).toThrow(
-      `Invalid OMP session option ${id}: ${JSON.stringify(value)}. Expected native, ${choices}.`,
+    ["on", true],
+    ["off", false],
+  ] as const)("maps slowModeEnabled=%s to a typed override", (value, expected) => {
+    expect(parseOmpSessionControls({ slowModeEnabled: value })).toEqual({ slowModeEnabled: expected });
+  });
+
+  it.each(["enabled", false, ""])("rejects invalid slowModeEnabled=%j with valid choices", (value) => {
+    expect(() => parseOmpSessionControls({ slowModeEnabled: value })).toThrow(
+      `Invalid OMP session option slowModeEnabled: ${JSON.stringify(value)}. Expected native, on, off.`,
     );
   });
-});
-
-describe("OMP_SESSION_OPTIONS", () => {
-  it("offers native mode and only the implemented choices for each control", () => {
-    expect(
-      OMP_SESSION_OPTIONS?.map((option) => ({
-        id: option.id,
-        type: option.type,
-        value: option.value,
-        choices: option.type === "select" ? option.values.map(({ id }) => id) : [],
-      })),
-    ).toEqual([
-      {
-        id: "steeringMode",
-        type: "select",
-        value: "native",
-        choices: ["native", "all", "one-at-a-time"],
-      },
-      {
-        id: "followUpMode",
-        type: "select",
-        value: "native",
-        choices: ["native", "all", "one-at-a-time"],
-      },
-      {
-        id: "interruptMode",
-        type: "select",
-        value: "native",
-        choices: ["native", "immediate", "wait"],
-      },
-      {
-        id: "autoCompactionEnabled",
-        type: "select",
-        value: "native",
-        choices: ["native", "on", "off"],
-      },
-      {
-        id: "autoRetryEnabled",
-        type: "select",
-        value: "native",
-        choices: ["native", "on", "off"],
-      },
-      {
-        id: "cacheWarmingMode",
-        type: "select",
-        value: "native",
-        choices: ["native", "off", "streaming", "idle"],
-      },
-    ]);
-  });
-
-  it.each(["autoCompactionEnabled", "autoRetryEnabled"])(
-    "offers Native, Enabled, and Disabled for %s without guessing a boolean default",
-    (id) => {
-      expect(OMP_SESSION_OPTIONS?.find((option) => option.id === id)).toMatchObject({
-        type: "select",
-        value: "native",
-        values: [
-          { id: "native", label: "Native" },
-          { id: "on", label: "Enabled" },
-          { id: "off", label: "Disabled" },
-        ],
-      });
-    },
-  );
 });
 
 describe("buildOmpLiveSessionOptions", () => {
-  it("retains all native choices until their actual session values are known", () => {
-    expect(buildOmpLiveSessionOptions({})).toEqual(OMP_SESSION_OPTIONS);
-  });
-
-  it.each<{
-    controls: OmpSessionControls;
-    expected: Record<string, string>;
-  }>([
-    {
-      controls: {
-        steeringMode: "all",
-        followUpMode: "one-at-a-time",
-        interruptMode: "immediate",
-        autoCompactionEnabled: false,
-        autoRetryEnabled: true,
-        cacheWarmingMode: "off",
-      },
-      expected: {
-        steeringMode: "all",
-        followUpMode: "one-at-a-time",
-        interruptMode: "immediate",
-        autoCompactionEnabled: "off",
-        autoRetryEnabled: "on",
-        cacheWarmingMode: "off",
-      },
-    },
-    {
-      controls: {
-        steeringMode: "one-at-a-time",
-        followUpMode: "all",
-        interruptMode: "wait",
-        autoCompactionEnabled: true,
-        autoRetryEnabled: false,
-        cacheWarmingMode: "streaming",
-      },
-      expected: {
-        steeringMode: "one-at-a-time",
-        followUpMode: "all",
-        interruptMode: "wait",
-        autoCompactionEnabled: "on",
-        autoRetryEnabled: "off",
-        cacheWarmingMode: "streaming",
-      },
-    },
-  ])("acknowledges actual values without offering native again: $controls", ({
-    controls,
-    expected,
-  }) => {
-    const options = buildOmpLiveSessionOptions(controls);
-    expect(options).toHaveLength(6);
-    expect(
-      Object.fromEntries(options.map(({ id, value }) => [id, value])),
-    ).toEqual(expected);
-    for (const option of options) {
-      expect(option.type).toBe("select");
-      if (option.type === "select") {
-        expect(option.values.map(({ id }) => id)).not.toContain("native");
-        expect(option.values.map(({ id }) => id)).toContain(option.value);
-      }
-    }
-  });
-
-  it("keeps retry and cache warming selectable when get_state cannot report them", () => {
-    const options = buildOmpLiveSessionOptions({
-      steeringMode: "all",
-      followUpMode: "one-at-a-time",
-      interruptMode: "wait",
-      autoCompactionEnabled: false,
-    });
-    for (const id of ["autoRetryEnabled", "cacheWarmingMode"]) {
-      expect(options.find((option) => option.id === id)).toEqual(
-        OMP_SESSION_OPTIONS.find((option) => option.id === id),
-      );
-    }
-  });
-
-  it("updates a known cache mode without mutating catalog defaults or another session", () => {
-    const before = buildOmpLiveSessionOptions({});
-    const known = buildOmpLiveSessionOptions({ cacheWarmingMode: "idle" });
-    expect(known.find(({ id }) => id === "cacheWarmingMode")).toMatchObject({
-      value: "idle",
-      values: [
-        { id: "off", label: "Off" },
-        { id: "streaming", label: "Streaming" },
-        { id: "idle", label: "Idle" },
-      ],
-    });
-    expect(before).toEqual(OMP_SESSION_OPTIONS);
-    expect(before.find(({ id }) => id === "cacheWarmingMode")).toMatchObject({
-      value: "native",
-      values: expect.arrayContaining([{ id: "native", label: "Native" }]),
-    });
-  });
-
   it.each([undefined, false])(
-    "does not offer slow mode without native support (%s)",
+    "offers nothing without native slow mode support (%s)",
     (slowModeSupported) => {
       expect(buildOmpLiveSessionOptions(
         { slowModeEnabled: true },
         { slowModeSupported, slowModeScope: "global" },
-      ).some(({ id }) => id === "slowModeEnabled")).toBe(false);
+      )).toEqual([]);
     },
   );
 
@@ -272,11 +63,11 @@ describe("buildOmpLiveSessionOptions", () => {
     slowModeEnabled,
     value,
   }) => {
-    const option = buildOmpLiveSessionOptions(
+    expect(buildOmpLiveSessionOptions(
       { slowModeEnabled },
       { slowModeSupported: true, slowModeScope: "session" },
-    ).find(({ id }) => id === "slowModeEnabled");
-    expect(option).toMatchObject({
+    )).toMatchObject([{
+      id: "slowModeEnabled",
       type: "select",
       value,
       values: [
@@ -284,25 +75,24 @@ describe("buildOmpLiveSessionOptions", () => {
         { id: "on", label: "Enabled" },
         { id: "off", label: "Disabled" },
       ],
-    });
-    expect(parseOmpSessionControls({ slowModeEnabled: "native" })).toEqual({});
+    }]);
   });
 
   it("warns in both the label and description when slow mode affects every omp session", () => {
-    const option = buildOmpLiveSessionOptions(
+    const [option] = buildOmpLiveSessionOptions(
       { slowModeEnabled: false },
       { slowModeSupported: true, slowModeScope: "global" },
-    ).find(({ id }) => id === "slowModeEnabled");
+    );
     expect(option?.label).toContain("global");
     expect(option?.label).toContain("every omp session");
     expect(option?.description).toContain("every omp session");
   });
 
   it("describes session-scoped slow mode without a global warning", () => {
-    const option = buildOmpLiveSessionOptions(
+    const [option] = buildOmpLiveSessionOptions(
       {},
       { slowModeSupported: true, slowModeScope: "session" },
-    ).find(({ id }) => id === "slowModeEnabled");
+    );
     expect(option?.description).toContain("this omp session only");
     expect(option?.label).not.toContain("global");
     expect(option?.description).not.toContain("every omp session");

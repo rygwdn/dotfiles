@@ -18,6 +18,8 @@ export interface ClassifiedOmpTool {
   item: DeltaItemShape;
   presentation?: DeltaPresentation;
   deferred?: boolean;
+  /** Validated device-dispatch result, before the outer write envelope. */
+  result?: unknown;
 }
 
 const nonblank = z.string().refine((value) => value.trim().length > 0);
@@ -27,6 +29,10 @@ const thinkArgsSchema = z.object({ thoughts: nonblank });
 const webSearchArgsSchema = z.object({ query: nonblank });
 const pathArgsSchema = z.object({ path: z.string() });
 const objectArgsSchema = z.record(z.string(), z.unknown());
+const programIntentFields = { i: z.string().nullish(), title: z.string().nullish() };
+const evalArgsSchema = z.object({ language: z.enum(["py", "js"]), code: nonblank, ...programIntentFields });
+const gatewaySearchArgsSchema = z.object({ query: nonblank, ...programIntentFields });
+const gatewayExecuteArgsSchema = z.object({ code: nonblank, ...programIntentFields });
 const searchArgSchemas = {
   grep: searchArgsSchema.extend({ pattern: nonblank }),
   ast_grep: searchArgsSchema.extend({ pat: nonblank }),
@@ -60,13 +66,66 @@ const deviceResultSchema = z.object({ details: z.object({ xdev: z.object({
 }).passthrough() }).passthrough() }).passthrough();
 const DEVICE_PATTERN = /^xd:\/\/([A-Za-z0-9][A-Za-z0-9._-]*)$/i;
 const DEVICE_TOOLS: Record<string, true> = { read: true, grep: true, glob: true, find: true, ast_grep: true, web_search: true, think: true };
+const READ_SELECTOR_PATTERN = /:(?:(?:raw:)?(?:\d+(?:-\d*|\+\d+)?|-\d+)(?:,(?:\d+(?:-\d*|\+\d+)?|-\d+))*(?::raw)?|raw|conflicts|img)$/;
+const PROGRAM_PREVIEW_LENGTH = 160;
+const GENERIC_PROGRAM_INTENT = /^(?:(?:run|running|ran|execute|executing|executed|evaluate|evaluating|evaluated)\s+)?(?:eval|python|javascript|js|py|typescript|ts|code|cell|script|program|tool gateway(?: code)?(?: execute| program)?|tool_gateway_code_execute)(?:\s+(?:eval|code|cell|script|program))?$/i;
+const GENERIC_SIGNATURE_INTENT = /^(?:(?:run|running|ran|search|searching|searched|find|finding|found|discover|discovering|discovered|look up|looking up)\s+)?(?:tool gateway(?: code)?(?: search| signatures?)?|tool_gateway_code_search|signatures?)$/i;
+
+function usefulProgramIntent(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  const normalized = trimmed.replace(/\s+/g, " ").replace(/[.!:]+$/, "");
+  return !GENERIC_PROGRAM_INTENT.test(normalized) && !GENERIC_SIGNATURE_INTENT.test(normalized)
+    ? trimmed : undefined;
+}
+
+function programPresentation(toolName: string, args: unknown): DeltaPresentation | undefined {
+  let source: string;
+  let intent: { i?: string | null; title?: string | null };
+  let label: DeltaPresentation["label"];
+  if (toolName === "eval") {
+    const parsed = evalArgsSchema.safeParse(args);
+    if (!parsed.success) return undefined;
+    source = parsed.data.code;
+    intent = parsed.data;
+    const language = parsed.data.language === "py" ? "Python" : "JavaScript";
+    label = { pending: `Running ${language}`, completed: `Ran ${language}` };
+  } else if (toolName === "tool_gateway_code_search") {
+    const parsed = gatewaySearchArgsSchema.safeParse(args);
+    if (!parsed.success) return undefined;
+    source = parsed.data.query;
+    intent = parsed.data;
+    label = { pending: "Discovering Tool Gateway signatures", completed: "Discovered Tool Gateway signatures" };
+  } else {
+    const parsed = gatewayExecuteArgsSchema.safeParse(args);
+    if (!parsed.success) return undefined;
+    source = parsed.data.code;
+    intent = parsed.data;
+    label = { pending: "Running Tool Gateway program", completed: "Ran Tool Gateway program" };
+  }
+  const singleLine = source.trim().replace(/\s+/g, " ");
+  const preview = singleLine.length > PROGRAM_PREVIEW_LENGTH
+    ? `${singleLine.slice(0, PROGRAM_PREVIEW_LENGTH - 1)}…` : singleLine;
+  return {
+    icon: { glyph: toolName === "tool_gateway_code_search" ? "Search" : "Code" },
+    label,
+    title: presentationTitle(usefulProgramIntent(intent.i) ?? usefulProgramIntent(intent.title) ?? preview),
+    detail: presentationDetail(preview),
+  };
+}
 
 export function ompToolPresentation(
   classified: ClassifiedOmpTool,
   toolName: string,
   intent?: string,
 ): DeltaPresentation | undefined {
-  if (!intent) return classified.presentation;
+  if (!intent || (
+    classified.presentation &&
+    (toolName === "eval" || toolName === "tool_gateway_code_search" || toolName === "tool_gateway_code_execute") &&
+    !usefulProgramIntent(intent)
+  )) {
+    return classified.presentation;
+  }
   const base = classified.presentation ?? toolPresentation(toolName);
   return {
     ...base,
@@ -95,6 +154,20 @@ function httpUrl(value: string | undefined): string | undefined {
   }
 }
 
+function requestedReadSelector(path: string | undefined): { selector?: string; startLine?: number; endLine?: number } {
+  const selector = path && READ_SELECTOR_PATTERN.exec(path)?.[0];
+  if (!selector) return {};
+  // These are requested bounds, not inferred response coverage or rendered context.
+  // Open, counted, trailing and disjoint selections retain only their exact suffix.
+  const range = /^:(?:raw:)?(\d+)-(\d+)(?::raw)?$/.exec(selector);
+  if (!range) return { selector };
+  const startLine = Number(range[1]);
+  const endLine = Number(range[2]);
+  return Number.isSafeInteger(startLine) && Number.isSafeInteger(endLine) && startLine > 0 && endLine >= startLine
+    ? { selector, startLine, endLine }
+    : { selector };
+}
+
 function classifyRead(args: unknown, result: unknown, ended: boolean, failed: boolean, cwd?: string): ClassifiedOmpTool {
   const generic: ClassifiedOmpTool = { item: { type: "tool", tool: "read", args } };
   const output = readResultSchema.safeParse(result);
@@ -105,13 +178,15 @@ function classifyRead(args: unknown, result: unknown, ended: boolean, failed: bo
   if (!parsed.success) return generic;
   if (!ended) return { ...generic, deferred: true };
   if (!output.success) return generic;
+  // A single metadata target cannot make a multi-target invocation single-file.
+  if (/[;\n\r]/.test(parsed.data.path)) return generic;
   if ((details?.displayReadTargets?.length ?? 0) > 1) return generic;
   const source = details?.meta?.source;
   const path = localPath(details?.resolvedPath ?? (source?.type === "path" ? source.value : undefined), cwd);
   if (details?.isDirectory === true) {
     if (!path) return generic;
     return {
-      item: { type: "search", mode: "list", path, query: parsed.data.path },
+      item: { type: "search", mode: "list", ...{ tool: "read" }, path, query: parsed.data.path },
       presentation: { icon: { glyph: "FolderOpen" }, label: { pending: "Listing directory", completed: "Listed directory" }, title: presentationTitle(path), detail: presentationDetail(parsed.data.path) },
     };
   }
@@ -130,7 +205,10 @@ function classifyRead(args: unknown, result: unknown, ended: boolean, failed: bo
     return { item: { type: "imageView", path: imagePath } };
   }
   if (!path) return generic;
-  return { item: { type: "fileRead", path }, presentation: { ...fileReadPresentation(path), detail: presentationDetail(parsed.data.path) } };
+  return {
+    item: { type: "fileRead", path, ...requestedReadSelector(args === undefined ? undefined : parsed.data.path) },
+    presentation: { ...fileReadPresentation(path), detail: presentationDetail(parsed.data.path) },
+  };
 }
 
 /** Returns null only for tool names handled by the translator's legacy classifier. */
@@ -141,6 +219,10 @@ export function classifyTypedOmpTool(
 ): ClassifiedOmpTool | null {
   const generic: ClassifiedOmpTool = { item: { type: "tool", tool: toolName, args } };
   const { result, ended = false, failed = false, cwd } = options;
+  if (toolName === "eval" || toolName === "tool_gateway_code_search" || toolName === "tool_gateway_code_execute") {
+    const presentation = programPresentation(toolName, args);
+    return presentation ? { ...generic, presentation } : generic;
+  }
   if (toolName === "write") {
     // Even malformed/unknown device dispatch must never be presented as a file edit.
     const device = deviceArgsSchema.safeParse(args);
@@ -159,7 +241,9 @@ export function classifyTypedOmpTool(
     if (!objectArgsSchema.safeParse(parsedContent).success) return generic;
     const innerArgs = dispatch.data.details.xdev.args ?? parsedContent;
     const inner = classifyTypedOmpTool(match[1]!, innerArgs, { result: dispatch.data.details.xdev.inner, ended: true, failed, cwd });
-    return inner && inner.item.type !== "tool" ? inner : generic;
+    return inner && inner.item.type !== "tool"
+      ? { ...inner, result: dispatch.data.details.xdev.inner }
+      : generic;
   }
   if (toolName === "read") return classifyRead(args, result, ended, failed, cwd);
   if (toolName === "think") {
@@ -174,15 +258,23 @@ export function classifyTypedOmpTool(
     const parsed = searchArgsSchema.safeParse(args);
     if (!parsed.success) return generic;
     const query = parsed.data.path ?? ".";
-    return { item: { type: "search", mode: "path", query }, presentation: searchPresentation({ mode: "path", query }) };
+    return { item: { type: "search", mode: "path", ...{ tool: toolName }, query }, presentation: searchPresentation({ mode: "path", query }) };
   }
   if (toolName === "grep" || toolName === "ast_grep" || toolName === "find") {
     const field = toolName === "grep" ? "pattern" : toolName === "ast_grep" ? "pat" : "query";
     const parsed = searchArgSchemas[toolName].safeParse(args);
     if (!parsed.success) return generic;
     const query = parsed.data[field] as string;
-    const mode = toolName === "find" ? "path" : "content";
-    return { item: { type: "search", mode, query, ...(parsed.data.path ? { path: parsed.data.path } : {}) }, presentation: searchPresentation({ mode, query }) };
+    return {
+      item: { type: "search", mode: "content", ...{ tool: toolName }, query, ...(parsed.data.path ? { path: parsed.data.path } : {}) },
+      presentation: toolName === "find"
+        ? {
+          icon: { glyph: "Search" },
+          label: { pending: "Searching semantically", completed: "Searched semantically" },
+          title: presentationTitle(query),
+        }
+        : searchPresentation({ mode: "content", query }),
+    };
   }
   return null;
 }

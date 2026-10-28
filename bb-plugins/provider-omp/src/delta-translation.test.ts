@@ -1089,6 +1089,179 @@ describe("omp delta translation equivalence", () => {
     ]);
   });
 
+  describe("narration thinking", () => {
+    type Item = Extract<ThreadEvent, { type: "item/completed" }>["item"];
+
+    // What bb shows: settled items in first-appearance order. Blank reasoning
+    // renders no row; an item that never settled is flagged.
+    function rendered(events: ThreadEvent[]): string[] {
+      const order: string[] = [];
+      const items = new Map<string, { item: Item; completed: boolean }>();
+      for (const event of events) {
+        if (event.type !== "item/started" && event.type !== "item/completed") continue;
+        if (!items.has(event.item.id)) order.push(event.item.id);
+        items.set(event.item.id, { item: event.item, completed: event.type === "item/completed" });
+      }
+      return order.flatMap((id) => {
+        const { item, completed } = items.get(id)!;
+        if (!completed) return [`open ${item.type}`];
+        if (item.type === "reasoning") {
+          const text = item.content.join("").trim();
+          return text ? [`reasoning: ${text}`] : [];
+        }
+        if (item.type === "agentMessage") return [`answer: ${item.text}`];
+        return [item.type];
+      });
+    }
+
+    function assistant(content: unknown[], stopReason = "toolUse") {
+      return {
+        role: "assistant", content, api: "anthropic-messages", provider: "anthropic",
+        model: "claude-opus-5-5", stopReason, usage: { input: 2, output: 3, totalTokens: 5 },
+        timestamp: 1777995781000,
+      };
+    }
+
+    function update(messageId: string, assistantMessageEvent: Record<string, unknown>) {
+      return { type: "message_update", messageId, assistantMessageEvent };
+    }
+
+    function start(messageId: string, api = "anthropic-messages") {
+      return { type: "message_start", messageId, message: { role: "assistant", content: [], api } };
+    }
+
+    function tool(toolCallId: string): unknown[] {
+      return [
+        { type: "tool_execution_start", toolCallId, toolName: "bash", args: { command: "ls" } },
+        {
+          type: "tool_execution_end", toolCallId, toolName: "bash",
+          result: { content: [{ type: "text", text: "ok" }] },
+        },
+      ];
+    }
+
+    function streamThinking(messageId: string, contentIndex: number, text: string): unknown[] {
+      return [
+        update(messageId, { type: "thinking_delta", contentIndex, delta: text }),
+        update(messageId, { type: "thinking_end", contentIndex, content: text }),
+      ];
+    }
+
+    it("renders narration between tool calls as answer text and keeps real thinking as reasoning", () => {
+      const harness = createHarness();
+      const events = [
+        { type: "agent_start" },
+        start("m1"),
+        ...streamThinking("m1", 0, "Plan the listing."),
+        ...streamThinking("m1", 1, "Listing the repo first."),
+        {
+          type: "message_end", messageId: "m1", message: assistant([
+            { type: "thinking", thinking: "Plan the listing.", thinkingSignature: "s0" },
+            { type: "thinking", thinking: "Listing the repo first.", thinkingSignature: "s1", narration: true },
+            { type: "toolCall", id: "t1", name: "bash", arguments: { command: "ls" } },
+          ]),
+        },
+        ...tool("t1"),
+        start("m2"),
+        ...streamThinking("m2", 0, "Found it; checking tests next."),
+        {
+          type: "message_end", messageId: "m2", message: assistant([
+            { type: "thinking", thinking: "Found it; checking tests next.", thinkingSignature: "s2", narration: true },
+            { type: "toolCall", id: "t2", name: "bash", arguments: { command: "ls" } },
+          ]),
+        },
+        ...tool("t2"),
+        start("m3"),
+        update("m3", { type: "text_delta", contentIndex: 0, delta: "Done." }),
+        { type: "message_end", messageId: "m3", message: assistant([{ type: "text", text: "Done." }], "stop") },
+      ].flatMap((event) => harness.translate(event));
+
+      expect(rendered(events)).toEqual([
+        "reasoning: Plan the listing.",
+        "answer: Listing the repo first.",
+        "toolCall",
+        "answer: Found it; checking tests next.",
+        "toolCall",
+        "answer: Done.",
+      ]);
+    });
+
+    it.each([
+      { api: "anthropic-messages", settlesAt: "message_end" },
+      { api: "openai-responses", settlesAt: "thinking_end" },
+    ])("settles $api thinking as reasoning at $settlesAt", ({ api, settlesAt }) => {
+      const harness = createHarness();
+      harness.translate({ type: "agent_start" });
+      harness.translate(start("m1", api));
+      const [delta, end] = streamThinking("m1", 0, "Weighing options.");
+      const streamed = [...harness.translate(delta), ...harness.translate(end)];
+      const completed = harness.translate({
+        type: "message_end", messageId: "m1",
+        message: { ...assistant([
+          { type: "thinking", thinking: "Weighing options.", thinkingSignature: "s0" },
+          { type: "text", text: "Answer." },
+        ], "stop"), api },
+      });
+      const settled = settlesAt === "thinking_end" ? streamed : completed;
+      expect(rendered([...streamed, ...completed])).toEqual(["reasoning: Weighing options.", "answer: Answer."]);
+      expect(settled.some((event) => event.type === "item/completed" && event.item.type === "reasoning")).toBe(true);
+    });
+
+    it("presents narration from a message_end-only snapshot in content order", () => {
+      const harness = createHarness();
+      harness.translate({ type: "agent_start" });
+      const events = harness.translate({
+        type: "message_end", messageId: "m1", message: assistant([
+          { type: "thinking", thinking: "Private reasoning.", thinkingSignature: "s0" },
+          { type: "thinking", thinking: "Here is what I found.", thinkingSignature: "s1", narration: true },
+          { type: "text", text: "Final answer." },
+        ], "stop"),
+      });
+      expect(rendered(events)).toEqual([
+        "reasoning: Private reasoning.",
+        "answer: Here is what I found.\nFinal answer.",
+      ]);
+    });
+
+    it("retracts streamed narration as soon as a full thinking_end frame flags it", () => {
+      const harness = createHarness();
+      harness.translate({ type: "agent_start" });
+      const narration = { type: "thinking", thinking: "Checking the logs.", thinkingSignature: "s0", narration: true };
+      const streamed = [
+        ...harness.translate(update("m1", { type: "thinking_delta", contentIndex: 0, delta: "Checking the logs." })),
+        ...harness.translate(update("m1", {
+          type: "thinking_end", contentIndex: 0, content: "Checking the logs.",
+          partial: assistant([narration]),
+        })),
+      ];
+      expect(streamed).toContainEqual(expect.objectContaining({
+        type: "item/agentMessage/delta", delta: "Checking the logs.",
+      }));
+      const completed = harness.translate({
+        type: "message_end", messageId: "m1", message: assistant([
+          narration, { type: "toolCall", id: "t1", name: "bash", arguments: { command: "ls" } },
+        ]),
+      });
+      expect(rendered([...streamed, ...completed])).toEqual(["answer: Checking the logs."]);
+    });
+
+    it("never duplicates narration that already settled as reasoning", () => {
+      const harness = createHarness();
+      harness.translate({ type: "agent_start" });
+      // No message_start: thinking settles eagerly at thinking_end.
+      const events = [
+        ...streamThinking("m1", 0, "Checking the logs."),
+        {
+          type: "message_end", messageId: "m1", message: assistant([
+            { type: "thinking", thinking: "Checking the logs.", thinkingSignature: "s0", narration: true },
+            { type: "text", text: "Answer." },
+          ], "stop"),
+        },
+      ].flatMap((event) => harness.translate(event));
+      expect(rendered(events)).toEqual(["reasoning: Checking the logs.", "answer: Answer."]);
+    });
+  });
+
   it("ignores object image_end content in native delta-projected message updates", () => {
     const harness = createHarness();
     harness.translate(loadFixture("agent-start.json"));
@@ -1601,6 +1774,401 @@ describe("omp delta translation equivalence", () => {
     });
     expect(completed?.item).toHaveProperty("arguments", args);
     expect(completed?.item).toHaveProperty("result", result);
+  });
+
+  describe("eval and Tool Gateway semantic presentation", () => {
+    const cases = [
+      {
+        toolName: "eval",
+        name: "Python",
+        args: {
+          language: "py",
+          code: "print('chart')\nprint(2)",
+          title: null,
+          timeout: 0,
+          reset: false,
+        },
+        intent: undefined,
+        preview: "print('chart') print(2)",
+        label: { pending: "Running Python", completed: "Ran Python" },
+        result: {
+          content: [
+            { type: "text", text: "chart\n2\n" },
+            { type: "image", mimeType: "image/png", data: "aW1hZ2U=" },
+          ],
+          details: {
+            cells: [{ id: "cell-py", language: "py", output: "chart\n2\n" }],
+            async: { state: "running", id: "eval-py", startedAt: 123 },
+          },
+        },
+      },
+      {
+        toolName: "eval",
+        name: "JavaScript",
+        args: {
+          language: "js",
+          code: "console.log('chart');\nconsole.log(2);",
+          title: "Ran eval",
+          timeout: 0,
+          reset: false,
+        },
+        intent: "Running JavaScript",
+        preview: "console.log('chart'); console.log(2);",
+        label: { pending: "Running JavaScript", completed: "Ran JavaScript" },
+        result: {
+          content: [
+            { type: "text", text: "chart\n2\n" },
+            { type: "image", mimeType: "image/jpeg", data: "anBlZw==" },
+          ],
+          details: {
+            cells: [{ id: "cell-js", language: "js", output: "chart\n2\n" }],
+            async: { state: "running", id: "eval-js", startedAt: 456 },
+          },
+        },
+      },
+      {
+        toolName: "tool_gateway_code_search",
+        name: "Gateway signature search",
+        args: {
+          query: "  buildkite failed jobs\nand log signatures  ",
+          i: "Discovering Tool Gateway signatures",
+          limit: 4,
+        },
+        intent: undefined,
+        preview: "buildkite failed jobs and log signatures",
+        label: {
+          pending: "Discovering Tool Gateway signatures",
+          completed: "Discovered Tool Gateway signatures",
+        },
+        result:
+          "# Buildkite signatures\n\n```ts\ngetJobLog(jobId: string): Promise<string>\n```\n",
+      },
+      {
+        toolName: "tool_gateway_code_execute",
+        name: "Gateway execution",
+        args: {
+          code: "const result = await buildkite.getJobs('build-1');\nreturn result;",
+          i: "Running Tool Gateway program",
+          title: null,
+          timeout_secs: 60,
+        },
+        intent: "Ran eval",
+        preview: "const result = await buildkite.getJobs('build-1'); return result;",
+        label: {
+          pending: "Running Tool Gateway program",
+          completed: "Ran Tool Gateway program",
+        },
+        result: {
+          jobs: [{ id: "job-1", state: "failed", exitCode: 42 }],
+          nextPage: null,
+          complete: true,
+        },
+      },
+    ];
+
+    it.each(cases)(
+      "keeps $name pending and completed tool calls lossless with source fallback",
+      ({ toolName, args, intent, preview, label, result }) => {
+        const translator = createOmpDeltaTranslator({
+          resolveModelContextWindow: fixtureModelResolver,
+        });
+        const assembler = createDeltaAssembler({
+          providerId: "omp",
+          entropyPrefix: ENTROPY,
+          textDeltaFlushMs: 0,
+          progressThrottleMs: 0,
+        });
+        const context = { threadId: THREAD_ID };
+        assembler.assemble({
+          threadId: THREAD_ID,
+          deltas: translator.translate({ type: "agent_start" }, context),
+        });
+        const opened = translator.translate({
+          type: "tool_execution_start",
+          toolCallId: "semantic-tool",
+          toolName,
+          args,
+          ...(intent ? { intent } : {}),
+        }, context);
+        expect(opened).toEqual([
+          expect.objectContaining({
+            kind: "item.open",
+            key: { providerItemId: "semantic-tool" },
+            item: { type: "tool", tool: toolName, args },
+            presentation: expect.objectContaining({
+              label,
+              title: preview,
+              detail: preview,
+            }),
+          }),
+        ]);
+        const started = assembler.assemble({
+          threadId: THREAD_ID,
+          deltas: opened,
+        }).find((event) => event.type === "item/started");
+        expect(started?.item).toMatchObject({
+          type: "toolCall",
+          tool: toolName,
+          status: "pending",
+        });
+        expect(started?.item).toHaveProperty("arguments", args);
+
+        const closed = translator.translate({
+          type: "tool_execution_end",
+          toolCallId: "semantic-tool",
+          toolName,
+          isError: false,
+          result,
+        }, context);
+        expect(closed).toEqual([
+          expect.objectContaining({
+            kind: "item.close",
+            key: { providerItemId: "semantic-tool" },
+            status: "completed",
+            item: { type: "tool", tool: toolName, args, result },
+            presentation: expect.objectContaining({
+              label,
+              title: preview,
+              detail: preview,
+            }),
+          }),
+        ]);
+        const completed = assembler.assemble({
+          threadId: THREAD_ID,
+          deltas: closed,
+        }).find((event) => event.type === "item/completed");
+        expect(completed?.item).toMatchObject({
+          type: "toolCall",
+          id: started?.item.id,
+          tool: toolName,
+          status: "completed",
+        });
+        expect(completed?.item).toHaveProperty("arguments", args);
+        expect(completed?.item).toHaveProperty("result", result);
+      },
+    );
+
+    it.each(cases)(
+      "uses useful intent before argument hints and source for $name",
+      ({ toolName, args, label, preview, result }) => {
+        for (const hints of [
+          {
+            intent: "Inspect failed checkout jobs",
+            i: "Summarizing job failures",
+            title: "Comparing build results",
+            expected: "Inspect failed checkout jobs",
+          },
+          {
+            intent: "Ran eval",
+            i: "Summarizing job failures",
+            title: "Comparing build results",
+            expected: "Summarizing job failures",
+          },
+          {
+            intent: undefined,
+            i: "Running Python",
+            title: "Comparing build results",
+            expected: "Comparing build results",
+          },
+        ]) {
+          const translator = createOmpDeltaTranslator({
+            resolveModelContextWindow: fixtureModelResolver,
+          });
+          const hintedArgs = { ...args, i: hints.i, title: hints.title };
+          const opened = translator.translate({
+            type: "tool_execution_start",
+            toolCallId: "useful-intent",
+            toolName,
+            args: hintedArgs,
+            ...(hints.intent ? { intent: hints.intent } : {}),
+          });
+          const closed = translator.translate({
+            type: "tool_execution_end",
+            toolCallId: "useful-intent",
+            toolName,
+            result,
+          });
+          expect(opened).toEqual([
+            expect.objectContaining({
+              kind: "item.open",
+              item: { type: "tool", tool: toolName, args: hintedArgs },
+              presentation: expect.objectContaining({
+                label, title: hints.expected, detail: preview,
+              }),
+            }),
+          ]);
+          expect(closed).toEqual([
+            expect.objectContaining({
+              kind: "item.close",
+              status: "completed",
+              item: { type: "tool", tool: toolName, args: hintedArgs, result },
+              presentation: expect.objectContaining({
+                label, title: hints.expected, detail: preview,
+              }),
+            }),
+          ]);
+        }
+      },
+    );
+
+    it.each(cases)(
+      "bounds the source or query fallback for $name without changing arguments",
+      ({ toolName, args, label }) => {
+        const translator = createOmpDeltaTranslator({
+          resolveModelContextWindow: fixtureModelResolver,
+        });
+        const source = `  ${"source ".repeat(40)}\nlast line  `;
+        const longArgs = {
+          ...args,
+          ...(toolName === "tool_gateway_code_search" ? { query: source } : { code: source }),
+          i: null,
+          title: null,
+        };
+        const preview = `${source.trim().replace(/\s+/g, " ").slice(0, 159)}…`;
+        expect(translator.translate({
+          type: "tool_execution_start",
+          toolCallId: "bounded-preview",
+          toolName,
+          args: longArgs,
+        })).toEqual([
+          expect.objectContaining({
+            kind: "item.open",
+            item: { type: "tool", tool: toolName, args: longArgs },
+            presentation: expect.objectContaining({ label, title: preview, detail: preview }),
+          }),
+        ]);
+      },
+    );
+
+    it.each(cases)(
+      "keeps $name failures lossless for outer and nested error flags",
+      ({ toolName, args, label }) => {
+        for (const flags of [
+          { isError: true, nestedIsError: false },
+          { isError: false, nestedIsError: true },
+          { isError: true, nestedIsError: true },
+        ]) {
+          const translator = createOmpDeltaTranslator({
+            resolveModelContextWindow: fixtureModelResolver,
+          });
+          const harness = createHarness();
+          harness.translate({ type: "agent_start" });
+          const start = {
+            type: "tool_execution_start",
+            toolCallId: "semantic-failure",
+            toolName,
+            args,
+            intent: "Inspect failed checkout jobs",
+          };
+          translator.translate(start);
+          const started = harness.translate(start).find(
+            (event) => event.type === "item/started",
+          );
+          const result = {
+            isError: flags.nestedIsError,
+            content: [{ type: "text", text: "Execution failed\noriginal diagnostic\n" }],
+            details: { reason: "upstream", code: 42 },
+          };
+          const end = {
+            type: "tool_execution_end",
+            toolCallId: "semantic-failure",
+            toolName,
+            isError: flags.isError,
+            result,
+          };
+          expect(translator.translate(end)).toEqual([
+            expect.objectContaining({
+              kind: "item.close",
+              status: "failed",
+              item: { type: "tool", tool: toolName, args, result },
+              presentation: expect.objectContaining({
+                label, title: "Inspect failed checkout jobs",
+              }),
+            }),
+          ]);
+          const completed = harness.translate(end).find(
+            (event) => event.type === "item/completed",
+          );
+          expect(completed?.item).toMatchObject({
+            type: "toolCall",
+            id: started?.item.id,
+            tool: toolName,
+            status: "failed",
+          });
+          expect(completed?.item).toHaveProperty("arguments", args);
+          expect(completed?.item).toHaveProperty("result", result);
+        }
+      },
+    );
+
+    it.each([
+      { toolName: "eval", args: { language: "python", code: "print(1)" } },
+      { toolName: "eval", args: { language: "py", code: 42 } },
+      { toolName: "eval", args: { language: "js", code: " \n " } },
+      { toolName: "eval", args: { language: "js", code: "1", title: 42 } },
+      { toolName: "tool_gateway_code_search", args: { query: 42 } },
+      { toolName: "tool_gateway_code_search", args: { query: " \n " } },
+      { toolName: "tool_gateway_code_search", args: { query: "jobs", i: [] } },
+      { toolName: "tool_gateway_code_execute", args: { code: null } },
+      { toolName: "tool_gateway_code_execute", args: {} },
+      { toolName: "tool_gateway_code_execute", args: { code: "return 1", title: {} } },
+      { toolName: "tool_gateway_code_search_extra", args: { query: "jobs" } },
+      { toolName: "tool_gateway_code_execute_extra", args: { code: "return 1" } },
+    ])("retains generic fallback for unvalidated $toolName arguments: $args", ({ toolName, args }) => {
+      const translator = createOmpDeltaTranslator({
+        resolveModelContextWindow: fixtureModelResolver,
+      });
+      const harness = createHarness();
+      harness.translate({ type: "agent_start" });
+      const start = {
+        type: "tool_execution_start",
+        toolCallId: "generic-fallback",
+        toolName,
+        args,
+        intent: "Running Python",
+      };
+      const unhinted = translator.translate({
+        ...start,
+        toolCallId: "unhinted-fallback",
+        intent: undefined,
+      });
+      expect(unhinted).toEqual([
+        expect.objectContaining({
+          kind: "item.open",
+          item: { type: "tool", tool: toolName, args },
+        }),
+      ]);
+      expect(unhinted[0]).not.toHaveProperty("presentation");
+      expect(translator.translate(start)).toEqual([
+        expect.objectContaining({
+          kind: "item.open",
+          item: { type: "tool", tool: toolName, args },
+          presentation: expect.objectContaining({ title: "Running Python" }),
+        }),
+      ]);
+      harness.translate(start);
+      const result = { content: [{ type: "text", text: "Unrecognized arguments" }] };
+      const end = {
+        type: "tool_execution_end",
+        toolCallId: "generic-fallback",
+        toolName,
+        result,
+      };
+      expect(translator.translate(end)).toEqual([
+        expect.objectContaining({
+          kind: "item.close",
+          status: "completed",
+          item: { type: "tool", tool: toolName, args, result },
+          presentation: expect.objectContaining({ title: "Running Python" }),
+        }),
+      ]);
+      expect(harness.translate(end)).toContainEqual(expect.objectContaining({
+        type: "item/completed",
+        item: expect.objectContaining({
+          type: "toolCall", tool: toolName, status: "completed", arguments: args, result,
+        }),
+      }));
+    });
   });
 
   it("uses native tool intent as the tool action title", () => {

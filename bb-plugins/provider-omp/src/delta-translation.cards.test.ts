@@ -211,6 +211,39 @@ describe("structured OMP card translation", () => {
     expect(cardClose(t.translate(second, context)).payload.sections[0]?.body).toBe("Second");
   });
 
+  it.each(["irc_message", "message_start"])("projects every %s IRC route, preview and full body independently", (type) => {
+    const t = translator();
+    const ctx = { ...context, activeTurn: true, parentToolCallId: "parent-task" };
+    const messages = [
+      custom("irc:incoming", { id: "irc-route-1", from: "reviewer", to: "main", message: "Check the race.\n\nKeep the read atomic." }),
+      custom("irc:workpool", { from: "pool:research", to: "worker", pool: "research", body: "Inspect the protocol.\n\nPreserve all fields.", mode: "dispatched" }),
+    ];
+    const events = messages.map((message, index) => ({ type, messageId: `route-${index}`, message }));
+    const deltas = events.map((event) => t.translate(sdk(event), ctx));
+    const projected = deltas.map((batch) => {
+      expect(batch.map((delta) => delta.kind)).toEqual(["item.close"]);
+      const delta = batch[0];
+      if (delta?.kind !== "item.close") throw new Error("Missing IRC close");
+      expect(delta.key.parentRef).toBe("parent-task");
+      expect(delta.presentation?.icon).toEqual({ glyph: "MessageSquare" });
+      return { ...cardClose(batch), presentation: delta.presentation };
+    });
+    expect(projected.map((entry) => entry.presentation?.label.completed)).toEqual([
+      "IRC reviewer → main", "IRC pool:research → worker · Pool research",
+    ]);
+    expect(projected.map((entry) => entry.presentation?.title)).toEqual([
+      "Check the race. Keep the read atomic.", "Inspect the protocol. Preserve all fields.",
+    ]);
+    expect(projected.map((entry) => entry.payload.sections[0]?.body)).toEqual([
+      "Check the race.\n\nKeep the read atomic.", "Inspect the protocol.\n\nPreserve all fields.",
+    ]);
+    expect(projected.map((entry) => entry.payload.type)).toEqual(
+      type === "irc_message" ? ["irc_message", "irc_message"] : ["irc:incoming", "irc:workpool"],
+    );
+    expect(projected[0]?.key.providerItemId).not.toBe(projected[1]?.key.providerItemId);
+    for (const event of events) expect(t.translate(sdk(event), ctx)).toEqual([]);
+  });
+
   it.each(["irc:incoming", "irc:autoreply"])("renders externally supplied %s without assuming an earlier observation", (customType) => {
     const t = translator();
     const message = custom(customType, { from: "peer", to: "main", body: "External message" });

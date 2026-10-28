@@ -580,6 +580,15 @@ describe("OMP native queue controls", () => {
     expect(listed.close.resultText).toContain("1. [steering] first\n2. [follow-up] second");
   }, TIMEOUT_MS);
 
+  it("answers a native command whose acknowledgment shares a stdout write with the queue update it caused", async () => {
+    vi.stubEnv("FAKE_OMP_BATCH_QUEUE_ACK", "1");
+    const threadId = "thr_native_queue_batched_ack";
+    const providerThreadId = await start(threadId);
+    await holdAndSeed(threadId, providerThreadId, { steering: ["first"], followUp: ["second"] });
+    const listed = await completeTool(threadId, providerThreadId, "/omp-queue");
+    expect(listed.close.resultText).toContain("1. [steering] first\n2. [follow-up] second");
+  }, TIMEOUT_MS);
+
   it("handles empty native queues for list, edits, and restoration without replacing the composer", async () => {
     const threadId = "thr_native_queue_empty";
     const providerThreadId = await start(threadId);

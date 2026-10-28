@@ -1,3 +1,6 @@
+import { mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type DeltaBackgroundTaskShape,
@@ -15,6 +18,7 @@ import {
 } from "../hub-contract.js";
 import {
   createOmpSubagentCoordinator,
+  ompSubagentMessagesSchema,
   type OmpSubagentCoordinator,
   type OmpSubagentMessages,
   type OmpSubagentSnapshot,
@@ -29,7 +33,7 @@ const childTurn = (id: string) => `${providerId(id)}:transcript`;
 
 type SubagentRpc = Pick<
   OmpRpcSession,
-  "getSubagents" | "getSubagentMessages" | "cancelSubagent" | "steerSubagent"
+  "getMessages" | "getSubagents" | "getSubagentMessages" | "cancelSubagent" | "steerSubagent"
 >;
 
 function snapshot(
@@ -65,6 +69,24 @@ function toolResult(toolCallId: string, timestamp: number) {
   };
 }
 
+function rootTaskMessages(toolCallId: string, names: string[]): Record<string, unknown>[] {
+  return [
+    {
+      ...assistant("Restored root task history.", 1),
+      content: [
+        { type: "text", text: "Restored root task history." },
+        { type: "toolCall", id: toolCallId, name: "task",
+          arguments: { tasks: names.map((name) => ({ name })) } },
+      ],
+      stopReason: "toolUse",
+    },
+    {
+      ...toolResult(toolCallId, 2), toolName: "task",
+      details: { async: { state: "running" } },
+    },
+  ];
+}
+
 function page(
   messages: Record<string, unknown>[],
   overrides: Partial<Pick<
@@ -82,8 +104,9 @@ function page(
   };
 }
 
-function createHarness(roster: OmpSubagentSnapshot[] = []) {
+function createHarness(roster: OmpSubagentSnapshot[] = [], rootMessages: unknown[] = []) {
   const deltas: ThreadDelta[] = [];
+  const warnings: string[] = [];
   const events: ThreadEvent[] = [];
   const assembler = createDeltaAssembler({
     providerId: "omp", entropyPrefix: "subagent-test",
@@ -95,6 +118,7 @@ function createHarness(roster: OmpSubagentSnapshot[] = []) {
   apply([{ kind: "turn.open" }]);
   const rootTurnId = assembler.getOpenTurnId(THREAD);
   const rpc = {
+    getMessages: vi.fn<SubagentRpc["getMessages"]>().mockResolvedValue(rootMessages),
     getSubagents: vi.fn<SubagentRpc["getSubagents"]>().mockResolvedValue(roster),
     getSubagentMessages: vi.fn<SubagentRpc["getSubagentMessages"]>()
       .mockResolvedValue(page([])),
@@ -108,8 +132,9 @@ function createHarness(roster: OmpSubagentSnapshot[] = []) {
       deltas.push(...batch);
       apply(batch);
     },
+    warn: (message) => warnings.push(message),
   });
-  return { coordinator, rpc, deltas, events, assembler, apply, rootTurnId };
+  return { coordinator, rpc, deltas, warnings, events, assembler, apply, rootTurnId };
 }
 
 function lifecycle(
@@ -847,6 +872,60 @@ describe("native OMP subagent coordinator", () => {
     expect(deltas.some((delta) => delta.kind === "usage" || delta.kind === "contextWindow" || delta.kind === "provider.error")).toBe(false);
   });
 
+  it("drops stray non-object transcript values instead of rejecting the page", () => {
+    const message = assistant("Kept.", 10);
+    const entry = { type: "message", id: "entry-0", message };
+    expect(ompSubagentMessagesSchema.parse({
+      sessionFile: FILE, fromByte: 7, nextByte: 99, reset: false,
+      entries: [1_793_026_316_507, "type", null, entry], messages: [true, message],
+    })).toEqual({ sessionFile: FILE, fromByte: 7, nextByte: 99, reset: false, entries: [entry], messages: [message] });
+  });
+
+  it("warns once and keeps the parent turn going when a transcript read fails", async () => {
+    const { coordinator, rpc, deltas, warnings } = createHarness();
+    rpc.getSubagentMessages.mockRejectedValue(new Error("Unknown subagent or session file"));
+    await coordinator.onTurnStart();
+    await coordinator.handleEvent(lifecycle("research", "started", { sessionFile: FILE }));
+    await coordinator.handleEvent(lifecycle("research", "started", { sessionFile: FILE }));
+    expect(warnings).toEqual(["Could not read the transcript of OMP subagent research: Unknown subagent or session file"]);
+
+    rpc.getSubagentMessages.mockResolvedValue(page([assistant("Recovered finding.", 10)], { nextByte: 120 }));
+    await coordinator.handleEvent(lifecycle("research", "completed", { sessionFile: FILE }));
+    expect(rpc.getSubagentMessages.mock.calls.at(-1)).toEqual([{ subagentId: "research", fromByte: 0 }]);
+    expect(messageCloses(deltas).map((delta) => delta.text)).toEqual(["Recovered finding."]);
+    expect(delegationCloses(deltas)).toHaveLength(1);
+    expect(warnings).toHaveLength(1);
+  });
+
+  it("re-reads from byte zero after OMP replaces the transcript file", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omp-subagent-transcript-"));
+    try {
+      const file = join(dir, "research.jsonl");
+      writeFileSync(file, "{}\n");
+      const { coordinator, rpc, deltas } = createHarness();
+      const first = assistant("Initial finding.", 10, "probe-one");
+      rpc.getSubagentMessages.mockResolvedValue(page([first], { sessionFile: file, nextByte: 120 }));
+      await coordinator.onTurnStart();
+      await coordinator.handleEvent(lifecycle("research", "started", { sessionFile: file }));
+      await coordinator.handleEvent(lifecycle("research", "started", { sessionFile: file }));
+      // Same size or larger: OMP's own reader keeps the stale cursor.
+      writeFileSync(`${file}.tmp`, "{}\n{}\n");
+      renameSync(`${file}.tmp`, file);
+      const second = assistant("Finding after the rewrite.", 20);
+      rpc.getSubagentMessages.mockResolvedValue(page([first, second], { sessionFile: file, nextByte: 240 }));
+      await coordinator.handleEvent(lifecycle("research", "completed", { sessionFile: file }));
+
+      expect(rpc.getSubagentMessages.mock.calls).toEqual([
+        [{ subagentId: "research", fromByte: 0 }],
+        [{ subagentId: "research", fromByte: 120 }],
+        [{ subagentId: "research", fromByte: 0 }],
+      ]);
+      expect(messageCloses(deltas).map((delta) => delta.text)).toEqual(["Initial finding.", "Finding after the rewrite."]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("does not replay a rendered assistant stream when backfill arrives ahead of its live start and deltas", async () => {
     const { coordinator, rpc, deltas } = createHarness();
     const first = assistant("Inspecting the entry point.", 10, "probe-one");
@@ -1322,6 +1401,134 @@ describe("native OMP subagent coordinator", () => {
     expect(assembler.getOpenTurnId(THREAD)).toBeUndefined();
   });
 
+  it.each([
+    { label: "omitted", metadata: {} },
+    { label: "false", metadata: { detached: false } },
+  ])("scopes late blocking nested delegation completion to its terminal owner's transcript (detached=$label)", async ({ metadata }) => {
+    const { coordinator, deltas, events, assembler, apply, rootTurnId } = createHarness();
+    const familyId = `omp-subagents:${SESSION}:root-batch`;
+    await coordinator.onTurnStart();
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "root-batch", args: { name: "owner" },
+    });
+    await coordinator.handleEvent(lifecycle("owner", "started", {
+      detached: true, parentToolCallId: "root-batch",
+    }));
+    expect(await coordinator.handleEvent({
+      type: "tool_execution_end", toolName: "task", toolCallId: "root-batch",
+      result: { details: {
+        async: { state: "running" },
+        progress: [{ id: "owner", index: 0, agent: "explore", status: "running" }],
+      } },
+    })).toBe(true);
+    const ownerDelegationId = assembler.getBbItemId(THREAD, providerId("owner"));
+    const ownerTranscriptTurnId = assembler.getBbTurnId(THREAD, childTurn("owner"));
+    expect(rootTurnId).toBeDefined();
+    expect(ownerDelegationId).toBeDefined();
+    expect(ownerTranscriptTurnId).toBeDefined();
+    apply([{ kind: "turn.boundary", status: "completed" }]);
+    const afterRoot = events.length;
+    const deltasAfterRoot = deltas.length;
+    expect(assembler.getOpenTurnId(THREAD)).toBeUndefined();
+
+    await child(coordinator, "owner", {
+      type: "tool_execution_start", toolName: "task", toolCallId: "nested-task", args: { name: "nested" },
+    });
+    await coordinator.handleEvent(lifecycle("nested", "started", {
+      parentToolCallId: "nested-task", ...metadata,
+    }));
+    const nestedDelegationId = assembler.getBbItemId(THREAD, providerId("nested"));
+    const nestedTranscriptTurnId = assembler.getBbTurnId(THREAD, childTurn("nested"));
+    expect(nestedDelegationId).toBeDefined();
+    expect(nestedTranscriptTurnId).toBeDefined();
+    expect(nestedTranscriptTurnId).not.toBe(ownerTranscriptTurnId);
+    expect(deltas.slice(deltasAfterRoot)).toContainEqual(expect.objectContaining({
+      kind: "item.open", providerTurnId: childTurn("owner"),
+      key: { providerItemId: providerId("nested"), parentRef: providerId("owner") },
+      item: expect.objectContaining({ type: "delegation", childRef: "nested", background: false }),
+    }));
+    await liveMessage(coordinator, "nested", assistant("Provisional nested finding.", 10), "Provisional nested finding.");
+    await coordinator.handleEvent(lifecycle("owner", "completed"));
+    expect(events.slice(afterRoot)).toContainEqual(expect.objectContaining({
+      type: "turn/completed", scope: { kind: "turn", turnId: ownerTranscriptTurnId }, status: "completed",
+    }));
+    await coordinator.handleEvent(lifecycle("nested", "completed", metadata));
+    expect(delegationCloses(deltas).filter((delta) => delta.key.providerItemId === providerId("nested"))).toEqual([]);
+    expect(workflowCloses(deltas)).toEqual([]);
+    const beforeResult = deltas.length;
+    const eventsBeforeResult = events.length;
+
+    expect(await child(coordinator, "owner", {
+      type: "tool_execution_end", toolName: "task", toolCallId: "nested-task",
+      result: { details: { results: [{
+        id: "nested", index: 0, agent: "explore", exitCode: 0,
+        output: "Authoritative nested finding.", tokens: 25, durationMs: 600,
+      }] } }, isError: false,
+    })).toBe(true);
+
+    expect(delegationCloses(deltas.slice(beforeResult))).toEqual([
+      expect.objectContaining({
+        providerTurnId: childTurn("owner"), status: "completed",
+        key: { providerItemId: providerId("nested"), parentRef: providerId("owner") },
+        item: expect.objectContaining({
+          type: "delegation", childRef: "nested", background: false,
+          summary: expect.stringContaining("25 tokens"),
+        }),
+      }),
+    ]);
+    expect(events.slice(eventsBeforeResult)).toContainEqual(expect.objectContaining({
+      type: "item/completed", scope: { kind: "turn", turnId: ownerTranscriptTurnId },
+      item: expect.objectContaining({
+        id: nestedDelegationId, type: "delegation", status: "completed",
+        parentToolCallId: ownerDelegationId, background: false,
+        summary: expect.stringContaining("25 tokens"),
+      }),
+    }));
+    expect(messageCloses(deltas)).toEqual([
+      expect.objectContaining({
+        text: "Provisional nested finding.", providerTurnId: childTurn("nested"),
+        key: expect.objectContaining({ parentRef: providerId("nested") }),
+      }),
+    ]);
+    expect(events.slice(afterRoot)).toContainEqual(expect.objectContaining({
+      type: "item/completed", scope: { kind: "turn", turnId: nestedTranscriptTurnId },
+      item: expect.objectContaining({
+        type: "agentMessage", text: "Provisional nested finding.", parentToolCallId: nestedDelegationId,
+      }),
+    }));
+    expect(deltas.slice(beforeResult).filter((delta) => delta.kind === "turn.boundary")).toEqual([
+      { kind: "turn.boundary", providerTurnId: childTurn("nested"), status: "completed" },
+    ]);
+    expect(events.slice(eventsBeforeResult).filter((event) => event.type === "turn/completed")).toEqual([
+      expect.objectContaining({
+        scope: { kind: "turn", turnId: nestedTranscriptTurnId }, status: "completed",
+      }),
+    ]);
+    expect(workflowCloses(deltas)).toEqual([
+      expect.objectContaining({
+        key: { providerItemId: familyId }, status: "completed",
+        item: expect.objectContaining({
+          familyId, taskStatus: "completed",
+          workflow: expect.objectContaining({ agents: [
+            expect.objectContaining({ id: "owner", index: 1, state: "done" }),
+            expect.objectContaining({
+              id: "nested", parentId: "owner", index: 2, state: "done",
+              tokens: 25, resultPreview: "Authoritative nested finding.",
+            }),
+          ] }),
+        }),
+      }),
+    ]);
+    expect(new Set(workflowSnapshots(deltas).map((item) => item.familyId))).toEqual(new Set([familyId]));
+    expect(deltas.slice(deltasAfterRoot).filter((delta) => delta.kind === "turn.open")).toEqual([
+      { kind: "turn.open", providerTurnId: childTurn("nested"), parentRef: providerId("nested") },
+    ]);
+    expect(events.slice(afterRoot)).not.toContainEqual(expect.objectContaining({
+      type: "turn/started", scope: { kind: "turn", turnId: rootTurnId },
+    }));
+    expect(assembler.getOpenTurnId(THREAD)).toBeUndefined();
+  });
+
   it("keeps newer per-run counters when stale task progress arrives, but accepts authoritative final usage", async () => {
     const { coordinator, deltas } = createHarness();
     await coordinator.onTurnStart();
@@ -1452,7 +1659,7 @@ describe("native OMP subagent coordinator", () => {
     const { coordinator, deltas } = createHarness([
       snapshot("research", { status: "completed", detached: true, parentToolCallId: "batch" }),
       snapshot("verify", { index: 1, detached: true, parentToolCallId: "batch" }),
-    ]);
+    ], rootTaskMessages("batch", ["research", "verify"]));
     await coordinator.restore();
     await coordinator.onTurnStart();
     expect(workflowSnapshots(deltas)[0]).toMatchObject({
@@ -1471,8 +1678,8 @@ describe("native OMP subagent coordinator", () => {
 
   it("settles an already-gone child when native cancellation returns false", async () => {
     const { coordinator, rpc, deltas } = createHarness([
-      snapshot("research", { detached: true }),
-    ]);
+      snapshot("research", { detached: true, parentToolCallId: "batch" }),
+    ], rootTaskMessages("batch", ["research"]));
     await coordinator.restore();
     await coordinator.onTurnStart();
     rpc.cancelSubagent.mockResolvedValue(false);
@@ -1484,6 +1691,7 @@ describe("native OMP subagent coordinator", () => {
     ]);
     expect(workflowCloses(deltas)).toEqual([
       expect.objectContaining({
+        key: { providerItemId: `omp-subagents:${SESSION}:batch` },
         status: "interrupted",
         item: expect.objectContaining({ taskStatus: "stopped" }),
       }),
@@ -1522,7 +1730,7 @@ describe("native OMP subagent coordinator", () => {
     const { coordinator, rpc } = createHarness([
       snapshot("research", { detached: true, parentToolCallId: "batch" }),
       snapshot("verify", { index: 1, detached: true, parentToolCallId: "batch" }),
-    ]);
+    ], rootTaskMessages("batch", ["research", "verify"]));
     await coordinator.restore();
     await coordinator.onTurnStart();
     await coordinator.steer("research", "Check the exported API instead.");
@@ -1533,4 +1741,1115 @@ describe("native OMP subagent coordinator", () => {
     await expect(coordinator.steer("research", "Too late")).rejects.toThrow("No running OMP subagent research");
     expect(rpc.steerSubagent).toHaveBeenCalledTimes(1);
   });
+
+  it("flattens nested and parallel descendants into one root workflow with parent-first chronological indexes", async () => {
+    const { coordinator, deltas, assembler, rootTurnId } = createHarness();
+    const familyId = `omp-subagents:${SESSION}:root-batch`;
+    await coordinator.onTurnStart();
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "root-batch",
+      args: { tasks: [{ name: "research" }, { name: "verify" }] },
+    });
+    await coordinator.handleEvent(lifecycle("verify", "started", {
+      index: 1, detached: true, parentToolCallId: "root-batch",
+    }));
+    await coordinator.handleEvent(lifecycle("research", "started", {
+      index: 0, detached: true, parentToolCallId: "root-batch",
+    }));
+    await child(coordinator, "research", {
+      type: "tool_execution_start", toolName: "task", toolCallId: "research-task",
+      args: { name: "research.analysis" },
+    });
+    await coordinator.handleEvent(lifecycle("research.analysis", "started", {
+      index: 0, parentToolCallId: "research-task",
+    }));
+    await child(coordinator, "verify", {
+      type: "tool_execution_start", toolName: "task", toolCallId: "verify-task",
+      args: { name: "opaque-review" },
+    });
+    await coordinator.handleEvent(lifecycle("opaque-review", "started", {
+      index: 0, parentToolCallId: "verify-task",
+    }));
+    await child(coordinator, "research.analysis", {
+      type: "tool_execution_start", toolName: "task", toolCallId: "analysis-task",
+      args: { name: "research.analysis.leaf" },
+    });
+    await coordinator.handleEvent(lifecycle("research.analysis.leaf", "started", {
+      index: 0, parentToolCallId: "analysis-task",
+    }));
+
+    const snapshots = workflowSnapshots(deltas);
+    expect(new Set(snapshots.map((item) => item.familyId))).toEqual(new Set([familyId]));
+    expect(snapshots.at(-1)).toMatchObject({
+      familyId, taskStatus: "running", status: "pending",
+      workflow: { agents: [
+        { id: "research", index: 1, label: "research", state: "running" },
+        { id: "verify", index: 2, label: "verify", state: "running" },
+        { id: "research.analysis", parentId: "research", index: 3, state: "running" },
+        { id: "opaque-review", parentId: "verify", index: 4, state: "running" },
+        { id: "research.analysis.leaf", parentId: "research.analysis", index: 5, state: "running" },
+      ] },
+    });
+    for (const root of snapshots.at(-1)?.workflow?.agents.slice(0, 2) ?? []) {
+      expect(root).not.toHaveProperty("parentId");
+    }
+    for (const [id, parentId] of [
+      ["research.analysis", "research"],
+      ["opaque-review", "verify"],
+      ["research.analysis.leaf", "research.analysis"],
+    ]) {
+      expect(deltas).toContainEqual(expect.objectContaining({
+        kind: "item.open",
+        key: { providerItemId: providerId(id!), parentRef: providerId(parentId!) },
+        item: expect.objectContaining({ type: "delegation", childRef: id }),
+      }));
+      expect(agentRosters(deltas).at(-1)?.agents).toContainEqual(expect.objectContaining({
+        id, parentId,
+      }));
+    }
+    expect(workflowCloses(deltas)).toEqual([]);
+    expect(assembler.getOpenTurnId(THREAD)).toBe(rootTurnId);
+  });
+
+  it("keeps overlapping root calls and their nested descendants in independent workflow families", async () => {
+    const { coordinator, deltas } = createHarness();
+    const leftFamily = `omp-subagents:${SESSION}:left-root`;
+    const rightFamily = `omp-subagents:${SESSION}:right-root`;
+    await coordinator.onTurnStart();
+    for (const side of ["left", "right"]) {
+      await coordinator.handleEvent({
+        type: "tool_execution_start", toolName: "task", toolCallId: `${side}-root`,
+        args: { name: side },
+      });
+      await coordinator.handleEvent(lifecycle(side, "started", {
+        detached: true, parentToolCallId: `${side}-root`,
+      }));
+    }
+    for (const side of ["left", "right"]) {
+      await child(coordinator, side, {
+        type: "tool_execution_start", toolName: "task", toolCallId: `${side}-nested`,
+        args: { name: `${side}.child` },
+      });
+      await coordinator.handleEvent(lifecycle(`${side}.child`, "started", {
+        parentToolCallId: `${side}-nested`,
+      }));
+    }
+    for (const [side, familyId] of [["left", leftFamily], ["right", rightFamily]]) {
+      expect(workflowSnapshots(deltas).filter((item) => item.familyId === familyId).at(-1)).toMatchObject({
+        familyId, taskStatus: "running",
+        workflow: { agents: [
+          { id: side, index: 1, state: "running" },
+          { id: `${side}.child`, parentId: side, index: 2, state: "running" },
+        ] },
+      });
+    }
+    await coordinator.handleEvent({
+      type: "tool_execution_end", toolName: "task", toolCallId: "left-root",
+      result: { details: { results: [{
+        id: "left", index: 0, agent: "explore", exitCode: 0, output: "Left parent finished.", tokens: 10,
+      }] } },
+    });
+    expect(workflowCloses(deltas)).toEqual([]);
+    await child(coordinator, "left", {
+      type: "tool_execution_end", toolName: "task", toolCallId: "left-nested",
+      result: { details: { results: [{
+        id: "left.child", index: 0, agent: "explore", exitCode: 0, output: "Left child finished.", tokens: 5,
+      }] } },
+    });
+
+    expect(new Set(workflowSnapshots(deltas).map((item) => item.familyId)))
+      .toEqual(new Set([leftFamily, rightFamily]));
+    expect(workflowCloses(deltas).map((delta) => delta.key.providerItemId)).toEqual([leftFamily]);
+    expect(workflowSnapshots(deltas).filter((item) => item.familyId === rightFamily).at(-1)).toMatchObject({
+      status: "pending", taskStatus: "running",
+      workflow: { agents: [
+        { id: "right", state: "running" },
+        { id: "right.child", parentId: "right", state: "running" },
+      ] },
+    });
+  });
+
+  it("publishes nested transcript usage and task progress but waits for authoritative spawning results before closing", async () => {
+    const { coordinator, deltas } = createHarness();
+    const familyId = `omp-subagents:${SESSION}:root-batch`;
+    await coordinator.onTurnStart();
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "root-batch", args: { name: "parent" },
+    });
+    await coordinator.handleEvent(lifecycle("parent", "started", {
+      detached: true, parentToolCallId: "root-batch",
+    }));
+    await child(coordinator, "parent", {
+      type: "tool_execution_start", toolName: "task", toolCallId: "nested-task", args: { name: "nested" },
+    });
+    await coordinator.handleEvent(lifecycle("nested", "started", { parentToolCallId: "nested-task" }));
+    const beforeTranscript = deltas.length;
+    await liveMessage(coordinator, "nested", assistant("Provisional nested finding.", 10), "Provisional nested finding.");
+    expect(workflowSnapshots(deltas.slice(beforeTranscript)).at(-1)).toMatchObject({
+      familyId, usage: { totalTokens: 16 },
+      workflow: { agents: [
+        { id: "parent", tokens: 0 },
+        { id: "nested", parentId: "parent", tokens: 16, model: "openai/gpt-5" },
+      ] },
+    });
+    const beforeTool = deltas.length;
+    await child(coordinator, "nested", {
+      type: "tool_execution_start", toolName: "probe", toolCallId: "nested-probe", args: {},
+    });
+    await child(coordinator, "nested", {
+      type: "tool_execution_end", toolName: "probe", toolCallId: "nested-probe",
+      result: { content: [{ type: "text", text: "Inspected nested work." }] }, isError: false,
+    });
+    expect(workflowSnapshots(deltas.slice(beforeTool)).at(-1)).toMatchObject({
+      familyId, usage: { totalTokens: 16, toolUses: 1 },
+      workflow: { agents: [{ id: "parent" }, { id: "nested", toolCalls: 1 }] },
+    });
+    await child(coordinator, "parent", {
+      type: "tool_execution_update", toolName: "task", toolCallId: "nested-task",
+      partialResult: { details: { progress: [{
+        id: "nested", index: 0, agent: "explore", status: "running",
+        tokens: 40, toolCount: 3, durationMs: 800, currentTool: "read",
+        currentToolIntent: "Checking the nested result",
+      }] } },
+    });
+    expect(workflowSnapshots(deltas).at(-1)).toMatchObject({
+      familyId, usage: { totalTokens: 40, toolUses: 3, durationMs: 800 },
+      workflow: { agents: [
+        { id: "parent" },
+        { id: "nested", parentId: "parent", state: "running", tokens: 40, toolCalls: 3,
+          lastToolName: "read", lastToolSummary: "Checking the nested result" },
+      ] },
+    });
+    await coordinator.handleEvent(lifecycle("parent", "completed"));
+    await coordinator.handleEvent(lifecycle("nested", "completed"));
+    expect(delegationCloses(deltas)).toEqual([]);
+    expect(workflowCloses(deltas)).toEqual([]);
+    await coordinator.handleEvent({
+      type: "tool_execution_end", toolName: "task", toolCallId: "root-batch",
+      result: { details: { results: [{
+        id: "parent", index: 0, agent: "explore", exitCode: 0,
+        output: "Authoritative parent finding.", tokens: 10, durationMs: 900,
+      }] } },
+    });
+    expect(delegationCloses(deltas).map((delta) => delta.key.providerItemId)).toEqual([providerId("parent")]);
+    expect(workflowCloses(deltas)).toEqual([]);
+    await child(coordinator, "parent", {
+      type: "tool_execution_end", toolName: "task", toolCallId: "nested-task",
+      result: { details: { results: [{
+        id: "nested", index: 0, agent: "explore", exitCode: 0,
+        output: "Authoritative nested finding.", tokens: 25, durationMs: 600,
+      }] } },
+    });
+
+    expect(workflowCloses(deltas)).toEqual([
+      expect.objectContaining({
+        key: { providerItemId: familyId }, status: "completed",
+        item: expect.objectContaining({
+          familyId, taskStatus: "completed", usage: expect.objectContaining({ totalTokens: 35, durationMs: 900 }),
+          workflow: expect.objectContaining({ agents: [
+            expect.objectContaining({ id: "parent", index: 1, state: "done", tokens: 10 }),
+            expect.objectContaining({
+              id: "nested", parentId: "parent", index: 2, state: "done",
+              tokens: 25, durationMs: 600, resultPreview: "Authoritative nested finding.",
+            }),
+          ] }),
+        }),
+      }),
+    ]);
+    expect(new Set(workflowSnapshots(deltas).map((item) => item.familyId))).toEqual(new Set([familyId]));
+    expect(delegationCloses(deltas)).toContainEqual(expect.objectContaining({
+      key: { providerItemId: providerId("nested"), parentRef: providerId("parent") },
+      item: expect.objectContaining({ childRef: "nested", summary: expect.stringContaining("25 tokens") }),
+    }));
+  });
+
+  it("defers an unresolved live nested workflow until assistant task-call backfill recovers its owner", async () => {
+    const { coordinator, rpc, deltas } = createHarness();
+    const familyId = `omp-subagents:${SESSION}:root-batch`;
+    const spawningMessage = {
+      ...assistant("Delegating recovered work.", 10),
+      content: [{
+        type: "toolCall", id: "late-nested-task", name: "task",
+        arguments: { name: "opaque-child" },
+      }],
+      stopReason: "toolUse",
+    };
+    await coordinator.onTurnStart();
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "root-batch", args: { name: "parent" },
+    });
+    await coordinator.handleEvent(lifecycle("parent", "started", {
+      detached: true, parentToolCallId: "root-batch", sessionFile: FILE,
+    }));
+    await coordinator.handleEvent(lifecycle("opaque-child", "started", {
+      detached: true, parentToolCallId: "late-nested-task",
+    }));
+    expect(new Set(workflowSnapshots(deltas).map((item) => item.familyId))).toEqual(new Set([familyId]));
+    expect(workflowSnapshots(deltas).at(-1)).toMatchObject({
+      workflow: { agents: [{ id: "parent", state: "running" }] },
+    });
+    rpc.getSubagentMessages.mockImplementation(async ({ subagentId }) =>
+      page(subagentId === "parent" ? [spawningMessage] : []));
+    const beforeRecovery = deltas.length;
+    await coordinator.handleEvent(lifecycle("parent", "started", {
+      detached: true, parentToolCallId: "root-batch", sessionFile: FILE,
+    }));
+
+    const snapshots = workflowSnapshots(deltas);
+    expect(new Set(snapshots.map((item) => item.familyId))).toEqual(new Set([familyId]));
+    expect(workflowSnapshots(deltas.slice(beforeRecovery)).at(-1)).toMatchObject({
+      familyId, taskStatus: "running",
+      workflow: { agents: [
+        { id: "parent", index: 1, state: "running" },
+        { id: "opaque-child", parentId: "parent", index: 2, state: "running" },
+      ] },
+    });
+    expect(agentRosters(deltas).at(-1)?.agents).toContainEqual(expect.objectContaining({
+      id: "opaque-child", parentId: "parent",
+    }));
+    expect(deltas).toContainEqual(expect.objectContaining({
+      kind: "item.open",
+      key: expect.objectContaining({ providerItemId: providerId("opaque-child") }),
+      item: expect.objectContaining({ type: "delegation", childRef: "opaque-child" }),
+    }));
+    expect(workflowCloses(deltas)).toEqual([]);
+  });
+
+  it("restores child-before-parent snapshots through task-result-only backfill without emitting a stale nested workflow", async () => {
+    const { coordinator, rpc, deltas } = createHarness([
+      snapshot("opaque-child", {
+        detached: true, parentToolCallId: "missing-nested-start",
+      }),
+      snapshot("parent", {
+        detached: true, parentToolCallId: "restored-root", sessionFile: FILE,
+      }),
+    ], rootTaskMessages("restored-root", ["parent"]));
+    const familyId = `omp-subagents:${SESSION}:restored-root`;
+    const spawningResult = {
+      ...toolResult("missing-nested-start", 11),
+      toolName: "task",
+      details: { results: [{
+        id: "opaque-child", index: 0, agent: "explore", exitCode: 0,
+        output: "Recovered authoritative nested result.", tokens: 23, durationMs: 500,
+      }] },
+    };
+    rpc.getSubagentMessages.mockImplementation(async ({ subagentId }) =>
+      page(subagentId === "parent" ? [spawningResult] : []));
+
+    await coordinator.restore();
+    expect(agentRosters(deltas)).toHaveLength(1);
+    expect(deltas.every((delta) => delta.kind === "extension.state")).toBe(true);
+    expect(workflowSnapshots(deltas)).toEqual([]);
+    expect(delegationCloses(deltas)).toEqual([]);
+    await coordinator.onTurnStart();
+
+    const snapshots = workflowSnapshots(deltas);
+    expect(new Set(snapshots.map((item) => item.familyId))).toEqual(new Set([familyId]));
+    expect(snapshots[0]).toMatchObject({
+      familyId, taskStatus: "running", status: "pending",
+      workflow: { agents: [
+        { id: "parent", index: 1, state: "running" },
+        { id: "opaque-child", parentId: "parent", index: 2, state: "done",
+          tokens: 23, resultPreview: "Recovered authoritative nested result." },
+      ] },
+    });
+    expect(agentRosters(deltas).at(-1)?.agents).toContainEqual(expect.objectContaining({
+      id: "opaque-child", parentId: "parent", status: "completed", tokens: 23,
+    }));
+    expect(delegationCloses(deltas)).toContainEqual(expect.objectContaining({
+      key: { providerItemId: providerId("opaque-child"), parentRef: providerId("parent") },
+      status: "completed", item: expect.objectContaining({ childRef: "opaque-child" }),
+    }));
+    expect(workflowCloses(deltas)).toEqual([]);
+  });
+
+  it("reopens a closed root workflow with its full roster and preserves nested native transcript identities", async () => {
+    const { coordinator, rpc, deltas, assembler, rootTurnId } = createHarness();
+    const familyId = `omp-subagents:${SESSION}:root-batch`;
+    const childId = "parent.child";
+    const childFile = "/workspace/sessions/parent-child.jsonl";
+    const first = assistant("Initial nested finding.", 10, "probe-one");
+    const firstResult = toolResult("probe-one", 11);
+    rpc.getSubagentMessages.mockImplementation(async ({ subagentId, fromByte = 0 }) =>
+      page(subagentId === childId ? [first, firstResult] : [], {
+        sessionFile: childFile, fromByte, nextByte: subagentId === childId ? 120 : fromByte,
+      }));
+    await coordinator.onTurnStart();
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "root-batch",
+      args: { tasks: [{ name: "parent" }, { name: "verify" }] },
+    });
+    await coordinator.handleEvent(lifecycle("parent", "started", {
+      detached: true, parentToolCallId: "root-batch",
+    }));
+    await coordinator.handleEvent(lifecycle("verify", "started", {
+      index: 1, detached: true, parentToolCallId: "root-batch",
+    }));
+    await child(coordinator, "parent", {
+      type: "tool_execution_start", toolName: "task", toolCallId: "nested-task",
+      args: { name: childId },
+    });
+    await coordinator.handleEvent(lifecycle(childId, "started", {
+      parentToolCallId: "nested-task", sessionFile: childFile,
+    }));
+    await coordinator.handleEvent({
+      type: "tool_execution_end", toolName: "task", toolCallId: "root-batch",
+      result: { details: { results: [
+        { id: "parent", index: 0, agent: "explore", exitCode: 0, output: "Parent finished.", tokens: 10 },
+        { id: "verify", index: 1, agent: "explore", exitCode: 0, output: "Sibling finished.", tokens: 20 },
+      ] } },
+    });
+    await child(coordinator, "parent", {
+      type: "tool_execution_end", toolName: "task", toolCallId: "nested-task",
+      result: { details: { results: [{
+        id: childId, index: 0, agent: "explore", exitCode: 0,
+        output: "Initial authoritative nested result.", tokens: 32,
+      }] } },
+    });
+    expect(workflowCloses(deltas)).toHaveLength(1);
+    const beforeWake = deltas.length;
+
+    await coordinator.handleEvent(lifecycle(childId, "started", {
+      parentToolCallId: "nested-task", sessionFile: childFile,
+    }));
+
+    const reopened = deltas.slice(beforeWake);
+    expect(reopened).toContainEqual(expect.objectContaining({
+      kind: "item.open", key: { providerItemId: familyId },
+      item: expect.objectContaining({
+        type: "backgroundTask", familyId, taskStatus: "running",
+        workflow: expect.objectContaining({ agents: [
+          expect.objectContaining({ id: "parent", index: 1, state: "done", tokens: 10 }),
+          expect.objectContaining({ id: "verify", index: 2, state: "done", tokens: 20 }),
+          expect.objectContaining({ id: childId, parentId: "parent", index: 3, state: "running", tokens: 0, toolCalls: 0 }),
+        ] }),
+      }),
+    }));
+    expect(reopened).toContainEqual(expect.objectContaining({
+      kind: "item.open", key: { providerItemId: providerId(childId), parentRef: providerId("parent") },
+      item: expect.objectContaining({ type: "delegation", childRef: childId }),
+    }));
+    expect(messageCloses(reopened)).toEqual([]);
+    expect(toolRows(reopened)).toEqual([]);
+    await liveMessage(coordinator, childId, assistant("Follow-up nested finding.", 20), "Follow-up nested finding.");
+    await coordinator.handleEvent(lifecycle(childId, "completed", { sessionFile: childFile }));
+
+    expect(workflowCloses(deltas).map((delta) => delta.key.providerItemId)).toEqual([familyId, familyId]);
+    expect(workflowSnapshots(deltas).at(-1)).toMatchObject({
+      familyId, taskStatus: "completed", usage: { totalTokens: 46 },
+      workflow: { agents: [
+        { id: "parent", index: 1, state: "done", tokens: 10 },
+        { id: "verify", index: 2, state: "done", tokens: 20 },
+        { id: childId, parentId: "parent", index: 3, state: "done", tokens: 16, toolCalls: 0 },
+      ] },
+    });
+    expect(new Set(workflowSnapshots(deltas).map((item) => item.familyId))).toEqual(new Set([familyId]));
+    expect(messageCloses(deltas).map((delta) => delta.text)).toEqual([
+      "Initial nested finding.", "Follow-up nested finding.",
+    ]);
+    expect(new Set(messageCloses(deltas).map((delta) => delta.key.providerItemId)).size).toBe(2);
+    for (const message of messageCloses(deltas)) {
+      expect(message).toMatchObject({
+        providerTurnId: childTurn(childId), key: { parentRef: providerId(childId) },
+      });
+    }
+    expect(toolRows(deltas).map((delta) => delta.kind)).toEqual(["item.open", "item.close"]);
+    expect(delegationCloses(deltas).filter((delta) => delta.key.providerItemId === providerId(childId)))
+      .toHaveLength(2);
+    const reads = rpc.getSubagentMessages.mock.calls.filter(([input]) => input.subagentId === childId);
+    expect(reads.length).toBeGreaterThan(1);
+    expect(reads[0]?.[0].fromByte).toBe(0);
+    expect(reads.slice(1).every(([input]) => input.fromByte === 120)).toBe(true);
+    expect(assembler.getOpenTurnId(THREAD)).toBe(rootTurnId);
+  });
+
+  it("keeps a reused native id historical in its still-active old root when it wakes under a new root call", async () => {
+    const { coordinator, rpc, deltas } = createHarness();
+    const oldFamily = `omp-subagents:${SESSION}:old-root`;
+    const newFamily = `omp-subagents:${SESSION}:new-root`;
+    await coordinator.onTurnStart();
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "old-root",
+      args: { tasks: [{ name: "worker" }, { name: "keeper" }] },
+    });
+    await coordinator.handleEvent(lifecycle("worker", "started", {
+      detached: true, parentToolCallId: "old-root",
+    }));
+    await coordinator.handleEvent(lifecycle("keeper", "started", {
+      index: 1, detached: true, parentToolCallId: "old-root",
+    }));
+    await coordinator.handleEvent({
+      type: "tool_execution_end", toolName: "task", toolCallId: "old-root",
+      result: { details: {
+        progress: [{ id: "keeper", index: 1, agent: "explore", status: "running", tokens: 20, toolCount: 2 }],
+        results: [{
+          id: "worker", index: 0, agent: "explore", exitCode: 0,
+          output: "Historical worker result.", tokens: 10,
+        }],
+      } },
+    });
+    expect(workflowCloses(deltas)).toEqual([]);
+    const beforeWake = deltas.length;
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "new-root", args: { name: "worker" },
+    });
+    await coordinator.handleEvent(lifecycle("worker", "started", {
+      detached: true, parentToolCallId: "new-root",
+    }));
+    expect(workflowSnapshots(deltas).filter((item) => item.familyId === newFamily).at(-1)).toMatchObject({
+      familyId: newFamily, taskStatus: "running", usage: { totalTokens: 0 },
+      workflow: { agents: [{ id: "worker", index: 1, state: "running", tokens: 0 }] },
+    });
+    expect(workflowSnapshots(deltas).filter((item) => item.familyId === newFamily).at(-1)?.workflow?.agents[0])
+      .not.toHaveProperty("resultPreview");
+    expect(deltas.slice(beforeWake)).toContainEqual(expect.objectContaining({
+      kind: "item.open", key: { providerItemId: providerId("worker") },
+      item: expect.objectContaining({ type: "delegation", childRef: "worker" }),
+    }));
+    await coordinator.handleEvent({
+      type: "subagent_progress", payload: {
+        parentToolCallId: "new-root", detached: true,
+        progress: { id: "worker", index: 0, agent: "explore", status: "running", tokens: 70, toolCount: 7 },
+      },
+    });
+    await liveMessage(coordinator, "worker", assistant("New-root transcript.", 20), "New-root transcript.");
+    expect(messageCloses(deltas).at(-1)).toMatchObject({
+      providerTurnId: childTurn("worker"), key: { parentRef: providerId("worker") },
+    });
+    await coordinator.handleEvent({
+      type: "subagent_progress", payload: {
+        parentToolCallId: "old-root", detached: true,
+        progress: { id: "keeper", index: 1, agent: "explore", status: "running", tokens: 25, toolCount: 3 },
+      },
+    });
+    expect(workflowSnapshots(deltas).filter((item) => item.familyId === oldFamily).at(-1)).toMatchObject({
+      familyId: oldFamily, taskStatus: "running", usage: { totalTokens: 35 },
+      workflow: { agents: [
+        { id: "worker", index: 1, state: "done", tokens: 10, resultPreview: "Historical worker result." },
+        { id: "keeper", index: 2, state: "running", tokens: 25 },
+      ] },
+    });
+    expect(workflowSnapshots(deltas).filter((item) => item.familyId === newFamily).at(-1)).toMatchObject({
+      familyId: newFamily, taskStatus: "running", usage: { totalTokens: 70 },
+      workflow: { agents: [{ id: "worker", index: 1, state: "running", tokens: 70 }] },
+    });
+
+    await coordinator.stopTask(oldFamily);
+    expect(rpc.cancelSubagent.mock.calls).toEqual([["keeper"]]);
+    await coordinator.handleEvent({
+      type: "tool_execution_end", toolName: "task", toolCallId: "new-root",
+      result: { details: { results: [{
+        id: "worker", index: 0, agent: "explore", exitCode: 0,
+        output: "New authoritative result.", tokens: 80,
+      }] } },
+    });
+    await coordinator.handleEvent({
+      type: "subagent_progress", payload: {
+        parentToolCallId: "old-root", detached: true,
+        progress: { id: "keeper", index: 1, agent: "explore", status: "running", tokens: 30, toolCount: 3 },
+      },
+    });
+    const oldSnapshots = workflowSnapshots(deltas.slice(beforeWake)).filter((item) => item.familyId === oldFamily);
+    expect(oldSnapshots.length).toBeGreaterThan(0);
+    for (const item of oldSnapshots) {
+      expect(item.workflow?.agents[0]).toMatchObject({
+        id: "worker", state: "done", tokens: 10, resultPreview: "Historical worker result.",
+      });
+    }
+    expect(oldSnapshots.at(-1)).toMatchObject({
+      taskStatus: "running", status: "pending", usage: { totalTokens: 40 },
+    });
+    expect(workflowCloses(deltas)).toEqual([
+      expect.objectContaining({
+        key: { providerItemId: newFamily }, status: "completed",
+        item: expect.objectContaining({
+          usage: expect.objectContaining({ totalTokens: 80 }),
+          workflow: expect.objectContaining({ agents: [
+            expect.objectContaining({ id: "worker", state: "done", tokens: 80, resultPreview: "New authoritative result." }),
+          ] }),
+        }),
+      }),
+    ]);
+    expect(new Set(workflowSnapshots(deltas).map((item) => item.familyId))).toEqual(new Set([oldFamily, newFamily]));
+  });
+
+  it("stops only running native members and descendants of the selected root family", async () => {
+    const { coordinator, rpc, deltas } = createHarness();
+    const familyId = `omp-subagents:${SESSION}:selected-root`;
+    const otherFamily = `omp-subagents:${SESSION}:other-root`;
+    await coordinator.onTurnStart();
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "selected-root",
+      args: { tasks: [{ name: "parent" }, { name: "finished" }] },
+    });
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "other-root", args: { name: "other" },
+    });
+    await coordinator.handleEvent(lifecycle("parent", "started", {
+      detached: true, parentToolCallId: "selected-root",
+    }));
+    await coordinator.handleEvent(lifecycle("finished", "started", {
+      index: 1, detached: true, parentToolCallId: "selected-root",
+    }));
+    await coordinator.handleEvent(lifecycle("other", "started", {
+      detached: true, parentToolCallId: "other-root",
+    }));
+    await child(coordinator, "parent", {
+      type: "tool_execution_start", toolName: "task", toolCallId: "nested-task",
+      args: { name: "parent.child" },
+    });
+    await coordinator.handleEvent(lifecycle("parent.child", "started", { parentToolCallId: "nested-task" }));
+    await coordinator.handleEvent({
+      type: "tool_execution_end", toolName: "task", toolCallId: "selected-root",
+      result: { details: { results: [{
+        id: "finished", index: 1, agent: "explore", exitCode: 0, output: "Already finished.",
+      }] } },
+    });
+
+    await coordinator.stopTask(familyId);
+
+    expect(rpc.cancelSubagent.mock.calls.map(([id]) => id).sort()).toEqual(["parent", "parent.child"]);
+    expect(workflowSnapshots(deltas).filter((item) => item.familyId === otherFamily).at(-1)).toMatchObject({
+      taskStatus: "running", status: "pending",
+      workflow: { agents: [{ id: "other", state: "running" }] },
+    });
+    expect(workflowCloses(deltas).filter((delta) => delta.key.providerItemId === otherFamily)).toEqual([]);
+    await coordinator.steer("other", "Keep working on the independent root.");
+    expect(rpc.steerSubagent).toHaveBeenCalledWith("other", "Keep working on the independent root.");
+  });
+
+  it("keeps an independently owned dotted root name separate from its existing plain-name prefix", async () => {
+    const { coordinator, rpc, deltas } = createHarness();
+    const plainFamily = `omp-subagents:${SESSION}:plain-root`;
+    const dottedFamily = `omp-subagents:${SESSION}:dotted-root`;
+    await coordinator.onTurnStart();
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "plain-root", args: { name: "plain" },
+    });
+    await coordinator.handleEvent(lifecycle("plain", "started", {
+      detached: true, parentToolCallId: "plain-root",
+    }));
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "dotted-root", args: { name: "plain.named" },
+    });
+    await coordinator.handleEvent(lifecycle("plain.named", "started", {
+      detached: true, parentToolCallId: "dotted-root",
+    }));
+
+    const snapshots = workflowSnapshots(deltas);
+    expect(new Set(snapshots.map((item) => item.familyId))).toEqual(new Set([plainFamily, dottedFamily]));
+    for (const item of snapshots.filter((entry) => entry.familyId === plainFamily)) {
+      expect(item).toMatchObject({
+        taskStatus: "running", workflow: { agents: [{ id: "plain", index: 1, state: "running" }] },
+      });
+    }
+    const dotted = snapshots.filter((item) => item.familyId === dottedFamily).at(-1);
+    expect(dotted).toMatchObject({
+      familyId: dottedFamily, taskStatus: "running",
+      workflow: { agents: [{ id: "plain.named", index: 1, state: "running" }] },
+    });
+    expect(dotted?.workflow?.agents[0]).not.toHaveProperty("parentId");
+    expect(agentRosters(deltas).at(-1)?.agents.find((agent) => agent.id === "plain.named"))
+      .not.toHaveProperty("parentId");
+    const delegation = deltas.find((delta) =>
+      delta.kind === "item.open" && delta.key.providerItemId === providerId("plain.named"));
+    expect(delegation).toMatchObject({
+      kind: "item.open", item: { type: "delegation", childRef: "plain.named" },
+    });
+    expect(delegation).not.toHaveProperty("key.parentRef");
+
+    await coordinator.handleEvent({
+      type: "tool_execution_end", toolName: "task", toolCallId: "dotted-root",
+      result: { details: { results: [{
+        id: "plain.named", index: 0, agent: "explore", exitCode: 0,
+        output: "Independent dotted root finished.", tokens: 7,
+      }] } },
+    });
+
+    expect(workflowCloses(deltas).map((delta) => delta.key.providerItemId)).toEqual([dottedFamily]);
+    expect(workflowSnapshots(deltas).filter((item) => item.familyId === plainFamily).at(-1)).toMatchObject({
+      familyId: plainFamily, taskStatus: "running",
+      workflow: { agents: [{ id: "plain", index: 1, state: "running" }] },
+    });
+    await coordinator.stopTask(plainFamily);
+    expect(rpc.cancelSubagent.mock.calls).toEqual([["plain"]]);
+  });
+
+  it("defers restored nested workflows with an empty initial parent page until later backfill proves their owner", async () => {
+    const { coordinator, rpc, deltas } = createHarness([
+      snapshot("opaque-child", {
+        detached: true, parentToolCallId: "delayed-nested-task",
+      }),
+      snapshot("parent", {
+        detached: true, parentToolCallId: "restored-root", sessionFile: FILE,
+      }),
+    ], rootTaskMessages("restored-root", ["parent"]));
+    const familyId = `omp-subagents:${SESSION}:restored-root`;
+    await coordinator.restore();
+    expect(rpc.getMessages).toHaveBeenCalled();
+    expect(deltas.every((delta) => delta.kind === "extension.state")).toBe(true);
+    expect(workflowSnapshots(deltas)).toEqual([]);
+    await coordinator.onTurnStart();
+
+    const initialSnapshots = workflowSnapshots(deltas);
+    expect(new Set(initialSnapshots.map((item) => item.familyId))).toEqual(new Set([familyId]));
+    expect(initialSnapshots[0]).toMatchObject({
+      familyId, taskStatus: "running", status: "pending",
+      workflow: { agents: [{ id: "parent", index: 1, state: "running", tokens: 0 }] },
+    });
+    expect(messageCloses(deltas).map((delta) => delta.text)).not.toContain("Restored root task history.");
+    const spawningMessage = {
+      ...assistant("Recovering delayed nested work.", 10),
+      content: [{
+        type: "toolCall", id: "delayed-nested-task", name: "task",
+        arguments: { name: "opaque-child" },
+      }],
+      stopReason: "toolUse",
+    };
+    rpc.getSubagentMessages.mockImplementation(async ({ subagentId }) =>
+      page(subagentId === "parent" ? [spawningMessage] : []));
+    const beforeRecovery = deltas.length;
+    await coordinator.handleEvent(lifecycle("parent", "started", {
+      detached: true, parentToolCallId: "restored-root", sessionFile: FILE,
+    }));
+
+    expect(workflowSnapshots(deltas.slice(beforeRecovery)).at(-1)).toMatchObject({
+      familyId, taskStatus: "running", status: "pending",
+      workflow: { agents: [
+        { id: "parent", index: 1, state: "running" },
+        { id: "opaque-child", parentId: "parent", index: 2, state: "running" },
+      ] },
+    });
+    expect(new Set(workflowSnapshots(deltas).map((item) => item.familyId))).toEqual(new Set([familyId]));
+    expect(agentRosters(deltas).at(-1)?.agents).toContainEqual(expect.objectContaining({
+      id: "opaque-child", parentId: "parent", status: "running",
+    }));
+    expect(messageCloses(deltas).map((delta) => delta.text)).not.toContain("Restored root task history.");
+    expect(workflowCloses(deltas)).toEqual([]);
+  });
+
+  it("isolates delayed old-root task results when a terminal but still-open native worker wakes under a new root", async () => {
+    vi.useFakeTimers();
+    const { coordinator, deltas, assembler, rootTurnId } = createHarness();
+    const oldFamily = `omp-subagents:${SESSION}:old-root`;
+    const newFamily = `omp-subagents:${SESSION}:new-root`;
+    await coordinator.onTurnStart();
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "old-root", args: { name: "worker" },
+    });
+    await coordinator.handleEvent(lifecycle("worker", "started", {
+      detached: true, parentToolCallId: "old-root",
+    }));
+    await coordinator.handleEvent({
+      type: "subagent_progress", payload: {
+        parentToolCallId: "old-root", detached: true,
+        progress: {
+          id: "worker", index: 0, agent: "explore", status: "running",
+          tokens: 10, toolCount: 1, durationMs: 1_000,
+        },
+      },
+    });
+    await coordinator.handleEvent(lifecycle("worker", "completed", { parentToolCallId: "old-root" }));
+    expect(delegationCloses(deltas)).toEqual([]);
+    expect(workflowCloses(deltas)).toEqual([]);
+    expect(workflowSnapshots(deltas).at(-1)).toMatchObject({
+      familyId: oldFamily, status: "pending", taskStatus: "running",
+      workflow: { agents: [{ id: "worker", index: 1, state: "done", tokens: 10 }] },
+    });
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "new-root", args: { name: "worker" },
+    });
+    const beforeWake = deltas.length;
+    await coordinator.handleEvent(lifecycle("worker", "started", {
+      detached: true, parentToolCallId: "new-root",
+    }));
+    expect(deltas.slice(beforeWake)).toContainEqual(expect.objectContaining({
+      kind: "item.open", key: { providerItemId: providerId("worker") },
+      item: expect.objectContaining({ type: "delegation", childRef: "worker" }),
+    }));
+    expect(workflowSnapshots(deltas).filter((item) => item.familyId === newFamily).at(-1)).toMatchObject({
+      familyId: newFamily, taskStatus: "running", usage: { totalTokens: 0, toolUses: 0 },
+      workflow: { agents: [{ id: "worker", index: 1, state: "running", tokens: 0, toolCalls: 0 }] },
+    });
+    await coordinator.handleEvent({
+      type: "subagent_progress", payload: {
+        parentToolCallId: "new-root", detached: true,
+        progress: {
+          id: "worker", index: 0, agent: "explore", status: "running",
+          tokens: 40, toolCount: 2, durationMs: 2_000,
+        },
+      },
+    });
+    await liveMessage(coordinator, "worker", assistant("New run is active.", 20), "New run is active.");
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(messageCloses(deltas).at(-1)).toMatchObject({
+      providerTurnId: childTurn("worker"), key: { parentRef: providerId("worker") },
+    });
+    const beforeLateOld = deltas.length;
+
+    expect(await coordinator.handleEvent({
+      type: "tool_execution_update", toolName: "task", toolCallId: "old-root",
+      partialResult: { details: { progress: [{
+        id: "worker", index: 0, agent: "explore", status: "completed",
+        tokens: 70, toolCount: 3, durationMs: 5_000,
+      }] } },
+    })).toBe(true);
+    expect(workflowSnapshots(deltas).filter((item) => item.familyId === oldFamily).at(-1)).toMatchObject({
+      familyId: oldFamily, status: "pending", taskStatus: "running",
+      workflow: { agents: [{ id: "worker", index: 1, state: "done", tokens: 70, toolCalls: 3 }] },
+    });
+    expect(await coordinator.handleEvent({
+      type: "tool_execution_end", toolName: "task", toolCallId: "old-root",
+      result: { details: { results: [{
+        id: "worker", index: 0, agent: "explore", exitCode: 0,
+        output: "Old authoritative result.", tokens: 25, durationMs: 1_500,
+      }] } },
+    })).toBe(true);
+
+    const lateOld = deltas.slice(beforeLateOld);
+    expect(toolRows(lateOld)).toEqual([]);
+    expect(delegationCloses(lateOld)).toEqual([]);
+    expect(lateOld.filter((delta) => delta.kind === "turn.boundary")).toEqual([]);
+    expect(workflowCloses(lateOld)).toEqual([
+      expect.objectContaining({
+        key: { providerItemId: oldFamily }, status: "completed",
+        item: expect.objectContaining({
+          familyId: oldFamily, taskStatus: "completed",
+          usage: { totalTokens: 25, toolUses: 3, durationMs: 1_500 },
+          workflow: expect.objectContaining({ agents: [
+            expect.objectContaining({
+              id: "worker", index: 1, state: "done", tokens: 25, toolCalls: 3,
+              durationMs: 1_500, resultPreview: "Old authoritative result.",
+            }),
+          ] }),
+        }),
+      }),
+    ]);
+    expect(workflowSnapshots(deltas).filter((item) => item.familyId === newFamily).at(-1)).toMatchObject({
+      familyId: newFamily, taskStatus: "running", status: "pending",
+      usage: { totalTokens: 40, toolUses: 2, durationMs: 2_000 },
+      workflow: { agents: [{
+        id: "worker", index: 1, state: "running", tokens: 40, toolCalls: 2,
+        resultPreview: "New run is active.",
+      }] },
+    });
+    expect(agentRosters(deltas).at(-1)?.agents).toEqual([
+      expect.objectContaining({
+        id: "worker", status: "running", tokens: 40, toolCount: 2, durationMs: 2_000,
+      }),
+    ]);
+    const beforeNewResult = deltas.length;
+    expect(await coordinator.handleEvent({
+      type: "tool_execution_end", toolName: "task", toolCallId: "new-root",
+      result: { details: { results: [{
+        id: "worker", index: 0, agent: "explore", exitCode: 0,
+        output: "New authoritative result.", tokens: 45, durationMs: 2_500,
+      }] } },
+    })).toBe(true);
+
+    expect(workflowCloses(deltas).map((delta) => delta.key.providerItemId)).toEqual([oldFamily, newFamily]);
+    expect(delegationCloses(deltas.slice(beforeNewResult))).toEqual([
+      expect.objectContaining({
+        key: { providerItemId: providerId("worker") }, status: "completed",
+        item: expect.objectContaining({ childRef: "worker", summary: expect.stringContaining("45 tokens") }),
+      }),
+    ]);
+    expect(workflowSnapshots(deltas).filter((item) => item.familyId === oldFamily).at(-1)).toMatchObject({
+      taskStatus: "completed", usage: { totalTokens: 25, toolUses: 3, durationMs: 1_500 },
+      workflow: { agents: [{ id: "worker", state: "done", tokens: 25, resultPreview: "Old authoritative result." }] },
+    });
+    expect(workflowSnapshots(deltas).filter((item) => item.familyId === newFamily).at(-1)).toMatchObject({
+      taskStatus: "completed", usage: { totalTokens: 45, toolUses: 2, durationMs: 2_500 },
+      workflow: { agents: [{ id: "worker", state: "done", tokens: 45, resultPreview: "New authoritative result." }] },
+    });
+    expect(new Set(workflowSnapshots(deltas).map((item) => item.familyId))).toEqual(new Set([oldFamily, newFamily]));
+    expect(assembler.getOpenTurnId(THREAD)).toBe(rootTurnId);
+  });
+
+  it("ignores retired spawning-call details after a terminal but still-open worker wakes under the same root call", async () => {
+    vi.useFakeTimers();
+    const { coordinator, deltas, assembler, rootTurnId } = createHarness();
+    const familyId = `omp-subagents:${SESSION}:root-batch`;
+    await coordinator.onTurnStart();
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "root-batch", args: { name: "worker" },
+    });
+    await coordinator.handleEvent(lifecycle("worker", "started", {
+      detached: true, parentToolCallId: "root-batch",
+    }));
+    await liveMessage(coordinator, "worker", assistant("Initial run finding.", 10), "Initial run finding.");
+    await coordinator.handleEvent({
+      type: "subagent_progress", payload: {
+        parentToolCallId: "root-batch", detached: true,
+        progress: {
+          id: "worker", index: 0, agent: "explore", status: "running",
+          tokens: 16, toolCount: 1, durationMs: 1_000,
+        },
+      },
+    });
+    await coordinator.handleEvent(lifecycle("worker", "completed", { parentToolCallId: "root-batch" }));
+    expect(delegationCloses(deltas)).toEqual([]);
+    expect(workflowCloses(deltas)).toEqual([]);
+    const beforeWake = deltas.length;
+
+    await coordinator.handleEvent(lifecycle("worker", "started", {
+      detached: true, parentToolCallId: "root-batch",
+    }));
+
+    expect(deltas.slice(beforeWake)).toContainEqual(expect.objectContaining({
+      kind: "item.open", key: { providerItemId: providerId("worker") },
+      item: expect.objectContaining({ type: "delegation", childRef: "worker" }),
+    }));
+    expect(messageCloses(deltas.slice(beforeWake))).toEqual([]);
+    expect(workflowSnapshots(deltas).at(-1)).toMatchObject({
+      familyId, taskStatus: "running", usage: { totalTokens: 0, toolUses: 0 },
+      workflow: { agents: [{ id: "worker", index: 1, state: "running", tokens: 0, toolCalls: 0 }] },
+    });
+    await coordinator.handleEvent({
+      type: "subagent_progress", payload: {
+        parentToolCallId: "root-batch", detached: true,
+        progress: {
+          id: "worker", index: 0, agent: "explore", status: "running",
+          tokens: 35, toolCount: 2, durationMs: 1_500,
+        },
+      },
+    });
+    await liveMessage(coordinator, "worker", assistant("Woken run finding.", 20), "Woken run finding.");
+    await vi.advanceTimersByTimeAsync(2_000);
+    const beforeRetiredDetails = deltas.length;
+
+    expect(await coordinator.handleEvent({
+      type: "tool_execution_update", toolName: "task", toolCallId: "root-batch",
+      partialResult: { details: { progress: [{
+        id: "worker", index: 0, agent: "explore", status: "completed",
+        tokens: 400, toolCount: 40, durationMs: 40_000,
+      }] } },
+    })).toBe(true);
+    expect(await coordinator.handleEvent({
+      type: "tool_execution_end", toolName: "task", toolCallId: "root-batch",
+      result: { details: { results: [{
+        id: "worker", index: 0, agent: "explore", exitCode: 0,
+        output: "Retired spawning-call result.", tokens: 500, durationMs: 50_000,
+      }] } },
+    })).toBe(true);
+
+    const retiredDetails = deltas.slice(beforeRetiredDetails);
+    expect(toolRows(retiredDetails)).toEqual([]);
+    expect(delegationCloses(retiredDetails)).toEqual([]);
+    expect(workflowCloses(retiredDetails)).toEqual([]);
+    expect(retiredDetails.filter((delta) => delta.kind === "turn.boundary")).toEqual([]);
+    expect(workflowSnapshots(deltas).at(-1)).toMatchObject({
+      familyId, taskStatus: "running", status: "pending",
+      usage: { totalTokens: 35, toolUses: 2, durationMs: 1_500 },
+      workflow: { agents: [{
+        id: "worker", index: 1, state: "running", tokens: 35, toolCalls: 2,
+        resultPreview: "Woken run finding.",
+      }] },
+    });
+    expect(agentRosters(deltas).at(-1)?.agents).toEqual([
+      expect.objectContaining({
+        id: "worker", status: "running", tokens: 35, toolCount: 2, durationMs: 1_500,
+      }),
+    ]);
+    const beforeCurrentCompletion = deltas.length;
+    await coordinator.handleEvent({
+      type: "subagent_progress", payload: {
+        parentToolCallId: "root-batch", detached: true,
+        progress: {
+          id: "worker", index: 0, agent: "explore", status: "running",
+          tokens: 45, toolCount: 3, durationMs: 2_000,
+        },
+      },
+    });
+    await coordinator.handleEvent(lifecycle("worker", "completed", { parentToolCallId: "root-batch" }));
+
+    expect(workflowCloses(deltas)).toEqual([
+      expect.objectContaining({
+        key: { providerItemId: familyId }, status: "completed",
+        item: expect.objectContaining({
+          familyId, taskStatus: "completed",
+          usage: { totalTokens: 45, toolUses: 3, durationMs: 2_000 },
+          workflow: expect.objectContaining({ agents: [
+            expect.objectContaining({
+              id: "worker", index: 1, state: "done", tokens: 45, toolCalls: 3,
+              resultPreview: "Woken run finding.",
+            }),
+          ] }),
+        }),
+      }),
+    ]);
+    expect(delegationCloses(deltas.slice(beforeCurrentCompletion))).toEqual([
+      expect.objectContaining({
+        key: { providerItemId: providerId("worker") }, status: "completed",
+        item: expect.objectContaining({ childRef: "worker", summary: expect.stringContaining("45 tokens") }),
+      }),
+    ]);
+    expect(messageCloses(deltas).map((delta) => delta.text)).toEqual([
+      "Initial run finding.", "Woken run finding.",
+    ]);
+    expect(new Set(messageCloses(deltas).map((delta) => delta.key.providerItemId)).size).toBe(2);
+    for (const message of messageCloses(deltas)) {
+      expect(message).toMatchObject({
+        providerTurnId: childTurn("worker"), key: { parentRef: providerId("worker") },
+      });
+    }
+    expect(new Set(workflowSnapshots(deltas).map((item) => item.familyId))).toEqual(new Set([familyId]));
+    expect(assembler.getOpenTurnId(THREAD)).toBe(rootTurnId);
+  });
+
+  it("does not reopen an interrupted root family for late native cancellation decoration", async () => {
+    vi.useFakeTimers();
+    const { coordinator, rpc, deltas, assembler, rootTurnId } = createHarness();
+    const familyId = `omp-subagents:${SESSION}:root-batch`;
+    await coordinator.onTurnStart();
+    await coordinator.handleEvent({
+      type: "tool_execution_start", toolName: "task", toolCallId: "root-batch", args: { name: "worker" },
+    });
+    await coordinator.handleEvent(lifecycle("worker", "started", {
+      detached: true, parentToolCallId: "root-batch",
+    }));
+    await liveMessage(coordinator, "worker", assistant("Still working.", 10), "Still working.");
+    await coordinator.handleEvent({
+      type: "subagent_progress", payload: {
+        parentToolCallId: "root-batch", detached: true,
+        progress: {
+          id: "worker", index: 0, agent: "explore", status: "running",
+          tokens: 1_200, toolCount: 1, durationMs: 2_000,
+        },
+      },
+    });
+    rpc.cancelSubagent.mockResolvedValue(true);
+
+    await coordinator.interrupt("Thread interrupted");
+
+    expect(rpc.cancelSubagent.mock.calls).toEqual([["worker"]]);
+    expect(workflowCloses(deltas)).toEqual([
+      expect.objectContaining({
+        key: { providerItemId: familyId }, status: "interrupted",
+        item: expect.objectContaining({ familyId, taskStatus: "stopped" }),
+      }),
+    ]);
+    const beforeQueuedFrames = deltas.length;
+    const aborted = {
+      ...assistant("", 20), stopReason: "aborted", errorMessage: "Subagent cancelled",
+    };
+    await liveMessage(coordinator, "worker", aborted, "");
+    await child(coordinator, "worker", { type: "agent_end", messages: [aborted] });
+    await coordinator.handleEvent(lifecycle("worker", "aborted", {
+      detached: true, parentToolCallId: "root-batch",
+    }));
+    await vi.advanceTimersByTimeAsync(2_000);
+
+    const late = deltas.slice(beforeQueuedFrames);
+    expect(late).toContainEqual(expect.objectContaining({
+      kind: "item.progress", key: { providerItemId: familyId }, flush: true,
+      snapshot: expect.objectContaining({
+        type: "backgroundTask", familyId, status: "interrupted", taskStatus: "stopped",
+        usage: { totalTokens: 1_200, toolUses: 1, durationMs: 2_000 },
+        workflow: expect.objectContaining({ agents: [
+          expect.objectContaining({
+            id: "worker", state: "skipped", tokens: 1_200, toolCalls: 1,
+            error: "Subagent cancelled",
+          }),
+        ] }),
+      }),
+    }));
+    expect(late).not.toContainEqual(expect.objectContaining({
+      kind: "item.open", item: expect.objectContaining({ type: "backgroundTask" }),
+    }));
+    expect(late).not.toContainEqual(expect.objectContaining({
+      kind: "item.open", item: expect.objectContaining({ type: "delegation" }),
+    }));
+    expect(workflowCloses(late)).toEqual([]);
+    expect(delegationCloses(late)).toEqual([]);
+    expect(late.filter((delta) => delta.kind === "turn.boundary")).toEqual([]);
+    expect(workflowCloses(deltas)).toEqual([
+      expect.objectContaining({
+        key: { providerItemId: familyId }, status: "interrupted",
+        item: expect.objectContaining({ familyId, taskStatus: "stopped" }),
+      }),
+    ]);
+    expect(delegationCloses(deltas)).toEqual([
+      expect.objectContaining({
+        key: { providerItemId: providerId("worker") }, status: "interrupted",
+        item: expect.objectContaining({ childRef: "worker" }),
+      }),
+    ]);
+    expect(deltas.filter((delta) => delta.kind === "turn.boundary")).toEqual([
+      { kind: "turn.boundary", providerTurnId: childTurn("worker"), status: "interrupted" },
+    ]);
+    expect(new Set(workflowSnapshots(deltas).map((item) => item.familyId))).toEqual(new Set([familyId]));
+    expect(assembler.getOpenTurnId(THREAD)).toBe(rootTurnId);
+  });
+
+  it.each(["subagent_progress", "tool_execution_update"] as const)(
+    "resnapshots identical active descendant %s only in its owning root family",
+    async (type) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(1_000);
+      const { coordinator, deltas } = createHarness();
+      const familyId = `omp-subagents:${SESSION}:root-batch`;
+      const otherFamily = `omp-subagents:${SESSION}:other-root`;
+      await coordinator.onTurnStart();
+      await coordinator.handleEvent({
+        type: "tool_execution_start", toolName: "task", toolCallId: "root-batch", args: { name: "parent" },
+      });
+      await coordinator.handleEvent(lifecycle("parent", "started", {
+        detached: true, parentToolCallId: "root-batch",
+      }));
+      await coordinator.handleEvent({
+        type: "tool_execution_start", toolName: "task", toolCallId: "other-root", args: { name: "other" },
+      });
+      await coordinator.handleEvent(lifecycle("other", "started", {
+        detached: true, parentToolCallId: "other-root",
+      }));
+      await child(coordinator, "parent", {
+        type: "tool_execution_start", toolName: "task", toolCallId: "nested-task",
+        args: { name: "parent.child" },
+      });
+      await coordinator.handleEvent(lifecycle("parent.child", "started", { parentToolCallId: "nested-task" }));
+      const progress = {
+        id: "parent.child", index: 0, agent: "explore", status: "running",
+        tokens: 25, toolCount: 2, durationMs: 500,
+        currentTool: "read", currentToolIntent: "Checking the same descendant",
+      };
+      const progressEvent = type === "subagent_progress"
+        ? { type, payload: { parentToolCallId: "nested-task", progress } }
+        : {
+          type: "subagent_event", payload: {
+            id: "parent", event: {
+              type, toolName: "task", toolCallId: "nested-task",
+              partialResult: { details: { progress: [progress] } },
+            },
+          },
+        };
+      await coordinator.handleEvent(progressEvent);
+      const beforeRoot = workflowSnapshots(deltas).filter((item) => item.familyId === familyId).at(-1);
+      const beforeOther = workflowSnapshots(deltas).filter((item) => item.familyId === otherFamily).at(-1);
+      expect(beforeRoot).toMatchObject({
+        familyId, taskStatus: "running", usage: { totalTokens: 25, toolUses: 2, durationMs: 500 },
+        workflow: { agents: [
+          { id: "parent", index: 1, state: "running" },
+          { id: "parent.child", parentId: "parent", index: 2, state: "running", tokens: 25, toolCalls: 2 },
+        ] },
+      });
+      expect(beforeOther).toMatchObject({
+        familyId: otherFamily, taskStatus: "running",
+        workflow: { agents: [{ id: "other", index: 1, state: "running", tokens: 0 }] },
+      });
+      const beforeIdentical = deltas.length;
+
+      expect(await coordinator.handleEvent(progressEvent)).toBe(true);
+
+      const repeated = workflowSnapshots(deltas.slice(beforeIdentical));
+      expect(repeated.length).toBeGreaterThan(0);
+      for (const item of repeated) {
+        expect(item.familyId).toBe(familyId);
+        expect(item).toEqual(beforeRoot);
+      }
+      expect(repeated.filter((item) => item.familyId === otherFamily)).toEqual([]);
+      expect(workflowSnapshots(deltas).filter((item) => item.familyId === otherFamily).at(-1)).toEqual(beforeOther);
+      expect(workflowCloses(deltas)).toEqual([]);
+    },
+  );
 });

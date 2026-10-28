@@ -106,7 +106,6 @@ describe("buildOmpSessionParams", () => {
     expect(params).not.toHaveProperty("thinkingLevel");
     expect(buildOmpTurnOptions(options)).toEqual({
       model: "preset:best-coder",
-      fastModeEnabled: undefined,
       sessionControls: {},
       thinkingLevel: undefined,
     });
@@ -134,7 +133,6 @@ describe("buildOmpSessionParams", () => {
       ).toBe(thinkingLevel);
       expect(buildOmpTurnOptions(options)).toEqual({
         model: "openai/gpt-5.2",
-        fastModeEnabled: undefined,
         sessionControls: {},
         thinkingLevel,
       });
@@ -158,56 +156,20 @@ describe("buildOmpSessionParams", () => {
     },
   );
 
-  it.each([
-    ["fast", true],
-    ["default", false],
-    [undefined, undefined],
-    ["unknown", undefined],
-  ] as const)(
-    "maps service tier %s to fast mode %s for sessions and turns",
-    (serviceTier, fastModeEnabled) => {
-      const options = { serviceTier };
-      expect(
-        buildOmpSessionParams({
-          threadId: "bb-thread-1",
-          cwd: "/tmp/worktree",
-          instructionMode: "append",
-          options,
-        }).fastModeEnabled,
-      ).toBe(fastModeEnabled);
-      expect(buildOmpTurnOptions(options).fastModeEnabled).toBe(fastModeEnabled);
-    },
-  );
-
-  it("leaves native fast mode unchanged when the service tier is omitted", () => {
+  it("ignores a saved service tier so omp's /fast stays in charge", () => {
+    const options = { model: "openai/gpt-5.2", serviceTier: "fast" };
     const params = buildOmpSessionParams({
       threadId: "bb-thread-1",
       cwd: "/tmp/worktree",
       instructionMode: "append",
-      options: {},
+      options,
     });
     expect(params).not.toHaveProperty("fastModeEnabled");
+    expect(buildOmpTurnOptions(options)).not.toHaveProperty("fastModeEnabled");
   });
 
-  it("projects explicit session controls for startup and subsequent turns", () => {
-    const options = {
-      sessionOptions: {
-        steeringMode: "one-at-a-time",
-        followUpMode: "all",
-        interruptMode: "wait",
-        autoCompactionEnabled: "off",
-        autoRetryEnabled: "on",
-        cacheWarmingMode: "streaming",
-      },
-    };
-    const sessionControls = {
-      steeringMode: "one-at-a-time",
-      followUpMode: "all",
-      interruptMode: "wait",
-      autoCompactionEnabled: false,
-      autoRetryEnabled: true,
-      cacheWarmingMode: "streaming",
-    };
+  it("projects an explicit slow mode choice for startup and subsequent turns", () => {
+    const options = { sessionOptions: { slowModeEnabled: "on" } };
     expect(
       buildOmpSessionParams({
         threadId: "bb-thread-1",
@@ -215,22 +177,23 @@ describe("buildOmpSessionParams", () => {
         instructionMode: "append",
         options,
       }).sessionControls,
-    ).toEqual(sessionControls);
-    expect(buildOmpTurnOptions(options).sessionControls).toEqual(sessionControls);
+    ).toEqual({ slowModeEnabled: true });
+    expect(buildOmpTurnOptions(options).sessionControls).toEqual({ slowModeEnabled: true });
   });
 
   it.each<Record<string, string | boolean> | undefined>([
     undefined,
     {},
-    {
-      steeringMode: "native",
-      followUpMode: "native",
-      interruptMode: "native",
-      autoCompactionEnabled: "native",
-      autoRetryEnabled: "native",
-      cacheWarmingMode: "native",
-    },
+    { slowModeEnabled: "native" },
     { futureOption: "enabled" },
+    {
+      steeringMode: "all",
+      followUpMode: "all",
+      interruptMode: "wait",
+      autoCompactionEnabled: "off",
+      autoRetryEnabled: "off",
+      cacheWarmingMode: "streaming",
+    },
   ])("does not override native session controls for %j", (sessionOptions) => {
     const options = { sessionOptions };
     expect(
@@ -245,7 +208,7 @@ describe("buildOmpSessionParams", () => {
   });
 
   it("rejects invalid controls before constructing startup or turn options", () => {
-    const options = { sessionOptions: { interruptMode: "later" } };
+    const options = { sessionOptions: { slowModeEnabled: "later" } };
     expect(() =>
       buildOmpSessionParams({
         threadId: "bb-thread-1",
@@ -253,8 +216,8 @@ describe("buildOmpSessionParams", () => {
         instructionMode: "append",
         options,
       }),
-    ).toThrow(/interruptMode.*later/u);
-    expect(() => buildOmpTurnOptions(options)).toThrow(/interruptMode.*later/u);
+    ).toThrow(/slowModeEnabled.*later/u);
+    expect(() => buildOmpTurnOptions(options)).toThrow(/slowModeEnabled.*later/u);
   });
 
   it("routes instructions by mode", () => {
