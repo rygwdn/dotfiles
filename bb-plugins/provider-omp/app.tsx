@@ -44,7 +44,7 @@ import {
   OMP_HUB_PANEL_ACTION_ID,
 } from "./src/hub-contract.js";
 import { OmpHubPanel } from "./src/hub/hub-panel.js";
-import { OmpAgentDetailsDirective } from "./src/hub/hub-navigation.js";
+import { OmpAgentDetailsDirective, OmpHubHeaderAction } from "./src/hub/hub-navigation.js";
 import { OmpModelPresetsEditor } from "./src/model-presets-editor.js";
 
 function parseRequest(payload: unknown): OmpExtensionUiPayloadData | null {
@@ -848,6 +848,11 @@ export default definePluginApp((app) => {
     context: { kind: "thread" },
     availability: "action",
     component: OmpHubPanel,
+  });
+  app.slots.experimental_threadHeaderAction({
+    id: "omp-hub",
+    title: "omp Hub",
+    component: OmpHubHeaderAction,
   });
   app.slots.messageDirective({
     id: OMP_AGENT_DETAILS_DIRECTIVE,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSdk, type ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
+import { Markdown, useSdk, type ExperimentalThreadActionTabProps } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import {
@@ -164,7 +164,7 @@ function ThreadHub({ threadId, params }: ExperimentalThreadActionTabProps) {
       <section aria-label="Context notes" className="min-w-0 space-y-3">
         <h2 className="text-sm font-semibold">Context notes</h2>
         {contextNotes?.text ? (
-          <p className="whitespace-pre-wrap break-words text-xs">{contextNotes.text}</p>
+          <Markdown content={contextNotes.text} className="min-w-0 break-words text-xs" />
         ) : (
           <p role="status" className="text-xs text-muted-foreground">No context notes in this session.</p>
         )}

@@ -5,12 +5,19 @@ import {
   useSdk,
   type JsonValue,
   type PluginMessageDirectiveProps,
+  type PluginThreadHeaderActionProps,
 } from "@get-bb/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import {
+  OMP_AGENTS_STATE_KIND,
+  OMP_CONTEXT_NOTES_STATE_KIND,
   OMP_HUB_PANEL_ACTION_ID,
+  ompAgentsStateSchema,
+  ompContextNotesStateSchema,
   ompHubPanelParamsSchema,
 } from "../hub-contract.js";
+import { useLatestExtensionState } from "./use-extension-state.js";
 
 interface HubSelection {
   params: JsonValue | null;
@@ -74,6 +81,42 @@ export function useHubSelection(threadId: string, params: JsonValue | null) {
   }, [threadId, selection]);
 
   return [agentId, (id: string | undefined) => selectAgent(selection, id)] as const;
+}
+
+export function OmpHubHeaderAction({ threadId }: PluginThreadHeaderActionProps) {
+  const navigate = useBbNavigate();
+  const roster = useLatestExtensionState(threadId, OMP_AGENTS_STATE_KIND, ompAgentsStateSchema);
+  const contextNotes = useLatestExtensionState(threadId, OMP_CONTEXT_NOTES_STATE_KIND, ompContextNotesStateSchema);
+  const agents = roster?.agents;
+  const activeJobs = agents?.filter((agent) => agent.status === "pending" || agent.status === "running").length;
+  const noteActive = Boolean(contextNotes?.text);
+  const availability = [
+    activeJobs === undefined ? null : `${activeJobs} active job${activeJobs === 1 ? "" : "s"}`,
+    noteActive ? "active context note" : "no active context note",
+  ].filter((value): value is string => value !== null);
+  const label = `omp Hub: ${availability.join(", ")}`;
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      aria-label={label}
+      onClick={() => navigate.openThreadPanel({ actionId: OMP_HUB_PANEL_ACTION_ID, title: "omp Hub" })}
+    >
+      {activeJobs !== undefined ? (
+        <span aria-hidden="true" className="inline-flex items-center gap-0.5">
+          <Icon name="Clock" className="size-3" />
+          {activeJobs}
+        </span>
+      ) : null}
+      <Icon
+        aria-hidden="true"
+        name="FileText"
+        className={noteActive ? "size-3 text-foreground" : "size-3 text-muted-foreground grayscale"}
+      />
+    </Button>
+  );
 }
 
 export function OmpAgentDetailsDirective({

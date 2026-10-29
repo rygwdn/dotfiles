@@ -29,6 +29,8 @@ const panel = app.tabs.find((tab): tab is ThreadActionTab =>
   tab.availability === "action"
 )!;
 
+const hubHeaderAction = app.threadHeaderActions.find((action) => action.id === OMP_HUB_PANEL_ACTION_ID)!;
+
 function agent(id: string, overrides: Partial<OmpHubAgent> = {}): OmpHubAgent {
   return {
     id,
@@ -194,12 +196,12 @@ afterEach(() => {
 });
 
 describe("omp Hub", () => {
-  it("renders context notes as read-only text and refreshes their latest state", async () => {
-    const text = "Keep this decision.\n<experimental-context-notes>literal closing tag: </experimental-context-notes>\n<script>not executable</script>";
+  it("renders context notes as read-only Markdown and refreshes their latest state", async () => {
+    const text = "**Keep this decision.**\n<experimental-context-notes>literal closing tag: </experimental-context-notes>\n<script>not executable</script>";
     const fixture = host("hub-context-notes", [], text);
     const view = renderHub("hub-context-notes", fixture.sdk);
     const section = await view.findByRole("region", { name: "Context notes" });
-    await vi.waitFor(() => expect(section.textContent).toContain(text));
+    await vi.waitFor(() => expect(within(section).getByTestId("bb-markdown").textContent).toBe(text));
     expect(section.querySelector("script")).toBeNull();
     expect(within(section).queryByRole("textbox")).toBeNull();
     expect(within(section).queryByRole("button")).toBeNull();
@@ -213,6 +215,33 @@ describe("omp Hub", () => {
     await act(async () => fixture.changed());
     await vi.waitFor(() => expect(within(section).getByRole("status").textContent).toBe("No context notes in this session."));
     expect(section.textContent).not.toContain("Updated notebook");
+  });
+
+  it("shows compact Hub availability indicators and opens its sidebar", async () => {
+    const fixture = host("hub-header-action", [
+      agent("complete-one", { status: "completed" }),
+      agent("complete-two", { status: "completed" }),
+    ], "Keep the active decision.");
+    const view = renderSlot(hubHeaderAction, {
+      threadId: "hub-header-action",
+      projectId: "project_test",
+      isCompactViewport: false,
+    }, { sdk: fixture.sdk });
+    const button = await view.findByRole("button", { name: "omp Hub: 0 active jobs, active context note" });
+    expect(button.textContent).toBe("0");
+    expect(button.querySelector(".text-foreground")).not.toBeNull();
+
+    fixture.setContextNotes("");
+    await act(async () => fixture.changed());
+    const inactiveButton = await view.findByRole("button", { name: "omp Hub: 0 active jobs, no active context note" });
+    expect(inactiveButton.querySelector(".text-muted-foreground.grayscale")).not.toBeNull();
+
+    fireEvent.click(button);
+
+    expect(view.inspection.navigateCalls).toEqual([{
+      method: "openThreadPanel",
+      options: { actionId: OMP_HUB_PANEL_ACTION_ID, title: "omp Hub" },
+    }]);
   });
 
   it.each([undefined, ""])("shows an accessible empty state for context notes %s", async (text) => {
