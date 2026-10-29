@@ -20,6 +20,7 @@ import {
   OMP_NOTICE_KIND,
   OMP_CARD_KIND,
   ompCardSchema,
+  OMP_TOOL_BODY_LIMITS,
 } from "./src/extension-ui-contract.js";
 import { ompProviderDeclaration } from "./src/declaration.js";
 import { DEFAULT_OMP_MODEL_FILTER } from "./src/model-curation.js";
@@ -168,8 +169,10 @@ function renderStatus(
 }
 
 function renderTimeline(
-  kind: typeof OMP_NOTICE_KIND | typeof OMP_CARD_KIND,
+  kind: typeof OMP_NOTICE_KIND | typeof OMP_CARD_KIND | "tool",
   payload: JsonValue,
+  toolName: string | null = null,
+  status: PluginTimelineRendererProps["row"]["status"] = "completed",
 ) {
   const props: PluginTimelineRendererProps = {
     row: {
@@ -177,8 +180,8 @@ function renderTimeline(
       threadId: "thr_test",
       turnId: "turn_test",
       kind,
-      toolName: null,
-      status: "completed",
+      toolName,
+      status,
       startedAt: 0,
       completedAt: 1,
     },
@@ -196,6 +199,14 @@ function renderNotice(payload: JsonValue) {
 
 function renderCard(payload: JsonValue) {
   return renderTimeline(OMP_CARD_KIND, payload);
+}
+
+function renderTool(
+  toolName: string,
+  payload: JsonValue,
+  status: PluginTimelineRendererProps["row"]["status"] = "completed",
+) {
+  return renderTimeline("tool", payload, toolName, status);
 }
 
 const lifecycleRequest = {
@@ -1310,4 +1321,209 @@ describe("omp structured card timeline renderer", () => {
     expect(view.queryByRole("note")).toBeNull();
     expect(view.queryByTestId("bb-markdown")).toBeNull();
   });
+});
+
+describe("omp generic tool timeline renderer", () => {
+  it("registers a generic body renderer without replacing notice or card kinds", () => {
+    expect(app.timelineRenderers.map((renderer) => renderer.kind))
+      .toEqual(expect.arrayContaining(["tool", OMP_NOTICE_KIND, OMP_CARD_KIND]));
+  });
+
+  it.each(["read", "grep", "glob", "find", "ast_grep", "web_search", "write", "edit"])(
+    "renders %s arguments and raw text output without ANSI or HTML interpretation",
+    (toolName) => {
+      const view = renderTool(toolName, {
+        arguments: { i: "\u001b[32mInspecting source details\u001b[0m", path: "src/app.ts:1-20" },
+        output: { content: [{ type: "text", text: "\u001b[31m<strong>Literal result</strong>\nline 2\u001b[0m" }] },
+      });
+      expect(view.getByRole("region", { name: `OMP ${toolName} tool details` })).toBeDefined();
+      const argumentsBody = view.getByRole("region", { name: "Arguments" }).querySelector("pre")!;
+      expect(argumentsBody.textContent).toContain("Inspecting source details");
+      expect(argumentsBody.textContent).toContain("src/app.ts:1-20");
+      expect(argumentsBody.textContent).not.toContain("\u001b");
+      expect(argumentsBody.textContent).not.toContain("\\u001b");
+      const output = view.getByRole("region", { name: "Output" }).querySelector("pre")!;
+      expect(output.textContent).toBe("<strong>Literal result</strong>\nline 2");
+      expect(output.querySelector("strong")).toBeNull();
+      expect(view.queryByText("Original timeline body")).toBeNull();
+      expect(view.queryByRole("note")).toBeNull();
+    },
+  );
+
+  it.each(["src/app.ts:1-20", "src/", "https://example.com/docs"])(
+    "keeps the read target visible for %s",
+    (path) => {
+      const view = renderTool("read", { arguments: { i: "Reading target", path }, output: "Read result" });
+      expect(view.getByRole("region", { name: "Arguments" }).textContent).toContain(path);
+      expect(view.getByRole("region", { name: "Output" }).textContent).toContain("Read result");
+    },
+  );
+
+  it("preserves freeform edit arguments", () => {
+    const patch = "*** Begin Patch\n*** Update File: src/app.ts\n+new line\n*** End Patch";
+    const view = renderTool("edit", { arguments: patch, output: "Applied patch" });
+    expect(view.getByRole("region", { name: "Arguments" }).querySelector("pre")!.textContent).toBe(patch);
+    expect(view.getByText("Applied patch")).toBeDefined();
+  });
+
+  it("renders the bridge's freeform edit envelope as a raw patch", () => {
+    const patch = "*** Begin Patch\n*** Update File: src/app.ts\n+new line\n*** End Patch";
+    const view = renderTool("edit", { arguments: { input: patch }, output: "Applied patch" });
+    expect(view.getByRole("region", { name: "Arguments" }).querySelector("pre")!.textContent).toBe(patch);
+  });
+
+  it("does not unwrap normal edit objects with additional argument fields", () => {
+    const view = renderTool("edit", {
+      arguments: { input: "patch contents", i: "Editing source" },
+      output: "Applied patch",
+    });
+    const argumentsText = view.getByRole("region", { name: "Arguments" }).querySelector("pre")!.textContent;
+    expect(argumentsText).toContain('"input": "patch contents"');
+    expect(argumentsText).toContain('"i": "Editing source"');
+  });
+
+  it("keeps raw errors and safe result URLs visible and linkable", () => {
+    const artifact = "artifact://tool-error-42";
+    const source = "https://example.com/diagnostic?code=42";
+    const diagnostic = `ENOENT: missing source file\nRaw diagnostic\n${artifact}\n${source}\njavascript:alert(1)`;
+    const view = renderTool("read", {
+      arguments: { path: "missing.ts" },
+      output: `\u001b[31m${diagnostic}\u001b[0m`,
+    }, "error");
+    expect(view.getByRole("region", { name: "Error output" }).querySelector("pre")!.textContent)
+      .toBe(diagnostic);
+    expect(view.getByRole("link", { name: artifact }).getAttribute("href")).toBe(artifact);
+    expect(view.getByRole("link", { name: source }).getAttribute("href")).toBe(source);
+    expect(view.queryByRole("link", { name: "javascript:alert(1)" })).toBeNull();
+  });
+
+  it("preserves result metadata and error details beside text blocks", () => {
+    const view = renderTool("grep", {
+      arguments: { pattern: "needle" },
+      output: {
+        content: [{ type: "text", text: "Execution failed" }, { type: "text", text: "Original diagnostic" }],
+        isError: true,
+        details: { code: 42, reason: "\u001b[31mupstream\u001b[0m" },
+      },
+    });
+    const output = view.getByRole("region", { name: "Output" }).querySelector("pre")!.textContent;
+    expect(output).toContain("Execution failed\nOriginal diagnostic");
+    expect(output).toContain('"isError": true');
+    expect(output).toContain('"code": 42');
+    expect(output).toContain('"reason": "upstream"');
+    expect(output).not.toContain("\\u001b");
+  });
+
+  it("decodes the live SDK's JSON-string OMP output into text blocks and metadata", () => {
+    const artifact = "artifact://live-generic-output";
+    const view = renderTool("read", {
+      arguments: { i: "Reading source", path: "src/app.ts:1-20" },
+      output: `\n ${JSON.stringify({
+        content: [
+          { type: "text", text: "\u001b[32mFirst source line\u001b[0m\nSecond source line" },
+          { type: "text", text: artifact },
+        ],
+        details: { diagnostic: "\u001b[31mOriginal diagnostic\u001b[0m" },
+      })}`,
+    });
+    const outputText = view.getByRole("region", { name: "Output" }).querySelector("pre")!.textContent!;
+    expect(outputText).toContain(`First source line\nSecond source line\n${artifact}`);
+    expect(outputText).toContain('"diagnostic": "Original diagnostic"');
+    expect(outputText).not.toContain('"content"');
+    expect(outputText).not.toContain("\\u001b");
+    expect(outputText).not.toContain("\\n");
+    expect(view.getByRole("link", { name: artifact }).getAttribute("href")).toBe(artifact);
+    expect(view.queryByText("Original timeline body")).toBeNull();
+  });
+
+  it.each([
+    '{"content":',
+    '{"error":"Unrecognized diagnostic"}',
+    '{"content":[{"type":"text","text":42}]}',
+    '{"content":[{"type":"image","mimeType":"image/png","data":"aW1hZ2U="}]}',
+    '[{"type":"text","text":"Array output"}]',
+    '"JSON string output"',
+  ])("preserves raw string output for malformed or unsupported JSON: %s", (output) => {
+    const view = renderTool("read", { arguments: { path: "source.ts" }, output });
+    expect(view.getByRole("region", { name: "Output" }).querySelector("pre")!.textContent).toBe(output);
+    expect(view.queryByText("Original timeline body")).toBeNull();
+  });
+
+  it("bounds arguments and output while retaining the output tail and omitted artifact links", () => {
+    const artifact = "artifact://full-read-output";
+    const view = renderTool("read", {
+      arguments: { i: "Reading a large file", path: "large.txt", extra: "a".repeat(20_000) },
+      output: `First line\n${"x".repeat(20_000)}\n${artifact}\n${"y".repeat(20_000)}\nFinal diagnostic`,
+    });
+    const argumentsText = view.getByRole("region", { name: "Arguments" }).querySelector("pre")!.textContent!;
+    const outputText = view.getByRole("region", { name: "Output" }).querySelector("pre")!.textContent!;
+    expect(argumentsText.length).toBeLessThanOrEqual(OMP_TOOL_BODY_LIMITS.argumentsLength);
+    expect(argumentsText).toContain("Preview truncated");
+    expect(outputText.length).toBeLessThanOrEqual(OMP_TOOL_BODY_LIMITS.outputLength);
+    expect(outputText.startsWith("First line\n")).toBe(true);
+    expect(outputText.endsWith("Final diagnostic")).toBe(true);
+    expect(outputText).toContain("Preview truncated");
+    expect(outputText).not.toContain(artifact);
+    expect(view.getByRole("link", { name: artifact }).getAttribute("href")).toBe(artifact);
+  });
+
+  it("bounds links and prioritizes retained artifacts over web results", () => {
+    const view = renderTool("web_search", {
+      arguments: { query: "source material" },
+      output: `${Array.from({ length: 30 }, (_, index) => `https://example.com/${index}`).join("\n")}\nartifact://retained-search`,
+    });
+    expect(view.getAllByRole("link")).toHaveLength(OMP_TOOL_BODY_LIMITS.links);
+    expect(view.getByRole("link", { name: "artifact://retained-search" }).getAttribute("href"))
+      .toBe("artifact://retained-search");
+  });
+
+  it("links artifact targets in arguments even when output contains no URLs", () => {
+    const view = renderTool("read", {
+      arguments: { path: "artifact://earlier-output" },
+      output: "Artifact contents",
+    });
+    expect(view.getByRole("link", { name: "artifact://earlier-output" }).getAttribute("href"))
+      .toBe("artifact://earlier-output");
+  });
+
+  it("renders pending arguments before output arrives", () => {
+    const view = renderTool("find", { arguments: { query: "where sessions start" }, output: null }, "pending");
+    expect(view.getByText("No output yet.")).toBeDefined();
+    expect(view.queryByText("Original timeline body")).toBeNull();
+  });
+
+  const malformedPayloads: JsonValue[] = [
+    null,
+    {},
+    { arguments: { path: "source.ts" } },
+    { arguments: null, output: "Result" },
+    { arguments: [], output: "Result" },
+    { arguments: {}, output: 42 },
+    { arguments: {}, output: { error: "Unrecognized raw error shape" } },
+    { arguments: {}, output: { content: "Not an array" } },
+    { arguments: {}, output: { content: [{ type: "text", text: 42 }] } },
+    { arguments: {}, output: { content: [{ type: "image", data: "aW1hZ2U=", mimeType: "image/png" }] } },
+    { data: { arguments: {}, output: "Wrong wrapper" } },
+    {
+      arguments: {},
+      output: { content: Array.from({ length: OMP_TOOL_BODY_LIMITS.contentBlocks + 1 }, () => ({ type: "text", text: "Block" })) },
+    },
+  ];
+  it.each(malformedPayloads)("uses Original for malformed or unsupported payloads: %j", (payload) => {
+    const view = renderTool("read", payload);
+    expect(view.getByText("Original timeline body")).toBeDefined();
+    expect(view.queryByRole("region", { name: "OMP read tool details" })).toBeNull();
+  });
+
+  it.each(["eval", "tool_gateway_code_execute", "bash", "task", "wait", "think", "custom_tool"])(
+    "preserves Original for unrelated generic tool %s",
+    (toolName) => {
+      const view = renderTool(toolName, {
+        arguments: { i: "Running another tool" },
+        output: { content: [{ type: "text", text: "Unrelated output" }] },
+      });
+      expect(view.getByText("Original timeline body")).toBeDefined();
+      expect(view.queryByRole("region")).toBeNull();
+    },
+  );
 });

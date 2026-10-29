@@ -130,6 +130,33 @@ export function stripOmpAnsi(text: string): string {
   return text.replace(ompAnsiPattern, "");
 }
 
+export const OMP_TOOL_BODY_LIMITS = {
+  argumentsLength: 8192,
+  outputLength: 32768,
+  contentBlocks: 64,
+  links: 16,
+  urlLength: 2048,
+} as const;
+
+export const ompToolBodyNameSchema = z.enum([
+  "read", "grep", "glob", "find", "ast_grep", "web_search", "write", "edit",
+]);
+
+// Non-text results stay with Original rather than silently dropping attachments.
+export const ompToolBodyPayloadSchema = z.object({
+  arguments: z.union([z.string(), z.record(z.string(), z.unknown())]),
+  output: z.union([
+    z.string(),
+    z.null(),
+    z.object({
+      content: z.array(z.object({
+        type: z.literal("text"),
+        text: z.string(),
+      }).strict()).max(OMP_TOOL_BODY_LIMITS.contentBlocks),
+    }).passthrough(),
+  ]),
+});
+
 export const OMP_EXTENSION_UI_LIMITS = {
   titleLength: 160,
   payloadBytes: 64 * 1024,

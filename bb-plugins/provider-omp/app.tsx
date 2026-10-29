@@ -9,6 +9,7 @@ import {
 import {
   definePluginApp,
   Markdown,
+  UrlLink,
   experimental_usePluginId,
   useComposer,
   useSdk,
@@ -30,6 +31,9 @@ import {
   ompStatusStateSchema,
   ompNoticeSchema,
   stripOmpAnsi,
+  OMP_TOOL_BODY_LIMITS,
+  ompToolBodyNameSchema,
+  ompToolBodyPayloadSchema,
   type OmpStatusState,
   ompExtensionUiStateSchema,
   ompExtensionUiPayloadDataSchema,
@@ -692,6 +696,118 @@ function ExtensionCard({ payload, Original }: PluginTimelineRendererProps) {
   );
 }
 
+function boundedToolText(text: string, limit: number): string {
+  const clean = stripOmpAnsi(text);
+  if (clean.length <= limit) return clean;
+  const marker = "\n\n… Preview truncated …\n\n";
+  const headLength = Math.floor((limit - marker.length) / 2);
+  return clean.slice(0, headLength) + marker + clean.slice(-(limit - marker.length - headLength));
+}
+
+function toolBodyLinks(texts: string[]): string[] {
+  const links = new Set<string>();
+  // Retained-output artifacts take priority over a long list of web results.
+  for (const pattern of [
+    /artifact:\/\/[^\s<>"'\u0000-\u001f]+/giu,
+    /https?:\/\/[^\s<>"'\u0000-\u001f]+/giu,
+  ]) {
+    for (const text of texts) {
+      for (const match of text.matchAll(pattern)) {
+        const url = match[0].replace(/[),.;\]}]+$/u, "");
+        if (url.length <= OMP_TOOL_BODY_LIMITS.urlLength) links.add(url);
+        if (links.size === OMP_TOOL_BODY_LIMITS.links) return [...links];
+      }
+    }
+  }
+  return [...links];
+}
+
+function GenericToolBody({ row, payload, Original }: PluginTimelineRendererProps) {
+  if (row.kind !== "tool" || !ompToolBodyNameSchema.safeParse(row.toolName).success) {
+    return <Original />;
+  }
+  const parsed = ompToolBodyPayloadSchema.safeParse(payload);
+  if (!parsed.success) return <Original />;
+
+  let argumentsText: string;
+  let outputText: string;
+  try {
+    const args = parsed.data.arguments;
+    if (typeof args === "string") {
+      argumentsText = args;
+    } else if (row.toolName === "edit" && Object.keys(args).length === 1 && typeof args.input === "string") {
+      // The bridge envelopes freeform inputs so the SDK retains primitive args.
+      argumentsText = args.input;
+    } else {
+      argumentsText = JSON.stringify(args, (_key, value: unknown) => (
+        typeof value === "string" ? stripOmpAnsi(value) : value
+      ), 2);
+    }
+    let output = parsed.data.output;
+    if (typeof output === "string" && /^\s*\{/u.test(output)) {
+      try {
+        // Generic SDK rows serialize the raw OMP result into their output field.
+        const decoded = ompToolBodyPayloadSchema.shape.output.safeParse(JSON.parse(output));
+        if (decoded.success && decoded.data !== null && typeof decoded.data === "object") {
+          output = decoded.data;
+        }
+      } catch {
+        // Ordinary text and unrecognized JSON remain visible exactly as received.
+      }
+    }
+    if (output === null) {
+      outputText = row.status === "pending" ? "No output yet." : "No output.";
+    } else if (typeof output === "string") {
+      outputText = output;
+    } else {
+      const { content, ...metadata } = output;
+      outputText = content.map((block) => block.text).join("\n");
+      // Keep raw diagnostics/details, not just the result's text blocks.
+      if (Object.keys(metadata).length > 0) {
+        const metadataText = JSON.stringify(metadata, (_key, value: unknown) => (
+          typeof value === "string" ? stripOmpAnsi(value) : value
+        ), 2);
+        outputText += `${outputText ? "\n\n" : ""}${metadataText}`;
+      }
+    }
+  } catch {
+    return <Original />;
+  }
+  const links = toolBodyLinks([stripOmpAnsi(outputText), stripOmpAnsi(argumentsText)]);
+  const outputLabel = row.status === "error" ? "Error output" : "Output";
+  return (
+    <section
+      aria-label={`OMP ${row.toolName} tool details`}
+      className="min-w-0 space-y-3 text-xs text-foreground"
+    >
+      <section aria-label="Arguments" className="min-w-0 space-y-1">
+        <h3 className="font-medium">Arguments</h3>
+        <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono">
+          {boundedToolText(argumentsText, OMP_TOOL_BODY_LIMITS.argumentsLength)}
+        </pre>
+      </section>
+      <section aria-label={outputLabel} className="min-w-0 space-y-1">
+        <h3 className="font-medium">{outputLabel}</h3>
+        <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words font-mono">
+          {boundedToolText(outputText, OMP_TOOL_BODY_LIMITS.outputLength)}
+        </pre>
+      </section>
+      {links.length > 0 ? (
+        <section aria-label="Result links" className="min-w-0 space-y-1">
+          <h3 className="font-medium">Result links (up to {OMP_TOOL_BODY_LIMITS.links})</h3>
+          <ul className="space-y-1">
+            {links.map((url) => (
+              <li key={url} className="break-all">
+                <UrlLink href={url} className="underline">{url}</UrlLink>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </section>
+  );
+}
+
 export default definePluginApp((app) => {
   app.slots.settingsSection({
     id: "omp-model-presets",
@@ -719,6 +835,10 @@ export default definePluginApp((app) => {
   app.slots.experimental_timelineRenderer({
     kind: OMP_CARD_KIND,
     component: ExtensionCard,
+  });
+  app.slots.experimental_timelineRenderer({
+    kind: "tool",
+    component: GenericToolBody,
   });
   app.slots.experimental_tab({
     id: OMP_HUB_PANEL_ACTION_ID,

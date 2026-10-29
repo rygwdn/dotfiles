@@ -72,6 +72,8 @@ const ompEventTypeSchema = z
       "bb_session_stats",
       "extension_error",
       "irc_message",
+      "manual_compaction_end",
+      "manual_compaction_start",
       "message_end",
       "message_start",
       "message_update",
@@ -234,13 +236,21 @@ const ompAssistantMessageEndEventSchema = z.object({
 
 const ompCompactionStartEventSchema = z
   .object({
-    type: z.enum(["auto_compaction_start", "bb_compaction_start"]),
+    type: z.enum([
+      "auto_compaction_start",
+      "bb_compaction_start",
+      "manual_compaction_start",
+    ]),
   })
   .passthrough();
 
 const ompCompactionEndEventSchema = z
   .object({
-    type: z.enum(["auto_compaction_end", "bb_compaction_end"]),
+    type: z.enum([
+      "auto_compaction_end",
+      "bb_compaction_end",
+      "manual_compaction_end",
+    ]),
     aborted: z.boolean(),
     skipped: z.boolean().optional(),
     errorMessage: z.string().optional(),
@@ -448,22 +458,6 @@ const ompEditPreviewBatchSchema = z.object({
   ),
 });
 
-const ompFileEditArgsSchema = z
-  .object({
-    path: z.string().optional(),
-    oldText: z.string().optional(),
-    newText: z.string().optional(),
-    content: z.string().optional(),
-    edits: z.unknown().optional(),
-  })
-  .passthrough();
-
-const ompFileEditBatchSchema = z.array(
-  z.object({
-    oldText: z.string(),
-    newText: z.string(),
-  }),
-);
 
 type OmpAssistantMessage = z.infer<typeof ompAssistantMessageSchema>;
 type OmpConversationMessage = z.infer<typeof ompConversationMessageSchema>;
@@ -473,7 +467,6 @@ type OmpToolExecutionUpdateEvent = z.infer<
 
 const OMP_EMPTY_BASH_OUTPUT_PLACEHOLDERS = ["(no output)"] as const;
 const OMP_COMMAND_TOOL_NAMES = new Set(["bash"]);
-const OMP_FILE_CHANGE_TOOL_NAMES = new Set(["edit", "write"]);
 
 
 function classifyOmpToolUse(
@@ -495,55 +488,11 @@ function classifyOmpToolUse(
     return { type: "command", command, cwd };
   }
 
-  if (OMP_FILE_CHANGE_TOOL_NAMES.has(toolName)) {
-    const parsed = ompFileEditArgsSchema.safeParse(args);
-    if (!parsed.success) {
-      return { type: "tool", tool: toolName, args };
-    }
-    if (!parsed.data.path) {
-      return { type: "tool", tool: toolName, args: parsed.data };
-    }
-    const path = parsed.data.path;
-    const parsedEdits = ompFileEditBatchSchema.safeParse(parsed.data.edits);
-    if (parsedEdits.success && parsedEdits.data.length > 0) {
-      return {
-        type: "fileChange",
-        changes: parsedEdits.data.map((edit) => ({
-          path,
-          kind: "update",
-          oldText: edit.oldText,
-          newText: edit.newText,
-        })),
-      };
-    }
-
-    const newText = parsed.data.newText ?? parsed.data.content;
-    return {
-      type: "fileChange",
-      changes: [
-        {
-          path,
-          kind:
-            toolName === "edit" || parsed.data.oldText !== undefined
-              ? "update"
-              : "add",
-          ...(parsed.data.oldText === undefined
-            ? {}
-            : { oldText: parsed.data.oldText }),
-          ...(newText === undefined ? {} : { newText }),
-        },
-      ],
-    };
-  }
-
   return { type: "tool", tool: toolName, args };
 }
 
 
 function classifyOmpToolResultFallback(toolName: string): DeltaItemShape {
-  if (OMP_FILE_CHANGE_TOOL_NAMES.has(toolName)) {
-    return { type: "fileChange", changes: [] };
-  }
   return { type: "tool", tool: toolName };
 }
 
@@ -628,7 +577,6 @@ interface StartedOmpTool {
   args: unknown;
   intent?: string;
   presentation?: ClassifiedOmpTool["presentation"];
-  deferred: boolean;
   waitProgress?: string;
 }
 
@@ -665,6 +613,9 @@ interface OmpAssistantStreams {
   cardIds: Set<string>;
   nextRetry: number;
   retry?: { id: string; localTurn: boolean };
+  manualCompaction?: { id: string; localTurn: boolean };
+  lastManualCompactionEnd?: string;
+  syntheticManualCompaction: boolean;
   cacheWarming: Map<string, string>;
   activeMessageId?: string;
   snapshotHandled: boolean;
@@ -736,6 +687,7 @@ export function createOmpDeltaTranslator(
         nextCard: 0,
         cardIds: new Set(),
         nextRetry: 0,
+        syntheticManualCompaction: false,
         cacheWarming: new Map(),
         messages: new Map(),
       };
@@ -818,6 +770,74 @@ export function createOmpDeltaTranslator(
         deltas.push({ kind: "turn.boundary", status });
       }
       streams.retry = undefined;
+    }
+    return deltas;
+  }
+
+  function manualCompactionNoticeDeltas(
+    event: z.infer<typeof ompCompactionStartEventSchema> | z.infer<typeof ompCompactionEndEventSchema>,
+    context: OmpDeltaTranslationContext | undefined,
+  ): ThreadDelta[] {
+    const streams = assistantStreams(context);
+    if (streams.syntheticManualCompaction) return [];
+    const activeTurn = context?.activeTurn ?? streams.turnOpen;
+    const parentRef = context?.parentToolCallId;
+
+    if (event.type === "manual_compaction_start") {
+      if (streams.manualCompaction) return [];
+      const manualCompaction = {
+        id: `manual-compaction:${streams.generation}:${randomUUID()}`,
+        localTurn: !activeTurn,
+      };
+      streams.manualCompaction = manualCompaction;
+      streams.lastManualCompactionEnd = undefined;
+      const deltas = createOmpNoticeDeltas({
+        severity: "info",
+        message: "Compacting context",
+      }, { activeTurn: true, id: manualCompaction.id, status: "inProgress" }).map((delta): ThreadDelta =>
+        (delta.kind === "item.open" || delta.kind === "item.close") && parentRef
+          ? { ...delta, key: { ...delta.key, parentRef } }
+          : delta,
+      );
+      if (manualCompaction.localTurn) deltas.unshift({ kind: "turn.open" });
+      return deltas;
+    }
+
+    const signature = JSON.stringify(event);
+    if (streams.lastManualCompactionEnd === signature) return [];
+    const manualCompaction = streams.manualCompaction;
+    streams.manualCompaction = undefined;
+    streams.lastManualCompactionEnd = signature;
+    const errorMessage = typeof event.errorMessage === "string" ? event.errorMessage : undefined;
+    const status = event.aborted || errorMessage ? "failed" : "completed";
+    const notice = event.skipped
+      ? {
+        severity: "info" as const,
+        message: "Context compaction skipped",
+        ...(errorMessage ? { instructions: errorMessage } : {}),
+      }
+      : event.aborted
+        ? {
+          severity: "error" as const,
+          message: "Context compaction interrupted",
+          ...(errorMessage ? { instructions: errorMessage } : {}),
+        }
+        : errorMessage
+          ? { severity: "error" as const, message: "Context compaction failed", instructions: errorMessage }
+          : { severity: "info" as const, message: "Context compaction completed" };
+    const localTurn = manualCompaction?.localTurn ?? !activeTurn;
+    const deltas = createOmpNoticeDeltas(notice, {
+      activeTurn: true,
+      id: manualCompaction?.id ?? `manual-compaction:${streams.generation}:${randomUUID()}`,
+      status,
+    }).map((delta): ThreadDelta =>
+      (delta.kind === "item.open" || delta.kind === "item.close") && parentRef
+        ? { ...delta, key: { ...delta.key, parentRef } }
+        : delta,
+    );
+    if (localTurn) {
+      deltas.unshift({ kind: "turn.open" });
+      deltas.push({ kind: "turn.boundary", status });
     }
     return deltas;
   }
@@ -1062,7 +1082,7 @@ export function createOmpDeltaTranslator(
         : {}),
     };
     const noTurnFallback = noTurnFallbackFor(event, context);
-    return shape.type === "command" || shape.type === "fileChange"
+    return shape.type === "command"
       ? {
           kind: "item.outputDelta",
           channel: shape.type,
@@ -1541,10 +1561,17 @@ export function createOmpDeltaTranslator(
       }
 
       case "auto_compaction_start":
-      case "bb_compaction_start": {
+      case "bb_compaction_start":
+      case "manual_compaction_start": {
         const parsed = ompCompactionStartEventSchema.safeParse(event);
         if (!parsed.success) {
           return unexpectedSdkEventDeltas(event, context);
+        }
+        if (parsed.data.type === "manual_compaction_start") {
+          return manualCompactionNoticeDeltas(parsed.data, context);
+        }
+        if (parsed.data.type === "bb_compaction_start") {
+          assistantStreams(context).syntheticManualCompaction = true;
         }
         const open: ThreadDelta = {
           kind: "item.open",
@@ -1559,12 +1586,15 @@ export function createOmpDeltaTranslator(
           ? [{ kind: "turn.open" }, open]
           : [open];
       }
-
       case "auto_compaction_end":
-      case "bb_compaction_end": {
+      case "bb_compaction_end":
+      case "manual_compaction_end": {
         const parsed = ompCompactionEndEventSchema.safeParse(event);
         if (!parsed.success) {
           return unexpectedSdkEventDeltas(event, context);
+        }
+        if (parsed.data.type === "manual_compaction_end") {
+          return manualCompactionNoticeDeltas(parsed.data, context);
         }
         const succeeded = !parsed.data.aborted && !parsed.data.errorMessage;
         const compacted: ThreadDelta = {
@@ -1572,6 +1602,7 @@ export function createOmpDeltaTranslator(
           noTurnFallback: noTurnFallbackFor(event, context),
         };
         if (parsed.data.type === "bb_compaction_end") {
+          assistantStreams(context).syntheticManualCompaction = false;
           clearThreadToolShapes(context);
           forgetAssistant(context);
           const compactionNoopDetail =
@@ -1829,9 +1860,11 @@ export function createOmpDeltaTranslator(
         const classified: ClassifiedOmpTool = classifyTypedOmpTool(
           ompEvent.data.toolName,
           ompEvent.data.args,
-          { cwd: context?.cwd },
         ) ?? { item: classifyOmpToolUse(ompEvent.data.toolName, ompEvent.data.args, context?.cwd) };
-        const shape = classified.item;
+        // The bridge retains object arguments only; keep freeform patches intact.
+        const shape = classified.item.type === "tool" && typeof classified.item.args === "string"
+          ? { ...classified.item, args: { input: classified.item.args } }
+          : classified.item;
         const presentation = ompToolPresentation(classified, ompEvent.data.toolName, ompEvent.data.intent);
         rememberStartedToolShape(
           toolShapeKey(context, ompEvent.data.toolCallId),
@@ -1840,15 +1873,11 @@ export function createOmpDeltaTranslator(
             args: ompEvent.data.args,
             intent: ompEvent.data.intent,
             presentation,
-            deferred: classified.deferred === true,
           },
         );
         const shapeKey = toolShapeKey(context, ompEvent.data.toolCallId);
         const preview = pendingToolPreviews.get(shapeKey);
         pendingToolPreviews.delete(shapeKey);
-        if (classified.deferred) {
-          return [];
-        }
         const deltas: ThreadDelta[] = [
           {
             kind: "item.open",
@@ -1883,25 +1912,12 @@ export function createOmpDeltaTranslator(
         const started = startedToolShapes.get(shapeKey);
         startedToolShapes.delete(shapeKey);
         pendingToolPreviews.delete(shapeKey);
-        let failed = ompEvent.data.isError === true ||
+        const failed = ompEvent.data.isError === true ||
           ompFailedToolResultSchema.safeParse(ompEvent.data.result).success;
-        const classified = started?.deferred || !started
-          ? classifyTypedOmpTool(ompEvent.data.toolName, started?.args, {
-              result: ompEvent.data.result,
-              ended: true,
-              failed,
-              cwd: context?.cwd,
-            })
+        const classified = !started
+          ? classifyTypedOmpTool(ompEvent.data.toolName, undefined)
           : undefined;
-        const result = classified?.result ?? ompEvent.data.result;
-        failed ||= ompFailedToolResultSchema.safeParse(result).success;
-        // Device dispatches normally mirror the output on the outer envelope.
-        // Keep those bytes (including dispatcher diagnostics), falling back to
-        // the validated inner result when the envelope carries only metadata.
-        const output = typeof ompEvent.data.result === "object" &&
-          ompEvent.data.result !== null && "content" in ompEvent.data.result
-          ? ompEvent.data.result : result;
-        const resultText = extractResultText(output);
+        const resultText = extractResultText(ompEvent.data.result);
         const bashAsync = ompEvent.data.toolName === "bash"
           ? ompBashAsyncResultSchema.safeParse(ompEvent.data.result) : undefined;
         let terminalShape: DeltaItemShape = classified?.item ??
@@ -1943,10 +1959,6 @@ export function createOmpDeltaTranslator(
           ...parentRefField,
         };
         const noTurnFallback = noTurnFallbackFor(ompEvent.data, context);
-        const deferredOpen: ThreadDelta[] =
-          started?.deferred
-            ? [{ kind: "item.open", key, item: terminalShape, noTurnFallback, ...(presentation ? { presentation } : {}) }]
-            : [];
         const jobDeltas = bashAsync?.success
           ? bashAsyncDeltas(
               ompEvent.data, bashAsync.data, resultText, started?.args, context, true,
@@ -1955,7 +1967,6 @@ export function createOmpDeltaTranslator(
         const waited = ompEvent.data.toolName === "wait"
           ? ompWaitJobsResultSchema.safeParse(ompEvent.data.result) : undefined;
         return [
-          ...deferredOpen,
           {
             kind: "item.close",
             key,
@@ -1991,7 +2002,6 @@ export function createOmpDeltaTranslator(
           }
           return [];
         }
-        if (started.deferred) return [];
         return [
           toolPreviewDelta(parsed.data, started.shape, text, context),
         ];
@@ -2019,7 +2029,7 @@ export function createOmpDeltaTranslator(
           // Job observations remain independent of the wait invocation's display.
           const jobDeltas = waited.success ? waitBashJobDeltas(waited.data.details.jobs, context) : [];
           if (
-            started === undefined || started.deferred ||
+            started === undefined ||
             started.shape.type !== "tool" || started.shape.tool !== "wait"
           ) return jobDeltas;
           const prose = ompWaitProseResultSchema.safeParse(ompEvent.data.partialResult);
@@ -2038,9 +2048,6 @@ export function createOmpDeltaTranslator(
               noTurnFallback: noTurnFallbackFor(ompEvent.data, context),
             },
           ];
-        }
-        if (started?.deferred) {
-          return [];
         }
         if (OMP_COMMAND_TOOL_NAMES.has(ompEvent.data.toolName)) {
           const snapshot = extractOmpCommandExecutionOutput(

@@ -1001,6 +1001,7 @@ function createOnOmpEvent(
     if (
       event.type === "turn_end" ||
       event.type === "auto_compaction_end" ||
+      event.type === "manual_compaction_end" ||
       event.type === "bb_compaction_end"
     ) {
       emitContextWindowUsage(args.threadId);

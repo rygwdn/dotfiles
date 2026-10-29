@@ -65,6 +65,8 @@ describe("provider visibility raw events", () => {
     "agent_end",
     "auto_compaction_start",
     "auto_compaction_end",
+    "manual_compaction_start",
+    "manual_compaction_end",
     "auto_retry_start",
     "auto_retry_end",
     "retry_fallback_applied",

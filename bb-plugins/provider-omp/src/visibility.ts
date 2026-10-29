@@ -34,6 +34,8 @@ function parseOmpRawEvent(event: JsonRpcMessage): ProviderRawEventDescription {
     case "agent_end":
     case "auto_compaction_start":
     case "auto_compaction_end":
+    case "manual_compaction_start":
+    case "manual_compaction_end":
     case "auto_retry_start":
     case "auto_retry_end":
     case "retry_fallback_applied":

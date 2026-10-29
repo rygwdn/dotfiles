@@ -69,6 +69,7 @@ interface OmpEquivalenceHarness {
   assembler: DeltaAssembler;
   translate(event: unknown, context?: OmpTestContext): ThreadEvent[];
   openTurnId(): string;
+  resetThread(): void;
 }
 
 function createHarness(options?: {
@@ -95,6 +96,10 @@ function createHarness(options?: {
     },
     openTurnId() {
       return assembler.getOpenTurnId(THREAD_ID) ?? "";
+    },
+    resetThread() {
+      translator.resetThread(THREAD_ID);
+      assembler.assemble({ threadId: THREAD_ID, deltas: [{ kind: "session.reset" }] });
     },
   };
 }
@@ -895,6 +900,94 @@ describe("omp delta translation equivalence", () => {
     },
   );
 
+  it.each([
+    {
+      label: "succeeds",
+      end: loadFixture("manual-compaction-end-18.13.3.json"),
+      status: "completed",
+      payload: { severity: "info", message: "Context compaction completed" },
+    },
+    {
+      label: "fails",
+      end: {
+        type: "manual_compaction_end",
+        aborted: false,
+        errorMessage: "Summarization failed: 500",
+      },
+      status: "failed",
+      payload: {
+        severity: "error",
+        message: "Context compaction failed",
+        instructions: "Summarization failed: 500",
+      },
+    },
+  ])("manual compaction $label updates its provider-owned notice", ({ end, status, payload }) => {
+    const harness = createHarness();
+    const started = harness.translate(loadFixture("manual-compaction-start-18.13.3.json"));
+    const turnId = harness.openTurnId();
+    const start = started.find((event) => event.type === "item/started");
+    expect(start).toEqual(expect.objectContaining({
+      scope: turnScope(turnId),
+      item: expect.objectContaining({
+        type: "extension",
+        kind: OMP_NOTICE_KIND,
+        status: "pending",
+        payload: { severity: "info", message: "Compacting context" },
+      }),
+    }));
+    expect(harness.translate(loadFixture("manual-compaction-start-18.13.3.json"))).toEqual([]);
+
+
+    const completed = harness.translate(end);
+    expect(completed).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "item/completed",
+        scope: turnScope(turnId),
+        item: expect.objectContaining({
+          id: start?.item.id,
+          type: "extension",
+          kind: OMP_NOTICE_KIND,
+          status,
+          payload,
+        }),
+      }),
+      expect.objectContaining({ type: "turn/completed", scope: turnScope(turnId), status }),
+    ]));
+    expect(harness.openTurnId()).toBe("");
+    expect(harness.translate(end)).toEqual([]);
+  });
+
+  it("recovers a manual compaction end after reconnect", () => {
+    const harness = createHarness();
+    harness.translate(loadFixture("manual-compaction-start-18.13.3.json"));
+    harness.resetThread();
+    const completed = harness.translate(loadFixture("manual-compaction-end-18.13.3.json"));
+    expect(completed).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "item/completed",
+        item: expect.objectContaining({
+          type: "extension",
+          kind: OMP_NOTICE_KIND,
+          status: "completed",
+          payload: { severity: "info", message: "Context compaction completed" },
+        }),
+      }),
+      expect.objectContaining({ type: "turn/completed", status: "completed" }),
+    ]));
+    expect(harness.openTurnId()).toBe("");
+  });
+
+  it("suppresses native lifecycle notices inside a synthetic compaction", () => {
+    const harness = createHarness();
+    harness.translate({ type: "bb_compaction_start" });
+    expect(harness.translate(loadFixture("manual-compaction-start-18.13.3.json"))).toEqual([]);
+    expect(harness.translate(loadFixture("manual-compaction-end-18.13.3.json"))).toEqual([]);
+    expect(harness.translate({ type: "bb_compaction_end", aborted: false })).toContainEqual(
+      expect.objectContaining({ type: "thread/compacted" }),
+    );
+  });
+
+
   it("auto_compaction_end without a known turn is unhandled", () => {
     const harness = createHarness();
     const events = harness.translate({
@@ -1543,157 +1636,168 @@ describe("omp delta translation equivalence", () => {
     expect(harness.openTurnId()).toBe("");
   });
 
-  it("tool_execution_start with edit args emits fileChange with diff", () => {
-    const harness = createHarness();
-    harness.translate(loadFixture("agent-start.json"));
+  describe("display-heavy generic tools", () => {
+    const cases = [
+      { toolName: "read", args: { path: "src/app.ts:2-4" }, details: { resolvedPath: "/repo/src/app.ts" } },
+      { toolName: "read", args: { path: "src" }, details: { resolvedPath: "/repo/src", isDirectory: true } },
+      { toolName: "read", args: { path: "https://example.com/docs:raw" }, details: { kind: "url", url: "https://example.com/docs" } },
+      { toolName: "grep", args: { pattern: "needle", path: "src" } },
+      { toolName: "glob", args: { path: "src/**/*.ts" } },
+      { toolName: "find", args: { query: "Locate auth", path: "src" } },
+      { toolName: "ast_grep", args: { pat: "$CALL($$$ARGS)", path: "src" } },
+      { toolName: "web_search", args: { query: "site:example.com auth" } },
+      { toolName: "write", args: { path: "src/app.ts", content: "updated\n" } },
+      { toolName: "write", args: { path: "xd://think", content: '{"thoughts":"Compare paths"}' }, details: { xdev: { tool: "think", mode: "execute", inner: { content: [{ type: "text", text: "Inner output" }] } } } },
+      { toolName: "edit", args: { path: "src/app.ts", oldText: "before", newText: "after" } },
+      { toolName: "edit", args: { path: "src/app.ts", edits: [{ oldText: "before", newText: "after" }] } },
+      { toolName: "edit", args: { path: "src/app.ts", edits: [{ old: "before", replacement: "after" }] } },
+      { toolName: "edit", args: "*** Begin Patch\n*** End Patch" },
+    ];
 
-    const events = harness.translate({
-      type: "tool_execution_start",
-      toolCallId: "tool-edit-1",
-      toolName: "edit",
-      args: {
-        path: "src/app.ts",
-        oldText: "const enabled = false;\n",
-        newText: "const enabled = true;\n",
-      },
+    it.each(cases)("opens $toolName immediately and preserves its raw result at completion", ({ toolName, args, details }) => {
+      const expectedArgs = typeof args === "string" ? { input: args } : args;
+      const harness = createHarness();
+      harness.translate(loadFixture("agent-start.json"));
+      const started = harness.translate({
+        type: "tool_execution_start", toolCallId: "display-tool", toolName, args,
+      }).find((event) => event.type === "item/started");
+      expect(started?.item).toMatchObject({
+        type: "toolCall", tool: toolName, status: "pending", arguments: expectedArgs,
+      });
+      const result = {
+        content: [{ type: "text", text: "Full output\nartifact://retained-output" }],
+        details: { ...details, artifact: "artifact://retained-output" },
+      };
+      const completed = harness.translate({
+        type: "tool_execution_end", toolCallId: "display-tool", toolName, result,
+      }).find((event) => event.type === "item/completed");
+      expect(completed?.item).toMatchObject({
+        id: started?.item.id, type: "toolCall", tool: toolName, status: "completed",
+        arguments: expectedArgs, result,
+      });
     });
 
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        type: "item/started",
-        item: expect.objectContaining({
-          type: "fileChange",
-          status: "pending",
-          changes: [
-            expect.objectContaining({
-              path: "src/app.ts",
-              diff: expect.stringContaining("const enabled = true;"),
-            }),
-          ],
-        }),
+    describe.each(["read", "grep", "glob", "find", "ast_grep", "web_search", "write", "edit"])(
+      "%s terminal fallback",
+      (toolName) => {
+        it.each([
+          { result: { content: [{ type: "text", text: "Output" }], details: { resolvedPath: "/repo/a.ts" } }, failed: false },
+          { result: { content: [{ type: "image", data: "aW1hZ2U=", mimeType: "image/png" }] }, failed: false },
+          { result: { isError: true, content: [{ type: "text", text: "Raw failure\nartifact://failure" }] }, failed: true },
+          { result: "Raw string result", failed: false },
+          { result: null, failed: false },
+          { result: undefined, failed: false },
+        ])("preserves raw $result without a native row", ({ result, failed }) => {
+          const translator = createOmpDeltaTranslator({ resolveModelContextWindow: fixtureModelResolver });
+          const deltas = translator.translate({
+            type: "tool_execution_end", toolCallId: "orphan-display-tool", toolName, result,
+          }, { threadId: THREAD_ID, cwd: "/repo" });
+          const closed = deltas.find((delta) => delta.kind === "item.close");
+          expect(closed).toMatchObject({
+            status: failed ? "failed" : "completed",
+            item: { type: "tool", tool: toolName, args: undefined },
+          });
+          if (closed?.kind !== "item.close" || closed.item?.type !== "tool") {
+            throw new Error("Expected a generic terminal tool");
+          }
+          expect(closed.item.result).toBe(result);
+          expect(deltas.filter((delta) => delta.kind === "item.open")).toHaveLength(0);
+        });
+      },
+    );
+
+    it.each(cases)("preserves $toolName arguments, intent and raw errors through the bridge", ({ toolName, args }) => {
+      const expectedArgs = typeof args === "string" ? { input: args } : args;
+      const translator = createOmpDeltaTranslator({ resolveModelContextWindow: fixtureModelResolver });
+      const context = { threadId: THREAD_ID, cwd: "/repo" };
+      const opened = translator.translate({
+        type: "tool_execution_start", toolCallId: "raw-display-tool", toolName, args,
+        intent: "Inspecting relevant definitions",
+      }, context).find((delta) => delta.kind === "item.open");
+      expect(opened).toMatchObject({
+        item: { type: "tool", tool: toolName, args: expectedArgs },
+        presentation: { title: "Inspecting relevant definitions" },
+      });
+      if (opened?.kind !== "item.open" || opened.item.type !== "tool") {
+        throw new Error("Expected a generic tool start");
+      }
+      expect(opened.item.args).toEqual(expectedArgs);
+      if (typeof args !== "string") expect(opened.item.args).toBe(args);
+      const result = { isError: true, content: [{ type: "text", text: "Raw failure" }], details: { artifact: "artifact://failure" } };
+      const closed = translator.translate({
+        type: "tool_execution_end", toolCallId: "raw-display-tool", toolName, result,
+      }, context).find((delta) => delta.kind === "item.close");
+      expect(closed).toMatchObject({
+        status: "failed", item: { type: "tool", tool: toolName, args: expectedArgs, result },
+        presentation: { title: "Inspecting relevant definitions" },
+      });
+      if (closed?.kind !== "item.close" || closed.item?.type !== "tool") {
+        throw new Error("Expected a generic tool completion");
+      }
+      expect(closed.item.result).toBe(result);
+      expect(closed.item.args).toBe(opened.item.args);
+    });
+  });
+
+  it("keeps direct think calls native reasoning through completion", () => {
+    const harness = createHarness();
+    harness.translate(loadFixture("agent-start.json"));
+    const events = [
+      ...harness.translate({
+        type: "tool_execution_start", toolCallId: "native-think", toolName: "think",
+        args: { thoughts: "Compare the two paths." },
       }),
-    );
-  });
-
-  it("tool_execution_start with edit batch args marks the change as an update", () => {
-    const harness = createHarness();
-    harness.translate(loadFixture("agent-start.json"));
-
-    const events = harness.translate({
-      type: "tool_execution_start",
-      toolCallId: "tool-edit-batch",
-      toolName: "edit",
-      args: {
-        path: "src/app.ts",
-        edits: [
-          { oldText: "before", newText: "after" },
-          { oldText: "second before", newText: "second after" },
-        ],
-      },
-    });
-
-    const started = events.find(
-      (event): event is Extract<ThreadEvent, { type: "item/started" }> =>
-        event.type === "item/started",
-    );
-    expect(started?.item).toMatchObject({
-      type: "fileChange",
-      status: "pending",
-    });
-    if (!started || started.item.type !== "fileChange") return;
-    expect(started.item.changes[0]).toMatchObject({
-      path: "src/app.ts",
-      kind: "update",
-    });
-    expect(started.item.changes).toHaveLength(2);
-    expect(started.item.changes[0]?.diff).toContain("+after");
-    expect(started.item.changes[0]?.diff).toContain("-before");
-    expect(started.item.changes[1]?.diff).toContain("+second after");
-    expect(started.item.changes[1]?.diff).toContain("-second before");
-  });
-
-  it("falls back to an update without a diff for unrecognized edit batches", () => {
-    const harness = createHarness();
-    harness.translate(loadFixture("agent-start.json"));
-
-    const events = harness.translate({
-      type: "tool_execution_start",
-      toolCallId: "tool-edit-unknown-batch",
-      toolName: "edit",
-      args: {
-        path: "src/app.ts",
-        edits: [{ old: "before", replacement: "after" }],
-      },
-    });
-
-    const started = events.find(
-      (event): event is Extract<ThreadEvent, { type: "item/started" }> =>
-        event.type === "item/started",
-    );
-    expect(started?.item).toMatchObject({
-      type: "fileChange",
-      status: "pending",
-      changes: [{ path: "src/app.ts", kind: "update" }],
-    });
-    if (!started || started.item.type !== "fileChange") return;
-    expect(started.item.changes[0]?.diff).toBeUndefined();
-  });
-
-  it("tool_execution_start with content-only write args marks the change as an add", () => {
-    const harness = createHarness();
-    harness.translate(loadFixture("agent-start.json"));
-
-    const events = harness.translate({
-      type: "tool_execution_start",
-      toolCallId: "tool-write-1",
-      toolName: "write",
-      args: { path: "src/app.ts", content: "console.log('updated');\n" },
-    });
-
-    const started = events.find(
-      (event): event is Extract<ThreadEvent, { type: "item/started" }> =>
-        event.type === "item/started",
-    );
-    expect(started?.item).toMatchObject({
-      type: "fileChange",
-      status: "pending",
-      changes: [{ path: "src/app.ts", kind: "add" }],
-    });
-    if (!started || started.item.type !== "fileChange") return;
-    expect(started.item.changes[0]?.diff).toContain("+++ b/src/app.ts");
-  });
-
-  it("defers read classification and preserves unrecognized results and arguments", () => {
-    const harness = createHarness();
-    harness.translate(loadFixture("agent-start.json"));
-
-    const events = harness.translate({
-      type: "tool_execution_start",
-      toolCallId: "tool-read-1",
-      toolName: "read",
-      args: { path: "src/app.ts", offset: 1, limit: 20 },
-    });
-
-    expect(events).toEqual([]);
-    const completedEvents = harness.translate({
-      type: "tool_execution_end",
-      toolCallId: "tool-read-1",
-      toolName: "read",
-      result: { content: [{ type: "text", text: "unlocated resource" }] },
-    });
-
-    expect(completedEvents).toContainEqual(
-      expect.objectContaining({
-        type: "item/completed",
-        item: expect.objectContaining({
-          type: "toolCall",
-          tool: "read",
-          status: "completed",
-          arguments: { path: "src/app.ts", offset: 1, limit: 20 },
-          result: { content: [{ type: "text", text: "unlocated resource" }] },
-        }),
+      ...harness.translate({
+        type: "tool_execution_end", toolCallId: "native-think", toolName: "think",
+        result: { content: [{ type: "text", text: "Thought recorded" }] },
       }),
-    );
+    ];
+    expect(events).toContainEqual(expect.objectContaining({
+      type: "item/started", item: expect.objectContaining({ type: "reasoning", content: ["Compare the two paths."] }),
+    }));
+    expect(events).toContainEqual(expect.objectContaining({
+      type: "item/completed", item: expect.objectContaining({ type: "reasoning", content: ["Compare the two paths."] }),
+    }));
+  });
+
+  it("preserves native bash and background-job lifecycle through wait", () => {
+    const translator = createOmpDeltaTranslator({ resolveModelContextWindow: fixtureModelResolver });
+    const context = { threadId: THREAD_ID, cwd: "/repo" };
+    const started = translator.translate({
+      type: "tool_execution_start", toolCallId: "native-bash", toolName: "bash",
+      args: { command: "long-command", cwd: "/repo", async: true },
+    }, context);
+    expect(started).toContainEqual(expect.objectContaining({
+      kind: "item.open", item: { type: "command", command: "long-command", cwd: "/repo" },
+    }));
+    const dispatched = translator.translate({
+      type: "tool_execution_end", toolCallId: "native-bash", toolName: "bash",
+      result: { content: [{ type: "text", text: "Dispatched" }], details: { async: { state: "running", jobId: "bg_1", type: "bash" } } },
+    }, context);
+    expect(dispatched).toContainEqual(expect.objectContaining({
+      kind: "item.close", item: expect.objectContaining({ type: "command", command: "long-command" }),
+    }));
+    const job = dispatched.find((delta) => delta.kind === "item.open" && delta.item.type === "backgroundTask");
+    expect(job).toMatchObject({
+      kind: "item.open", item: { type: "backgroundTask", status: "pending", taskStatus: "running" },
+    });
+    const waitArgs = { i: "Waiting for background command" };
+    expect(translator.translate({
+      type: "tool_execution_start", toolCallId: "native-wait", toolName: "wait", args: waitArgs,
+    }, context)).toContainEqual(expect.objectContaining({
+      kind: "item.open", item: { type: "tool", tool: "wait", args: waitArgs },
+    }));
+    const waited = translator.translate({
+      type: "tool_execution_end", toolCallId: "native-wait", toolName: "wait",
+      result: { details: { op: "wait", jobs: [{ id: "bg_1", type: "bash", status: "completed", resultText: "Finished", exitCode: 0 }] } },
+    }, context);
+    expect(waited).toContainEqual(expect.objectContaining({
+      kind: "item.close", item: expect.objectContaining({ type: "tool", tool: "wait", args: waitArgs }),
+    }));
+    expect(waited).toContainEqual(expect.objectContaining({
+      kind: "item.close", key: job && "key" in job ? job.key : undefined,
+      item: expect.objectContaining({ type: "backgroundTask", status: "completed", taskStatus: "completed" }),
+    }));
   });
 
   it.each([
@@ -2625,7 +2729,7 @@ describe("omp delta translation equivalence", () => {
     },
   );
 
-  it("buffers only the latest native edit snapshot and never opens a ghost generic tool", () => {
+  it("buffers only the latest edit snapshot as generic progress without native file changes", () => {
     const translator = createOmpDeltaTranslator({
       resolveModelContextWindow: fixtureModelResolver,
     });
@@ -2688,25 +2792,22 @@ describe("omp delta translation equivalence", () => {
     );
     expect(startDeltas.map((delta) => delta.kind)).toEqual([
       "item.open",
-      "item.outputDelta",
+      "item.progress",
     ]);
     expect(startDeltas[0]).toMatchObject({
       key: { providerItemId: "edit-preview-1" },
-      item: {
-        type: "fileChange",
-        changes: [expect.objectContaining({ path: "src/auth.ts" })],
-      },
+      item: { type: "tool", tool: "edit" },
     });
-    const replay = startDeltas.find((delta) => delta.kind === "item.outputDelta");
+    const replay = startDeltas.find((delta) => delta.kind === "item.progress");
     expect(replay).toMatchObject({
-      channel: "fileChange",
+      kind: "item.progress", flush: true,
       key: { providerItemId: "edit-preview-1" },
     });
-    expect(replay?.text).toContain("src/auth.ts");
-    expect(replay?.text).toContain("-return false;\n+return true;");
-    expect(replay?.text).toContain("src/missing.ts");
-    expect(replay?.text).toContain("Patch target unavailable");
-    expect(replay?.text).not.toContain("src/stale.ts");
+    expect(replay?.message).toContain("src/auth.ts");
+    expect(replay?.message).toContain("-return false;\n+return true;");
+    expect(replay?.message).toContain("src/missing.ts");
+    expect(replay?.message).toContain("Patch target unavailable");
+    expect(replay?.message).not.toContain("src/stale.ts");
     const startedEvents = assembler.assemble({
       threadId: THREAD_ID,
       deltas: startDeltas,
@@ -2714,10 +2815,7 @@ describe("omp delta translation equivalence", () => {
     const started = startedEvents.find((event) => event.type === "item/started");
     const itemId = started?.item.id;
     expect(itemId).toMatch(ITEM_ID_PATTERN);
-    expect(started?.item).toMatchObject({ type: "fileChange", status: "pending" });
-    expect(startedEvents).toContainEqual(
-      expect.objectContaining({ type: "item/fileChange/outputDelta", itemId }),
-    );
+    expect(started?.item).toMatchObject({ type: "toolCall", tool: "edit", status: "pending" });
 
     const liveDeltas = translator.translate(
       {
@@ -2732,18 +2830,14 @@ describe("omp delta translation equivalence", () => {
     );
     expect(liveDeltas).toEqual([
       expect.objectContaining({
-        kind: "item.outputDelta",
-        channel: "fileChange",
-        text: expect.stringContaining("Live diff"),
+        kind: "item.progress",
+        message: expect.stringContaining("Live diff"),
       }),
     ]);
     const liveEvents = assembler.assemble({
       threadId: THREAD_ID,
       deltas: liveDeltas,
     });
-    expect(liveEvents).toEqual([
-      expect.objectContaining({ type: "item/fileChange/outputDelta", itemId }),
-    ]);
 
     const endDeltas = translator.translate(
       {
@@ -2763,7 +2857,7 @@ describe("omp delta translation equivalence", () => {
       expect.objectContaining({
         type: "item/completed",
         item: expect.objectContaining({
-          type: "fileChange",
+          type: "toolCall",
           id: itemId,
           status: "completed",
         }),
@@ -2771,9 +2865,7 @@ describe("omp delta translation equivalence", () => {
     );
     const events = [...startedEvents, ...liveEvents, ...completedEvents];
     expect(events.filter((event) => event.type === "item/started")).toHaveLength(1);
-    expect(
-      events.some((event) => "item" in event && event.item.type === "toolCall"),
-    ).toBe(false);
+    expect(events.some((event) => "item" in event && event.item.type === "fileChange")).toBe(false);
   });
 
   it.each([

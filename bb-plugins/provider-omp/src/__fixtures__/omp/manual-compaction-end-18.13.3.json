@@ -1,0 +1,10 @@
+{
+  "type": "manual_compaction_end",
+  "aborted": false,
+  "result": {
+    "summary": "Preserved recent conversation and summarized older context.",
+    "firstKeptEntryId": "entry_01JTZ2K7J1TGBV1ZP1NT0MN8TT",
+    "tokensBefore": 48210,
+    "details": {}
+  }
+}
