@@ -173,18 +173,18 @@ Lower value or niche. Listed so nothing is missed.
 
 ### OMP-13 protocol evidence boundary
 
-The compatible block shapes are `{ type: "text", text }` and
-`{ type: "thinking", thinking, narration? }` in start/end `content`; supported snapshots carry
-arrays of those existing block types. Captured legacy traffic
-(`src/__fixtures__/omp/real-rpc-stream.json`) establishes string text deltas/end content;
-existing plugin tests and `src/bridge/subagents.ts` establish the
-`assistantMessageEvent.partial` convention. Neither establishes the exact 18.13.2 start/end
-nesting, which update subtype carries a restart snapshot, whether every restart preserves
-message IDs and content indices with prefix-monotone content, or whether a snapshot already
-includes a delta carried by the same frame. Those upstream wire details remain unverified by
-captured 18.13.2 traffic.
-The synthetic cases exercise the stated plugin-side compatibility contract, not additional
-undocumented envelope aliases or guarantees about arbitrary snapshot rewrites.
+Upstream `docs/rpc.md` documents `messageUpdates: "delta"` boundaries: `text_start`,
+`thinking_start`, and `toolcall_start` carry `assistantMessageEvent.block` (with text,
+thinking, or tool arguments respectively); `text_end` and `thinking_end` carry their
+completed string in `assistantMessageEvent.content` plus block metadata; `toolcall_end`
+carries `assistantMessageEvent.toolCall`; `image_end` carries content. The translator accepts
+those shapes, older block-valued and string text/thinking boundaries, and complete assistant
+snapshots. Toolcall boundaries never create rows; only `tool_execution_*` events do.
+
+Captured legacy traffic (`src/__fixtures__/omp/real-rpc-stream.json`) establishes string text
+deltas/end content. The 18.13.2 fixture cases are synthetic protocol regressions, not captured
+traffic; they lock the documented boundary fields and restart-snapshot reconstruction without
+claiming guarantees about arbitrary snapshot rewrites.
 
 ## Not used on purpose
 

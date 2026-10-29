@@ -1,7 +1,7 @@
 {
   "synthetic": true,
   "ompVersion": "18.13.2",
-  "provenance": "Synthetic protocol regression fixture, not a captured OMP session. Models block-valued message_update boundary content using existing assistant content block shapes.",
+  "provenance": "Synthetic protocol regression fixture, not a captured OMP session. Models documented 18.13.2 messageUpdates delta boundary fields.",
   "events": [
     { "type": "agent_start" },
     {
@@ -16,7 +16,7 @@
       "assistantMessageEvent": {
         "type": "thinking_start",
         "contentIndex": 0,
-        "content": { "type": "thinking", "thinking": "Check " }
+        "block": { "type": "thinking", "thinking": "Check " }
       }
     },
     {
@@ -32,7 +32,8 @@
       "assistantMessageEvent": {
         "type": "thinking_end",
         "contentIndex": 0,
-        "content": { "type": "thinking", "thinking": "Check the plan.", "thinkingSignature": "synthetic-signature" }
+        "content": "Check the plan.",
+        "block": { "type": "thinking", "thinking": "Check the plan.", "thinkingSignature": "synthetic-signature" }
       }
     },
     {
@@ -42,14 +43,15 @@
       "assistantMessageEvent": {
         "type": "thinking_end",
         "contentIndex": 0,
-        "content": { "type": "thinking", "thinking": "Check the plan.", "thinkingSignature": "synthetic-signature" }
+        "content": "Check the plan.",
+        "block": { "type": "thinking", "thinking": "Check the plan.", "thinkingSignature": "synthetic-signature" }
       }
     },
     {
       "type": "message_update",
       "messageId": "synthetic-before-tool",
       "message": { "role": "assistant" },
-      "assistantMessageEvent": { "type": "text_start", "contentIndex": 1, "content": { "type": "text", "text": "Before " } }
+      "assistantMessageEvent": { "type": "text_start", "contentIndex": 1, "block": { "type": "text", "text": "Before " } }
     },
     {
       "type": "message_update",
@@ -61,19 +63,19 @@
       "type": "message_update",
       "messageId": "synthetic-before-tool",
       "message": { "role": "assistant" },
-      "assistantMessageEvent": { "type": "text_end", "contentIndex": 1, "content": { "type": "text", "text": "Before tool." } }
+      "assistantMessageEvent": { "type": "text_end", "contentIndex": 1, "content": "Before tool.", "block": { "type": "text", "text": "Before tool." } }
     },
     {
       "type": "message_update",
       "messageId": "synthetic-before-tool",
       "message": { "role": "assistant" },
-      "assistantMessageEvent": { "type": "text_end", "contentIndex": 1, "content": { "type": "text", "text": "Before tool." } }
+      "assistantMessageEvent": { "type": "text_end", "contentIndex": 1, "content": "Before tool.", "block": { "type": "text", "text": "Before tool." } }
     },
     {
       "type": "message_update",
       "messageId": "synthetic-before-tool",
       "message": { "role": "assistant" },
-      "assistantMessageEvent": { "type": "toolcall_start", "contentIndex": 2 }
+      "assistantMessageEvent": { "type": "toolcall_start", "contentIndex": 2, "block": { "type": "toolCall", "id": "synthetic-tool", "name": "bash", "arguments": {} } }
     },
     {
       "type": "message_update",
@@ -88,7 +90,7 @@
       "assistantMessageEvent": {
         "type": "toolcall_end",
         "contentIndex": 2,
-        "content": { "type": "toolCall", "id": "synthetic-tool", "name": "bash", "arguments": { "command": "pwd" } }
+        "toolCall": { "type": "toolCall", "id": "synthetic-tool", "name": "bash", "arguments": { "command": "pwd" } }
       }
     },
     {
@@ -126,7 +128,7 @@
       "type": "message_update",
       "messageId": "synthetic-after-tool",
       "message": { "role": "assistant" },
-      "assistantMessageEvent": { "type": "text_start", "contentIndex": 0, "content": { "type": "text", "text": "After " } }
+      "assistantMessageEvent": { "type": "text_start", "contentIndex": 0, "block": { "type": "text", "text": "After " } }
     },
     {
       "type": "message_update",
@@ -138,7 +140,7 @@
       "type": "message_update",
       "messageId": "synthetic-after-tool",
       "message": { "role": "assistant" },
-      "assistantMessageEvent": { "type": "text_end", "contentIndex": 0, "content": { "type": "text", "text": "After tool." } }
+      "assistantMessageEvent": { "type": "text_end", "contentIndex": 0, "content": "After tool.", "block": { "type": "text", "text": "After tool." } }
     },
     {
       "type": "message_end",

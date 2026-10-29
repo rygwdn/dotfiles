@@ -1,7 +1,7 @@
 {
   "synthetic": true,
   "ompVersion": "18.13.2",
-  "provenance": "Synthetic protocol regression fixture, not a captured OMP session. Models a restarted assistant stream carrying a complete message_update.message snapshot, followed by cumulative legacy partials and additional deltas.",
+  "provenance": "Synthetic protocol regression fixture, not a captured OMP session. Models a restarted assistant stream carrying a complete message_update.message snapshot, followed by documented 18.13.2 messageUpdates delta boundaries and additional deltas.",
   "events": [
     { "type": "agent_start" },
     {
@@ -102,7 +102,8 @@
       "assistantMessageEvent": {
         "type": "text_end",
         "contentIndex": 1,
-        "content": { "type": "text", "text": "Hello world!" }
+        "content": "Hello world!",
+        "block": { "type": "text", "text": "Hello world!" }
       }
     },
     {
@@ -112,7 +113,8 @@
       "assistantMessageEvent": {
         "type": "thinking_end",
         "contentIndex": 0,
-        "content": { "type": "thinking", "thinking": "Weigh the options carefully.", "thinkingSignature": "synthetic-signature" }
+        "content": "Weigh the options carefully.",
+        "block": { "type": "thinking", "thinking": "Weigh the options carefully.", "thinkingSignature": "synthetic-signature" }
       }
     },
     {

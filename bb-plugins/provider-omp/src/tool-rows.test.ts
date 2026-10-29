@@ -20,77 +20,102 @@ function harness() {
 
 const textResult = { content: [{ type: "text", text: "complete tool output" }] };
 
-describe("typed OMP tool lifecycle", () => {
+describe("OMP tool lifecycle", () => {
   it.each([
-    { toolName: "grep", args: { pattern: "needle", path: "src" }, expected: { type: "search", mode: "content", query: "needle", path: "src", status: "completed" } },
-    { toolName: "ast_grep", args: { pat: "foo($ARG)" }, expected: { type: "search", mode: "content", query: "foo($ARG)", status: "completed" } },
-    { toolName: "glob", args: { path: "src/**/*.ts" }, expected: { type: "search", mode: "path", query: "src/**/*.ts", status: "completed" } },
-    { toolName: "find", args: { query: "authentication", grep_keywords: [] }, expected: { type: "search", mode: "content", query: "authentication", status: "completed" } },
-    { toolName: "web_search", args: { query: "release notes" }, expected: { type: "webSearch", queries: ["release notes"], resultText: "complete tool output" } },
-    { toolName: "think", args: { thoughts: "Consider the invariants" }, expected: { type: "reasoning", summary: [], content: ["Consider the invariants"] } },
-  ])("assembles one typed $toolName completion", ({ toolName, args, expected }) => {
+    { toolName: "grep", args: { pattern: "needle", path: "src" } },
+    { toolName: "ast_grep", args: { pat: "foo($ARG)" } },
+    { toolName: "glob", args: { path: "src/**/*.ts" } },
+    { toolName: "find", args: { query: "authentication", grep_keywords: [] } },
+    { toolName: "web_search", args: { query: "release notes" } },
+  ])("assembles one generic $toolName completion with original arguments and result", ({ toolName, args }) => {
     const h = harness();
     h.send({ type: "agent_start" });
-    const start = h.send({ type: "tool_execution_start", toolName, toolCallId: "typed", args });
-    const end = h.send({ type: "tool_execution_end", toolName, toolCallId: "typed", result: textResult });
+    const start = h.send({ type: "tool_execution_start", toolName, toolCallId: "generic", args });
+    const end = h.send({ type: "tool_execution_end", toolName, toolCallId: "generic", result: textResult });
+    expect(start.deltas).toEqual([
+      expect.objectContaining({ kind: "item.open", key: { providerItemId: "generic" }, item: { type: "tool", tool: toolName, args } }),
+    ]);
+    expect(end.deltas).toEqual([
+      expect.objectContaining({ kind: "item.close", status: "completed", resultText: "complete tool output", item: { type: "tool", tool: toolName, args, result: textResult } }),
+    ]);
     const started = start.events.filter((event) => event.type === "item/started");
     const completed = end.events.filter((event) => event.type === "item/completed");
     expect(started).toHaveLength(1);
     expect(completed).toHaveLength(1);
-    expect(completed[0]?.item).toMatchObject({ ...expected, id: started[0]?.item.id });
-    if (expected.type === "search") {
-      expect(start.deltas).toContainEqual(expect.objectContaining({ kind: "item.open", item: expect.objectContaining({ tool: toolName }) }));
-      expect(end.deltas).toContainEqual(expect.objectContaining({ kind: "item.close", resultText: "complete tool output", item: expect.objectContaining({ tool: toolName }) }));
-    }
+    expect(started[0]?.item).toMatchObject({ type: "toolCall", tool: toolName, arguments: args, status: "pending" });
+    expect(completed[0]?.item).toMatchObject({ type: "toolCall", tool: toolName, arguments: args, result: textResult, status: "completed", id: started[0]?.item.id });
+    const closed = end.deltas[0];
+    if (closed?.kind !== "item.close" || closed.item?.type !== "tool") throw new Error("Expected a generic tool completion");
+    expect(closed.item.result).toBe(textResult);
+    expect(closed.item.args).toBe(args);
+  });
+
+  it("keeps valid think calls as reasoning", () => {
+    const h = harness();
+    const args = { thoughts: "Consider the invariants" };
+    h.send({ type: "agent_start" });
+    const start = h.send({ type: "tool_execution_start", toolName: "think", toolCallId: "thinking", args });
+    const end = h.send({ type: "tool_execution_end", toolName: "think", toolCallId: "thinking", result: textResult });
+    const started = start.events.filter((event) => event.type === "item/started");
+    const completed = end.events.filter((event) => event.type === "item/completed");
+    expect(started).toHaveLength(1);
+    expect(completed).toHaveLength(1);
+    expect(completed[0]?.item).toMatchObject({ type: "reasoning", summary: [], content: ["Consider the invariants"], id: started[0]?.item.id });
   });
 
   it.each([
-    { args: { path: "src/app.ts:20-40:raw" }, details: { resolvedPath: "/workspace/src/app.ts" }, expected: { type: "fileRead", path: "/workspace/src/app.ts" } },
-    { args: { path: "src" }, details: { isDirectory: true, resolvedPath: "/workspace/src" }, expected: { type: "search", mode: "list", path: "/workspace/src", query: "src" } },
-    { args: { path: "https://example.com:8443/doc:20-40" }, details: { kind: "url", url: "https://example.com:8443/doc", finalUrl: "https://example.com:8443/final" }, expected: { type: "webFetch", url: "https://example.com:8443/doc", resultText: "complete tool output" } },
-  ])("defers read and uses result metadata for $expected.type", ({ args, details, expected }) => {
+    { name: "local file", args: { path: "src/app.ts:20-40:raw" }, details: { resolvedPath: "/workspace/src/app.ts" } },
+    { name: "directory", args: { path: "src" }, details: { isDirectory: true, resolvedPath: "/workspace/src" } },
+    { name: "URL", args: { path: "https://example.com:8443/doc:20-40" }, details: { kind: "url", url: "https://example.com:8443/doc", finalUrl: "https://example.com:8443/final" } },
+  ])("opens a generic $name read immediately and preserves metadata, intent and parent", ({ args, details }) => {
     const h = harness();
     h.send({ type: "agent_start" });
     const parent = h.send({ type: "tool_execution_start", toolName: "task", toolCallId: "parent", args: {} }).events.find((event) => event.type === "item/started");
     const context = { parentToolCallId: "parent" };
-    expect(h.send({ type: "tool_execution_start", toolName: "read", toolCallId: "read", args, intent: "Inspect target" }, context).deltas).toEqual([]);
-    expect(h.send({ type: "tool_execution_update", toolName: "read", toolCallId: "read", partialResult: textResult }, context).deltas).toEqual([]);
-    expect(h.send({ type: "tool_stream_update", toolName: "read", toolCallId: "read", update: "preview" }, context).deltas).toEqual([]);
-    const end = h.send({ type: "tool_execution_end", toolName: "read", toolCallId: "read", result: { ...textResult, details } }, context);
-    expect(end.deltas.map((delta) => delta.kind)).toEqual(["item.open", "item.close"]);
-    const started = end.events.filter((event) => event.type === "item/started");
+    const key = { providerItemId: "read", parentRef: "parent" };
+    const start = h.send({ type: "tool_execution_start", toolName: "read", toolCallId: "read", args, intent: "Inspect target" }, context);
+    expect(start.deltas).toEqual([
+      expect.objectContaining({ kind: "item.open", key, item: { type: "tool", tool: "read", args }, presentation: expect.objectContaining({ title: "Inspect target" }) }),
+    ]);
+    expect(h.send({ type: "tool_execution_update", toolName: "read", toolCallId: "read", partialResult: textResult }, context).deltas).toEqual([
+      expect.objectContaining({ kind: "item.progress", key, message: "complete tool output" }),
+    ]);
+    expect(h.send({ type: "tool_stream_update", toolName: "read", toolCallId: "read", update: "preview" }, context).deltas).toEqual([
+      expect.objectContaining({ kind: "item.progress", key, message: "preview" }),
+    ]);
+    const result = { ...textResult, details };
+    const end = h.send({ type: "tool_execution_end", toolName: "read", toolCallId: "read", result }, context);
+    expect(end.deltas).toEqual([
+      expect.objectContaining({ kind: "item.close", key, status: "completed", item: { type: "tool", tool: "read", args, result }, resultText: "complete tool output", presentation: expect.objectContaining({ title: "Inspect target" }) }),
+    ]);
+    const started = start.events.filter((event) => event.type === "item/started");
     const completed = end.events.filter((event) => event.type === "item/completed");
     expect(started).toHaveLength(1);
     expect(completed).toHaveLength(1);
-    expect(completed[0]?.item).toMatchObject({ ...expected, id: started[0]?.item.id, parentToolCallId: parent?.item.id });
-    expect(started[0]?.item).toMatchObject({ presentation: { title: "Inspect target" } });
-    if (expected.type === "fileRead") expect(completed[0]?.item).not.toHaveProperty("resultText");
+    expect(started[0]?.item).toMatchObject({ type: "toolCall", tool: "read", arguments: args, parentToolCallId: parent?.item.id, presentation: { title: "Inspect target" } });
+    expect(completed[0]?.item).toMatchObject({ type: "toolCall", tool: "read", arguments: args, result, status: "completed", id: started[0]?.item.id, parentToolCallId: parent?.item.id, presentation: { title: "Inspect target" } });
   });
 
-  it.each([
-    { suffix: ":600-700", selection: { selector: ":600-700", startLine: 600, endLine: 700 } },
-    { suffix: ":raw:600-700", selection: { selector: ":raw:600-700", startLine: 600, endLine: 700 } },
-    { suffix: ":600-700:raw", selection: { selector: ":600-700:raw", startLine: 600, endLine: 700 } },
-    { suffix: ":600-700,900-950", selection: { selector: ":600-700,900-950" } },
-    { suffix: ":-60", selection: { selector: ":-60" } },
-    { suffix: "", selection: {} },
-  ])("emits requested file selector $suffix and exact output on translated deltas", ({ suffix, selection }) => {
+  it.each([":600-700", ":raw:600-700", ":600-700:raw", ":600-700,900-950", ":-60", ""])("preserves requested file selector %s in generic arguments and exact output", (suffix) => {
     const h = harness();
     const args = { path: `src/app.ts${suffix}` };
     const resultText = "[src/app.ts#ABCD]\n599: preceding context\n600: selected content\n701: following context";
     const result = { details: { resolvedPath: "/resolved/src/app.ts" }, content: [{ type: "text", text: resultText }] };
     h.send({ type: "agent_start" });
-    expect(h.send({ type: "tool_execution_start", toolName: "read", toolCallId: "selected", args, intent: "Inspect read:1-2" }).deltas).toEqual([]);
-    const end = h.send({ type: "tool_execution_end", toolName: "read", toolCallId: "selected", result });
-    const item = { type: "fileRead", path: "/resolved/src/app.ts", ...selection };
-    expect(end.deltas).toEqual([
-      expect.objectContaining({ kind: "item.open", item }),
-      expect.objectContaining({ kind: "item.close", status: "completed", item, resultText }),
+    const start = h.send({ type: "tool_execution_start", toolName: "read", toolCallId: "selected", args, intent: "Inspect read:1-2" });
+    expect(start.deltas).toEqual([
+      expect.objectContaining({ kind: "item.open", item: { type: "tool", tool: "read", args }, presentation: expect.objectContaining({ title: "Inspect read:1-2" }) }),
     ]);
-    // The pinned 0.6.75 SDK drops fileRead selector metadata and resultText.
-    // The emitted wire contract is asserted above; updated bb core covers retention.
+    const end = h.send({ type: "tool_execution_end", toolName: "read", toolCallId: "selected", result });
+    expect(end.deltas).toEqual([
+      expect.objectContaining({ kind: "item.close", status: "completed", item: { type: "tool", tool: "read", args, result }, resultText }),
+    ]);
     const completed = end.events.find((event) => event.type === "item/completed");
-    expect(completed?.item).toMatchObject({ type: "fileRead", path: "/resolved/src/app.ts" });
+    expect(completed?.item).toMatchObject({ type: "toolCall", tool: "read", arguments: args, result, status: "completed" });
+    const closed = end.deltas[0];
+    if (closed?.kind !== "item.close" || closed.item?.type !== "tool") throw new Error("Expected a generic read completion");
+    expect(closed.item.result).toBe(result);
+    expect(closed.item.args).toBe(args);
   });
 
   it.each([
@@ -105,19 +130,21 @@ describe("typed OMP tool lifecycle", () => {
     const args = { path, i: "Inspect paths" };
     const result = { ...textResult, details };
     h.send({ type: "agent_start" });
-    h.send({ type: "tool_execution_start", toolName: "read", toolCallId: "fallback", args });
+    const start = h.send({ type: "tool_execution_start", toolName: "read", toolCallId: "fallback", args });
+    expect(start.deltas).toEqual([
+      expect.objectContaining({ kind: "item.open", item: { type: "tool", tool: "read", args } }),
+    ]);
     const end = h.send({ type: "tool_execution_end", toolName: "read", toolCallId: "fallback", result });
     expect(end.deltas).toEqual([
-      expect.objectContaining({ kind: "item.open", item: { type: "tool", tool: "read", args, result } }),
       expect.objectContaining({ kind: "item.close", status: "completed", resultText: "complete tool output", item: { type: "tool", tool: "read", args, result } }),
     ]);
-    expect(end.events.find((event) => event.type === "item/completed")?.item).toMatchObject({ type: "toolCall", tool: "read", result });
+    expect(end.events.find((event) => event.type === "item/completed")?.item).toMatchObject({ type: "toolCall", tool: "read", arguments: args, result, status: "completed" });
   });
 
   it.each([
     { name: "envelope failure", envelopeError: true, resultError: false },
     { name: "result failure", envelopeError: false, resultError: true },
-  ])("keeps $name diagnostics on typed and generic read closes", ({ envelopeError, resultError }) => {
+  ])("keeps $name diagnostics on generic read closes with or without backing metadata", ({ envelopeError, resultError }) => {
     for (const resolvedPath of ["/workspace/src/app.ts", undefined]) {
       const h = harness();
       const args = { path: "src/app.ts:raw:600-700" };
@@ -130,62 +157,94 @@ describe("typed OMP tool lifecycle", () => {
       h.send({ type: "agent_start" });
       h.send({ type: "tool_execution_start", toolName: "read", toolCallId: "failed-read", args });
       const end = h.send({ type: "tool_execution_end", toolName: "read", toolCallId: "failed-read", isError: envelopeError, result });
-      const item = resolvedPath
-        ? { type: "fileRead", path: resolvedPath, selector: ":raw:600-700", startLine: 600, endLine: 700 }
-        : { type: "tool", tool: "read", args, result };
-      expect(end.deltas).toContainEqual(expect.objectContaining({ kind: "item.close", status: "failed", resultText, item }));
-      expect(end.events.find((event) => event.type === "item/completed")?.item).toMatchObject({ type: resolvedPath ? "fileRead" : "toolCall", status: "failed" });
+      expect(end.deltas).toEqual([
+        expect.objectContaining({ kind: "item.close", status: "failed", resultText, item: { type: "tool", tool: "read", args, result } }),
+      ]);
+      expect(end.events.find((event) => event.type === "item/completed")?.item).toMatchObject({ type: "toolCall", tool: "read", arguments: args, result, status: "failed" });
     }
   });
 
-  it("preserves failure status from both the envelope and the result", () => {
-    for (const isError of [false, true]) {
-      const h = harness();
-      h.send({ type: "agent_start" });
-      h.send({ type: "tool_execution_start", toolName: "grep", toolCallId: "failed", args: { pattern: "x" } });
-      const end = h.send({ type: "tool_execution_end", toolName: "grep", toolCallId: "failed", isError, result: { ...textResult, isError: true } });
-      expect(end.deltas).toContainEqual(expect.objectContaining({ kind: "item.close", status: "failed" }));
-      expect(end.events.find((event) => event.type === "item/completed")?.item).toMatchObject({ type: "search", status: "failed" });
-    }
+  it.each([
+    { envelopeError: true, resultError: false },
+    { envelopeError: false, resultError: true },
+    { envelopeError: true, resultError: true },
+  ])("preserves grep failure status (envelope=$envelopeError, result=$resultError)", ({ envelopeError, resultError }) => {
+    const h = harness();
+    const args = { pattern: "x" };
+    const result = { ...textResult, isError: resultError };
+    h.send({ type: "agent_start" });
+    h.send({ type: "tool_execution_start", toolName: "grep", toolCallId: "failed", args });
+    const end = h.send({ type: "tool_execution_end", toolName: "grep", toolCallId: "failed", isError: envelopeError, result });
+    expect(end.deltas).toContainEqual(expect.objectContaining({ kind: "item.close", status: "failed", resultText: "complete tool output", item: { type: "tool", tool: "grep", args, result } }));
+    expect(end.events.find((event) => event.type === "item/completed")?.item).toMatchObject({ type: "toolCall", tool: "grep", arguments: args, result, status: "failed" });
   });
 
-  it("never treats a device write as a file change, including missing start", () => {
+  it("preserves a device write as the outer generic tool, including missing start", () => {
     const h = harness();
     h.send({ type: "agent_start" });
     const args = { path: "xd://ast_grep", content: JSON.stringify({ pat: "foo()" }) };
     const result = { ...textResult, details: { xdev: { tool: "ast_grep", mode: "execute", args: { pat: "foo()" }, inner: textResult } } };
-    expect(h.send({ type: "tool_execution_start", toolName: "write", toolCallId: "device", args }).deltas).toEqual([]);
+    const start = h.send({ type: "tool_execution_start", toolName: "write", toolCallId: "device", args });
+    expect(start.deltas).toEqual([
+      expect.objectContaining({ kind: "item.open", item: { type: "tool", tool: "write", args } }),
+    ]);
     const end = h.send({ type: "tool_execution_end", toolName: "write", toolCallId: "device", result });
-    expect(end.events.find((event) => event.type === "item/completed")?.item).toMatchObject({ type: "search", mode: "content", query: "foo()" });
+    expect(end.deltas).toEqual([
+      expect.objectContaining({ kind: "item.close", item: { type: "tool", tool: "write", args, result }, resultText: "complete tool output" }),
+    ]);
+    expect(end.events.find((event) => event.type === "item/completed")?.item).toMatchObject({ type: "toolCall", tool: "write", arguments: args, result });
     const unseen = h.send({ type: "tool_execution_end", toolName: "write", toolCallId: "unseen", result });
-    expect(unseen.events.find((event) => event.type === "item/completed")?.item).toMatchObject({ type: "toolCall", tool: "write", result });
+    expect(unseen.deltas).toEqual([
+      expect.objectContaining({ kind: "item.close", item: { type: "tool", tool: "write", args: undefined, result }, resultText: "complete tool output" }),
+    ]);
+    const completed = unseen.events.find((event) => event.type === "item/completed");
+    expect(completed?.item).toMatchObject({ type: "toolCall", tool: "write", result });
+    expect(completed?.item).not.toHaveProperty("arguments");
   });
 
-  it("isolates deferred reads by thread and parent and clears them on reset", () => {
+  it("isolates started read arguments by thread and parent and clears them on reset", () => {
     const h = harness();
-    for (const parentToolCallId of ["a", "b"]) {
-      h.send({ type: "tool_execution_start", toolName: "read", toolCallId: "shared", args: { path: `${parentToolCallId}:2-4` } }, { parentToolCallId });
+    for (const threadId of ["thread", "other"]) {
+      h.send({ type: "agent_start" }, { threadId });
+      for (const parentToolCallId of ["a", "b"]) {
+        h.send({ type: "tool_execution_start", toolName: "task", toolCallId: parentToolCallId, args: {} }, { threadId });
+        h.send({ type: "tool_execution_start", toolName: "read", toolCallId: "shared", args: { path: `${threadId}/${parentToolCallId}:2-4` }, intent: `Inspect ${threadId}/${parentToolCallId}` }, { threadId, parentToolCallId });
+      }
     }
-    for (const parentToolCallId of ["b", "a"]) {
-      const end = h.send({ type: "tool_execution_end", toolName: "read", toolCallId: "shared", result: { ...textResult, details: { resolvedPath: `/workspace/${parentToolCallId}` } } }, { parentToolCallId });
-      expect(end.deltas).toContainEqual(expect.objectContaining({ kind: "item.close", presentation: expect.objectContaining({ detail: `${parentToolCallId}:2-4` }) }));
+    for (const threadId of ["other", "thread"]) {
+      for (const parentToolCallId of ["b", "a"]) {
+        const args = { path: `${threadId}/${parentToolCallId}:2-4` };
+        const result = { ...textResult, details: { resolvedPath: `/workspace/${threadId}/${parentToolCallId}` } };
+        const end = h.send({ type: "tool_execution_end", toolName: "read", toolCallId: "shared", result }, { threadId, parentToolCallId });
+        expect(end.deltas).toEqual([
+          expect.objectContaining({ kind: "item.close", key: { providerItemId: "shared", parentRef: parentToolCallId }, item: { type: "tool", tool: "read", args, result }, presentation: expect.objectContaining({ title: `Inspect ${threadId}/${parentToolCallId}` }) }),
+        ]);
+        expect(end.events.find((event) => event.type === "item/completed")?.item).toMatchObject({ type: "toolCall", tool: "read", arguments: args, result, presentation: { title: `Inspect ${threadId}/${parentToolCallId}` } });
+      }
     }
-    h.send({ type: "tool_execution_start", toolName: "grep", toolCallId: "reset", args: { pattern: "x" } });
+    h.send({ type: "tool_execution_start", toolName: "grep", toolCallId: "reset", args: { pattern: "x" }, intent: "Stale intent" });
     h.translator.resetThread("thread");
-    expect(h.send({ type: "tool_execution_end", toolName: "grep", toolCallId: "reset", result: textResult }).deltas).toContainEqual(expect.objectContaining({ kind: "item.close", item: expect.objectContaining({ type: "tool", tool: "grep" }) }));
+    const end = h.send({ type: "tool_execution_end", toolName: "grep", toolCallId: "reset", result: textResult });
+    expect(end.deltas).toEqual([
+      expect.objectContaining({ kind: "item.close", item: { type: "tool", tool: "grep", args: undefined, result: textResult } }),
+    ]);
+    expect(end.deltas[0]).not.toHaveProperty("presentation");
+    const completed = end.events.find((event) => event.type === "item/completed");
+    expect(completed?.item).toMatchObject({ type: "toolCall", tool: "grep", result: textResult });
+    expect(completed?.item).not.toHaveProperty("arguments");
   });
 });
 
 describe("OMP search wire output", () => {
   const searches = [
-    { tool: "grep", args: { pattern: "needle", path: "src;tests" }, item: { type: "search", tool: "grep", mode: "content", query: "needle", path: "src;tests" }, text: "[src/app.ts#ABCD]\n12: needle\n[tests/app.test.ts#1234]\n42: needle" },
-    { tool: "ast_grep", args: { pat: "$CALL($$$ARGS)", path: "src/**/*.ts" }, item: { type: "search", tool: "ast_grep", mode: "content", query: "$CALL($$$ARGS)", path: "src/**/*.ts" }, text: "src/app.ts:12:3\n  call(argument)" },
-    { tool: "glob", args: { path: "src/**/*.ts;tests/**/*.ts" }, item: { type: "search", tool: "glob", mode: "path", query: "src/**/*.ts;tests/**/*.ts" }, text: "src/app.ts\ntests/app.test.ts\n… 12 more" },
-    { tool: "find", args: { query: "Where is authentication initialized?", path: "src", grep_keywords: ["authenticate"] }, item: { type: "search", tool: "find", mode: "content", query: "Where is authentication initialized?", path: "src" }, text: "2 hit(s) (τ 0.20), strongest first\nsrc/auth.ts  0.97  208 lines judged, partial\n  src/auth.ts:18-42  0.97  authenticate(request)\n\nlisted 139 · judged 128 · read 20 files\nCoverage partial; output truncated: artifact://find-output" },
-    { tool: "read", args: { path: "src:20-30" }, details: { isDirectory: true, resolvedPath: "/workspace/src" }, item: { type: "search", tool: "read", mode: "list", path: "/workspace/src", query: "src:20-30" }, text: "# src/\n20: app.ts\n21: auth.ts\n… 12 more" },
+    { tool: "grep", args: { pattern: "needle", path: "src;tests" }, text: "[src/app.ts#ABCD]\n12: needle\n[tests/app.test.ts#1234]\n42: needle" },
+    { tool: "ast_grep", args: { pat: "$CALL($$$ARGS)", path: "src/**/*.ts" }, text: "src/app.ts:12:3\n  call(argument)" },
+    { tool: "glob", args: { path: "src/**/*.ts;tests/**/*.ts" }, text: "src/app.ts\ntests/app.test.ts\n… 12 more" },
+    { tool: "find", args: { query: "Where is authentication initialized?", path: "src", grep_keywords: ["authenticate"] }, text: "2 hit(s) (τ 0.20), strongest first\nsrc/auth.ts  0.97  208 lines judged, partial\n  src/auth.ts:18-42  0.97  authenticate(request)\n\nlisted 139 · judged 128 · read 20 files\nCoverage partial; output truncated: artifact://find-output" },
+    { tool: "read", args: { path: "src:20-30" }, details: { isDirectory: true, resolvedPath: "/workspace/src" }, text: "# src/\n20: app.ts\n21: auth.ts\n… 12 more" },
   ];
 
-  describe.each(searches)("$tool", ({ tool, args, item, details, text }) => {
+  describe.each(searches)("$tool", ({ tool, args, details, text }) => {
     it.each([
       { label: "success", envelopeError: false, resultError: false },
       { label: "execution failure", envelopeError: true, resultError: false },
@@ -194,97 +253,103 @@ describe("OMP search wire output", () => {
       for (const device of [false, true]) {
         const h = harness();
         const context = { parentToolCallId: "parent" };
+        const key = { providerItemId: "search", parentRef: "parent" };
+        const presentation = expect.objectContaining({ title: "Inspecting source" });
         h.send({ type: "agent_start" });
-        h.send({ type: "tool_execution_start", toolName: "task", toolCallId: "parent", args: {} });
+        const parent = h.send({ type: "tool_execution_start", toolName: "task", toolCallId: "parent", args: {} }).events.find((event) => event.type === "item/started");
         const toolName = device ? "write" : tool;
         const toolArgs = device ? { path: `xd://${tool}`, content: JSON.stringify(args) } : args;
         const output = envelopeError || resultError ? `Search failed:\n${text}\nPermission denied` : text;
         const inner = { content: [{ type: "text", text: output }], ...(details ? { details } : {}), isError: resultError };
         const result = device
-          ? { details: { xdev: { tool, mode: "execute", args, inner } } }
+          ? { content: inner.content, isError: resultError, details: { xdev: { tool, mode: "execute", args, inner } } }
           : inner;
+        const status = envelopeError || resultError ? "failed" : "completed";
         const start = h.send({ type: "tool_execution_start", toolName, toolCallId: "search", args: toolArgs, intent: "Inspecting source" }, context);
-        if (device || tool === "read") expect(start.deltas).toEqual([]);
-        else expect(start.deltas).toEqual([expect.objectContaining({ kind: "item.open", item })]);
+        expect(start.deltas).toEqual([
+          expect.objectContaining({ kind: "item.open", key, item: { type: "tool", tool: toolName, args: toolArgs }, presentation }),
+        ]);
         const end = h.send({ type: "tool_execution_end", toolName, toolCallId: "search", result, isError: envelopeError }, context);
-        expect(end.deltas.map((delta) => delta.kind)).toEqual(device || tool === "read" ? ["item.open", "item.close"] : ["item.close"]);
-        expect(end.deltas).toContainEqual(expect.objectContaining({
-          kind: "item.close",
-          key: { providerItemId: "search", parentRef: "parent" },
-          status: envelopeError || resultError ? "failed" : "completed",
-          item,
-          resultText: output,
-          presentation: expect.objectContaining({ title: "Inspecting source" }),
-        }));
-        const completed = end.events.find((event) => event.type === "item/completed");
-        expect(completed?.item).toMatchObject({ type: "search", status: envelopeError || resultError ? "failed" : "completed" });
-        if (tool === "find") {
-          const presentation = {
-            icon: { glyph: "Search" },
-            label: { pending: "Searching semantically", completed: "Searched semantically" },
-            title: "Inspecting source",
-            detail: item.query,
-          };
-          const opened = device ? end.deltas : start.deltas;
-          expect(opened).toContainEqual(expect.objectContaining({ kind: "item.open", item, presentation }));
-          expect(end.deltas).toContainEqual(expect.objectContaining({ kind: "item.close", presentation }));
-          expect(completed?.item).toMatchObject({ mode: "content", presentation });
-        }
-        // SDK 0.6.75 drops search.tool/resultText; the emitted wire fields above
-        // are retained by the matching updated bb core rather than this assembler.
+        expect(end.deltas).toEqual([
+          expect.objectContaining({ kind: "item.close", key, status, item: { type: "tool", tool: toolName, args: toolArgs, result }, resultText: output, presentation }),
+        ]);
+        const started = start.events.filter((event) => event.type === "item/started");
+        const completed = end.events.filter((event) => event.type === "item/completed");
+        expect(started).toHaveLength(1);
+        expect(completed).toHaveLength(1);
+        expect(started[0]?.item).toMatchObject({ type: "toolCall", tool: toolName, arguments: toolArgs, status: "pending", parentToolCallId: parent?.item.id, presentation });
+        expect(completed[0]?.item).toMatchObject({ type: "toolCall", tool: toolName, arguments: toolArgs, result, status, id: started[0]?.item.id, parentToolCallId: parent?.item.id, presentation });
+        const opened = start.deltas[0];
+        const closed = end.deltas[0];
+        if (opened?.kind !== "item.open" || opened.item.type !== "tool") throw new Error("Expected a generic search start");
+        if (closed?.kind !== "item.close" || closed.item?.type !== "tool") throw new Error("Expected a generic search completion");
+        expect(opened.item.args).toBe(toolArgs);
+        expect(closed.item.args).toBe(opened.item.args);
+        expect(closed.item.result).toBe(result);
       }
     });
   });
 
-  it.each([false, true])("presents semantic find with its natural-language query without intent (device=%s)", (device) => {
+  it.each([false, true])("retains semantic find query in original arguments without inventing intent (device=%s)", (device) => {
     const h = harness();
     const args = { query: "Where is authentication initialized?", path: "src" };
     const toolName = device ? "write" : "find";
     const toolArgs = device ? { path: "xd://find", content: JSON.stringify(args) } : args;
-    const result = device ? { details: { xdev: { tool: "find", mode: "execute", args, inner: textResult } } } : textResult;
-    const item = { type: "search", tool: "find", mode: "content", query: args.query, path: args.path };
-    const presentation = {
-      icon: { glyph: "Search" },
-      label: { pending: "Searching semantically", completed: "Searched semantically" },
-      title: args.query,
-    };
+    const result = device ? { ...textResult, details: { xdev: { tool: "find", mode: "execute", args, inner: textResult } } } : textResult;
     h.send({ type: "agent_start" });
     const start = h.send({ type: "tool_execution_start", toolName, toolCallId: "semantic", args: toolArgs });
     const end = h.send({ type: "tool_execution_end", toolName, toolCallId: "semantic", result });
-    expect(device ? end.deltas : start.deltas).toContainEqual(expect.objectContaining({ kind: "item.open", item, presentation }));
-    expect(end.deltas).toContainEqual(expect.objectContaining({ kind: "item.close", item, presentation, resultText: "complete tool output" }));
+    expect(start.deltas).toEqual([
+      expect.objectContaining({ kind: "item.open", item: { type: "tool", tool: toolName, args: toolArgs } }),
+    ]);
+    expect(end.deltas).toEqual([
+      expect.objectContaining({ kind: "item.close", item: { type: "tool", tool: toolName, args: toolArgs, result }, resultText: "complete tool output" }),
+    ]);
+    expect(start.deltas[0]).not.toHaveProperty("presentation");
+    expect(end.deltas[0]).not.toHaveProperty("presentation");
     expect(end.events.find((event) => event.type === "item/completed")?.item).toMatchObject({
-      type: "search", mode: "content", query: args.query, presentation,
+      type: "toolCall", tool: toolName, arguments: toolArgs, result, status: "completed",
     });
   });
 
-  it("retains outer dispatch diagnostics as well as an inner failure flag", () => {
+  it.each([false, true])("retains outer dispatch diagnostics and nested failure without unwrapping (outerFailure=%s)", (outerFailure) => {
     const h = harness();
     const args = { pat: "$CALL($$$ARGS)", path: "src" };
     const outerArgs = { path: "xd://ast_grep", content: JSON.stringify(args) };
     const output = "Dispatcher diagnostic:\nSearch failed: permission denied\nFull trace: artifact://error";
     const inner = { content: [{ type: "text", text: "Search failed: permission denied" }], isError: true };
-    const result = { content: [{ type: "text", text: output }], details: { xdev: { tool: "ast_grep", mode: "execute", args, inner } } };
+    const result = { content: [{ type: "text", text: output }], isError: outerFailure, details: { xdev: { tool: "ast_grep", mode: "execute", args, inner } } };
     h.send({ type: "agent_start" });
     h.send({ type: "tool_execution_start", toolName: "write", toolCallId: "dispatch-error", args: outerArgs });
-    expect(h.send({ type: "tool_execution_end", toolName: "write", toolCallId: "dispatch-error", result, isError: false }).deltas).toContainEqual(expect.objectContaining({
-      kind: "item.close", status: "failed", resultText: output,
-      item: { type: "search", tool: "ast_grep", mode: "content", query: args.pat, path: args.path },
-    }));
+    const end = h.send({ type: "tool_execution_end", toolName: "write", toolCallId: "dispatch-error", result, isError: false });
+    expect(end.deltas).toEqual([expect.objectContaining({
+      kind: "item.close", status: outerFailure ? "failed" : "completed", resultText: output,
+      item: { type: "tool", tool: "write", args: outerArgs, result },
+    })]);
+    expect(end.events.find((event) => event.type === "item/completed")?.item).toMatchObject({
+      type: "toolCall", tool: "write", arguments: outerArgs, result, status: outerFailure ? "failed" : "completed",
+    });
   });
 
   it("does not bound or normalize large semantic-find output or coverage footers", () => {
     const h = harness();
     const args = { query: "Locate initialization", path: "src" };
     const output = `  Leading whitespace\n${"src/auth.ts:12-42  0.97  partial coverage\n".repeat(8_000)}\nlisted 139 · judged 128 · read 20 files\nOutput truncated; full result: artifact://find-output\n  `;
+    const result = { content: [{ type: "text", text: output }] };
     h.send({ type: "agent_start" });
     h.send({ type: "tool_execution_start", toolName: "find", toolCallId: "large", args });
-    const end = h.send({ type: "tool_execution_end", toolName: "find", toolCallId: "large", result: { content: [{ type: "text", text: output }] } });
+    const end = h.send({ type: "tool_execution_end", toolName: "find", toolCallId: "large", result });
     expect(end.deltas).toEqual([expect.objectContaining({
       kind: "item.close",
-      item: { type: "search", tool: "find", mode: "content", query: args.query, path: args.path },
+      item: { type: "tool", tool: "find", args, result },
       resultText: output,
     })]);
+    expect(end.events.find((event) => event.type === "item/completed")?.item).toMatchObject({
+      type: "toolCall", tool: "find", arguments: args, result,
+    });
+    const closed = end.deltas[0];
+    if (closed?.kind !== "item.close" || closed.item?.type !== "tool") throw new Error("Expected a generic find completion");
+    expect(closed.item.result).toBe(result);
   });
 
   it.each([
@@ -308,23 +373,28 @@ describe("OMP search wire output", () => {
         item: { type: "tool", tool: toolName, args: toolArgs, result },
       }));
       expect(end.events.find((event) => event.type === "item/completed")?.item).toMatchObject({
-        type: "toolCall", tool: toolName, arguments: toolArgs, result,
+        type: "toolCall", tool: toolName, arguments: toolArgs, result, status: "failed",
       });
     }
   });
 
-  it("recovers directory identity from metadata without inventing a missing search query", () => {
+  it("preserves terminal read metadata without inventing arguments or a missing search query", () => {
     const h = harness();
     h.send({ type: "agent_start" });
     const result = { ...textResult, details: { isDirectory: true, resolvedPath: "/workspace/src" } };
-    expect(h.send({ type: "tool_execution_end", toolName: "read", toolCallId: "directory", result }).deltas).toContainEqual(expect.objectContaining({
-      kind: "item.close", resultText: "complete tool output",
-      item: { type: "search", tool: "read", mode: "list", path: "/workspace/src", query: "/workspace/src" },
-    }));
-    expect(h.send({ type: "tool_execution_end", toolName: "find", toolCallId: "unknown-query", result: textResult }).deltas).toContainEqual(expect.objectContaining({
-      kind: "item.close", resultText: "complete tool output",
-      item: { type: "tool", tool: "find", args: undefined, result: textResult },
-    }));
+    for (const [toolName, toolCallId, output] of [["read", "directory", result], ["find", "unknown-query", textResult]] as const) {
+      const end = h.send({ type: "tool_execution_end", toolName, toolCallId, result: output });
+      expect(end.deltas).toEqual([expect.objectContaining({
+        kind: "item.close", key: { providerItemId: toolCallId }, status: "completed", resultText: "complete tool output",
+        item: { type: "tool", tool: toolName, args: undefined, result: output },
+      })]);
+      expect(end.events.filter((event) => event.type === "item/started")).toHaveLength(0);
+      const completed = end.events.find((event) => event.type === "item/completed");
+      expect(completed?.item).toMatchObject({
+        type: "toolCall", tool: toolName, result: output, status: "completed",
+      });
+      expect(completed?.item).not.toHaveProperty("arguments");
+    }
   });
 });
 

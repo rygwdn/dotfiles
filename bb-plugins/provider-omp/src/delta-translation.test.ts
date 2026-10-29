@@ -1209,15 +1209,34 @@ describe("omp delta translation equivalence", () => {
       };
     }
 
-    it("reconstructs synthetic 18.13.2 boundary blocks once in order around an execution tool", () => {
+    it("reconstructs documented 18.13.2 delta boundaries and waits for execution events to create tools", () => {
       const fixture = loadFixture<SyntheticUpdateFixture>("message-update-block-boundaries-18.13.2.synthetic.json");
       expect(fixture).toMatchObject({ synthetic: true, ompVersion: "18.13.2" });
+      expect(fixture.events).toEqual(expect.arrayContaining([
+        expect.objectContaining({ assistantMessageEvent: expect.objectContaining({
+          type: "thinking_start", block: { type: "thinking", thinking: "Check " },
+        }) }),
+        expect.objectContaining({ assistantMessageEvent: expect.objectContaining({
+          type: "text_end", content: "Before tool.", block: { type: "text", text: "Before tool." },
+        }) }),
+        expect.objectContaining({ assistantMessageEvent: expect.objectContaining({
+          type: "toolcall_end", toolCall: expect.objectContaining({ id: "synthetic-tool" }),
+        }) }),
+      ]));
       const harness = createHarness();
       const batches = fixture.events.map((event) => harness.translate(event));
       const events = batches.flat();
       const { answers, thinking } = streamed(events);
       expect([...thinking.values()]).toEqual(["Check the plan."]);
       expect([...answers.values()]).toEqual(["Before tool.", "After tool."]);
+      const toolExecutionStart = fixture.events.findIndex((event) => event.type === "tool_execution_start");
+      expect(toolExecutionStart).toBeGreaterThan(0);
+      expect(batches.slice(0, toolExecutionStart).flat().some((event) =>
+        event.type === "item/started" && event.item.type === "toolCall"
+      )).toBe(false);
+      expect(batches[toolExecutionStart]).toContainEqual(expect.objectContaining({
+        type: "item/started", item: expect.objectContaining({ type: "toolCall" }),
+      }));
 
       const started = events.flatMap((event) => event.type === "item/started" ? [event.item] : []);
       expect(started.map((item) => item.type)).toEqual([

@@ -340,6 +340,7 @@ const ompMessageUpdateEventSchema = z
     assistantMessageEvent: z
       .object({
         type: z.string(),
+        block: z.unknown().optional(),
         content: z.unknown().optional(),
         contentIndex: z.number().optional(),
         delta: z.string().optional(),
@@ -1877,17 +1878,25 @@ export function createOmpDeltaTranslator(
         let boundary: OmpAssistantStreamBlock | undefined;
         let thinkingMetadata = false;
         if (!deltaEvent && (textEvent || thinkingEvent)) {
-          const parsed = ompAssistantStreamBlockSchema.safeParse(assistantEvent.content);
+          const boundaryContent = assistantEvent.type.endsWith("_start")
+            ? assistantEvent.block ?? assistantEvent.content
+            : assistantEvent.content;
+          const parsed = ompAssistantStreamBlockSchema.safeParse(boundaryContent);
+          const metadata = ompThinkingBlockFlagsSchema.safeParse(assistantEvent.block);
+          if (thinkingEvent && metadata.success) thinkingMetadata = true;
           if (parsed.success && parsed.data.type === (textEvent ? "text" : "thinking")) {
             const text = parsed.data.type === "text" ? parsed.data.text : parsed.data.thinking;
             if (text) {
               boundary = parsed.data;
-              thinkingMetadata = parsed.data.type === "thinking";
+              thinkingMetadata ||= parsed.data.type === "thinking";
             }
-          } else if (typeof assistantEvent.content === "string" && assistantEvent.content) {
+          } else if (typeof boundaryContent === "string" && boundaryContent) {
             boundary = textEvent
-              ? { type: "text", text: assistantEvent.content }
-              : { type: "thinking", thinking: assistantEvent.content };
+              ? { type: "text", text: boundaryContent }
+              : { type: "thinking", thinking: boundaryContent };
+          }
+          if (boundary?.type === "thinking" && metadata.success && metadata.data.narration === true) {
+            boundary = { ...boundary, narration: true };
           }
         }
         if (thinkingEvent && index === undefined && (boundary || (deltaEvent && assistantEvent.delta))) {
