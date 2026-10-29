@@ -10,6 +10,38 @@ import type {
   ProviderVisibilityMetadata,
 } from "@get-bb/plugin-sdk/provider-bridge";
 
+function hasBlockContent(block: unknown, type: "text" | "thinking"): boolean {
+  if (!block || typeof block !== "object" || Array.isArray(block)) {
+    return false;
+  }
+  const record = block as Record<string, unknown>;
+  return (
+    getStringProperty(record, "type") === type &&
+    Boolean(getStringProperty(record, type))
+  );
+}
+
+function hasAssistantSnapshotContent(
+  snapshot: Record<string, unknown> | undefined,
+  allowMissingRole = false,
+): boolean {
+  if (!snapshot) {
+    return false;
+  }
+  const role = snapshot["role"];
+  if (role !== "assistant" && !(allowMissingRole && role === undefined)) {
+    return false;
+  }
+  const content = snapshot["content"];
+  return (
+    Array.isArray(content) &&
+    content.some(
+      (block: unknown) =>
+        hasBlockContent(block, "text") || hasBlockContent(block, "thinking"),
+    )
+  );
+}
+
 function parseOmpRawEvent(event: JsonRpcMessage): ProviderRawEventDescription {
   switch (event.method) {
     case "thread/identity":
@@ -76,6 +108,12 @@ function parseOmpRawEvent(event: JsonRpcMessage): ProviderRawEventDescription {
       }
       const assistantType = getStringProperty(assistantEvent, "type");
       const updateKind = assistantType ? `${kind}:${assistantType}` : kind;
+      const hasSnapshotContent =
+        hasAssistantSnapshotContent(
+          getRecordProperty(assistantEvent, "partial") ?? undefined,
+          true,
+        ) ||
+        hasAssistantSnapshotContent(getRecordProperty(message, "message") ?? undefined);
       switch (assistantType) {
         case "text_delta":
           return { kind: updateKind, coverage: "normalized" };
@@ -83,17 +121,36 @@ function parseOmpRawEvent(event: JsonRpcMessage): ProviderRawEventDescription {
           const delta = getStringProperty(assistantEvent, "delta");
           return {
             kind: updateKind,
-            coverage: delta ? "normalized" : "noise",
+            coverage: delta || hasSnapshotContent ? "normalized" : "noise",
           };
         }
+        case "text_start":
+        case "text_end":
+        case "thinking_start":
         case "thinking_end": {
-          const content = getStringProperty(assistantEvent, "content");
+          const blockType = assistantType.startsWith("text_")
+            ? "text"
+            : "thinking";
+          const content = assistantEvent["content"];
           return {
             kind: updateKind,
-            coverage: content ? "normalized" : "noise",
+            coverage:
+              (typeof content === "string" && content.length > 0) ||
+              hasBlockContent(content, blockType) ||
+              hasSnapshotContent
+                ? "normalized"
+                : "noise",
           };
         }
+        case "start":
+        case "done":
+          return {
+            kind: updateKind,
+            coverage: hasSnapshotContent ? "normalized" : "noise",
+          };
         default:
+          // Assistant tool calls and unsupported blocks remain noise even if
+          // accompanied by a snapshot; execution events alone own tool rows.
           return { kind: updateKind, coverage: "noise" };
       }
     }

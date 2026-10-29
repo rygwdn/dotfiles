@@ -1,0 +1,136 @@
+{
+  "synthetic": true,
+  "ompVersion": "18.13.2",
+  "provenance": "Synthetic protocol regression fixture, not a captured OMP session. Models a restarted assistant stream carrying a complete message_update.message snapshot, followed by cumulative legacy partials and additional deltas.",
+  "events": [
+    { "type": "agent_start" },
+    {
+      "type": "message_start",
+      "messageId": "synthetic-restart",
+      "message": { "role": "assistant", "content": [], "api": "anthropic-messages" }
+    },
+    {
+      "type": "message_update",
+      "messageId": "synthetic-restart",
+      "message": { "role": "assistant" },
+      "assistantMessageEvent": { "type": "thinking_delta", "contentIndex": 0, "delta": "Weigh " }
+    },
+    {
+      "type": "message_update",
+      "messageId": "synthetic-restart",
+      "message": { "role": "assistant" },
+      "assistantMessageEvent": { "type": "text_delta", "contentIndex": 1, "delta": "Hello" }
+    },
+    {
+      "type": "message_update",
+      "messageId": "synthetic-restart",
+      "message": {
+        "role": "assistant",
+        "content": [
+          { "type": "thinking", "thinking": "Weigh the options" },
+          { "type": "text", "text": "Hello world" },
+          { "type": "toolCall", "id": "not-an-execution", "name": "bash", "arguments": { "command": "pwd" } },
+          { "type": "image", "data": "AAAA", "mimeType": "image/png" }
+        ],
+        "api": "anthropic-messages",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-6",
+        "usage": { "input": 200, "output": 300, "totalTokens": 500 }
+      },
+      "assistantMessageEvent": { "type": "start" }
+    },
+    {
+      "type": "message_update",
+      "messageId": "synthetic-restart",
+      "message": {
+        "role": "assistant",
+        "content": [
+          { "type": "thinking", "thinking": "Weigh the options" },
+          { "type": "text", "text": "Hello world" }
+        ],
+        "api": "anthropic-messages"
+      },
+      "assistantMessageEvent": { "type": "start" }
+    },
+    {
+      "type": "message_update",
+      "messageId": "synthetic-restart",
+      "message": { "role": "assistant" },
+      "assistantMessageEvent": { "type": "thinking_delta", "contentIndex": 0, "delta": " carefully." }
+    },
+    {
+      "type": "message_update",
+      "messageId": "synthetic-restart",
+      "message": {
+        "role": "assistant",
+        "content": [
+          { "type": "thinking", "thinking": "Weigh the options carefully." },
+          { "type": "text", "text": "Hello world!" }
+        ]
+      },
+      "assistantMessageEvent": {
+        "type": "text_delta",
+        "contentIndex": 1,
+        "delta": "!",
+        "partial": {
+          "role": "assistant",
+          "content": [
+            { "type": "thinking", "thinking": "Weigh the options carefully." },
+            { "type": "text", "text": "Hello world!" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "message_update",
+      "messageId": "synthetic-restart",
+      "message": {
+        "role": "assistant",
+        "content": [
+          { "type": "thinking", "thinking": "Weigh the options carefully." },
+          { "type": "text", "text": "Hello world!" }
+        ],
+        "api": "anthropic-messages",
+        "usage": { "input": 200, "output": 300, "totalTokens": 500 }
+      },
+      "assistantMessageEvent": { "type": "done" }
+    },
+    {
+      "type": "message_update",
+      "messageId": "synthetic-restart",
+      "message": { "role": "assistant" },
+      "assistantMessageEvent": {
+        "type": "text_end",
+        "contentIndex": 1,
+        "content": { "type": "text", "text": "Hello world!" }
+      }
+    },
+    {
+      "type": "message_update",
+      "messageId": "synthetic-restart",
+      "message": { "role": "assistant" },
+      "assistantMessageEvent": {
+        "type": "thinking_end",
+        "contentIndex": 0,
+        "content": { "type": "thinking", "thinking": "Weigh the options carefully.", "thinkingSignature": "synthetic-signature" }
+      }
+    },
+    {
+      "type": "message_end",
+      "messageId": "synthetic-restart",
+      "message": {
+        "role": "assistant",
+        "content": [
+          { "type": "thinking", "thinking": "Weigh the options carefully.", "thinkingSignature": "synthetic-signature" },
+          { "type": "text", "text": "Hello world!" }
+        ],
+        "api": "anthropic-messages",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-6",
+        "stopReason": "stop",
+        "usage": { "input": 2, "output": 3, "totalTokens": 5 },
+        "timestamp": 1793275200200
+      }
+    }
+  ]
+}

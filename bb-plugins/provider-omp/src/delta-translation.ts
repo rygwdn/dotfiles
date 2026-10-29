@@ -214,14 +214,29 @@ const ompNarrationApis: Record<string, true> = {
   "bedrock-converse-stream": true,
 };
 
-const ompThinkingEndPartialSchema = z.object({
+const ompAssistantContentSnapshotSchema = z.object({
+  // Older full update frames can omit role on `partial`.
+  role: z.literal("assistant").optional(),
+  messageId: z.string().optional(),
+  api: z.string().optional(),
   content: z.array(z.unknown()),
+});
+
+const ompAssistantUpdateMessageSchema = ompAssistantContentSnapshotSchema.extend({
+  role: z.literal("assistant"),
 });
 
 const ompThinkingBlockFlagsSchema = z.object({
   type: z.literal("thinking"),
   narration: z.boolean().optional(),
 });
+
+const ompAssistantStreamBlockSchema = z.discriminatedUnion("type", [
+  textBlockSchema,
+  ompThinkingBlockFlagsSchema.extend({ thinking: z.string() }),
+]);
+
+type OmpAssistantStreamBlock = z.infer<typeof ompAssistantStreamBlockSchema>;
 
 function isNarrationBlock(block: unknown): boolean {
   const parsed = ompThinkingBlockFlagsSchema.safeParse(block);
@@ -593,14 +608,37 @@ interface OmpBashJob extends OmpBashJobObservation {
   description: string;
 }
 
+interface OmpAssistantBlockState {
+  type: "text" | "thinking";
+  /** Longest observed prefix, from either deltas or cumulative snapshots. */
+  text: string;
+  emitted: number;
+  narration: boolean;
+}
+
+function assistantDeltaSuffix(delta: string, snapshot: string | undefined, previousLength: number): string {
+  // Only newly observed snapshot content can overlap a fresh delta. An equal
+  // or shorter snapshot must not swallow a later incremental update.
+  if (snapshot === undefined || snapshot.length <= previousLength) return delta;
+  if (snapshot.startsWith(delta, previousLength) || snapshot.endsWith(delta)) return "";
+  for (let overlap = Math.min(delta.length - 1, snapshot.length - previousLength); overlap > 0; overlap -= 1) {
+    let matched = 0;
+    const start = snapshot.length - overlap;
+    while (matched < overlap && snapshot.charCodeAt(start + matched) === delta.charCodeAt(matched)) matched += 1;
+    if (matched === overlap) return delta.slice(overlap);
+  }
+  return delta;
+}
+
 interface OmpAssistantStream {
   id: string;
   closed: boolean;
+  content: Map<number, OmpAssistantBlockState>;
   /** Thinking block index -> whether its item has settled. */
   thinking: Map<number, boolean>;
   /** Narration blocks shown as answer text rather than reasoning. */
   narration: Set<number>;
-  /** Settle thinking at message_end, the first point narration is known. */
+  /** Legacy delta-only updates cannot classify narration until message_end. */
   deferThinking: boolean;
   answerStreamed: boolean;
 }
@@ -708,13 +746,82 @@ export function createOmpDeltaTranslator(
     let stream = streams.messages.get(id);
     if (!stream) {
       stream = {
-        id, closed: false, thinking: new Map(), narration: new Set(),
+        id, closed: false, content: new Map(), thinking: new Map(), narration: new Set(),
         deferThinking: false, answerStreamed: false,
       };
       streams.messages.set(id, stream);
     }
     streams.activeMessageId = id;
     return stream;
+  }
+
+  function observeAssistantBlock(
+    stream: OmpAssistantStream,
+    index: number,
+    block: OmpAssistantStreamBlock,
+    append = false,
+  ): boolean {
+    const text = block.type === "text" ? block.text : block.thinking;
+    if (!text) return false;
+    let content = stream.content.get(index);
+    if (!content) {
+      content = { type: block.type, text: "", emitted: 0, narration: false };
+      stream.content.set(index, content);
+    }
+    if (content.type !== block.type) return false;
+    if (append) {
+      content.text += text;
+    } else if (text.startsWith(content.text)) {
+      // Boundaries/partials/restart snapshots are cumulative. Repeated or
+      // delayed shorter prefixes must not rewind the next delta's cursor.
+      content.text = text;
+    }
+    if (block.type === "thinking" && block.narration === true) content.narration = true;
+    return true;
+  }
+
+  function flushAssistantBlock(
+    stream: OmpAssistantStream,
+    index: number,
+    context: OmpDeltaTranslationContext | undefined,
+  ): ThreadDelta[] {
+    const content = stream.content.get(index);
+    if (!content) return [];
+    const deltas: ThreadDelta[] = [];
+    const parentRef = context?.parentToolCallId;
+    const parentRefField = parentRef ? { parentRef } : {};
+    let reasoning = content.type === "thinking";
+    if (reasoning) {
+      const settled = stream.thinking.get(index);
+      if (content.narration && (settled !== true || stream.narration.has(index))) {
+        if (!stream.narration.has(index)) {
+          if (settled === false) deltas.push(retractedReasoningDelta(stream, index, parentRef));
+          content.emitted = 0;
+          stream.narration.add(index);
+          stream.thinking.set(index, true);
+        }
+        reasoning = false;
+      } else if (settled === true) {
+        // Reasoning already settled before narration was known stays there.
+        return [];
+      }
+    }
+    if (content.emitted === content.text.length) return deltas;
+    const separator = !reasoning && content.emitted === 0 && stream.answerStreamed ? "\n" : "";
+    const text = separator + content.text.slice(content.emitted);
+    content.emitted = content.text.length;
+    if (reasoning) stream.thinking.set(index, false);
+    else stream.answerStreamed = true;
+    deltas.push({
+      kind: "item.textDelta",
+      key: {
+        providerItemId: reasoning ? `${stream.id}:thinking-${index}` : stream.id,
+        ...parentRefField,
+      },
+      channel: reasoning ? "reasoningText" : "agentMessage",
+      text,
+    });
+    return deltas;
   }
 
   function cardDeltas(
@@ -851,6 +958,7 @@ export function createOmpDeltaTranslator(
     const stream = assistantStream(streams, messageId ?? message.messageId);
     if (stream.closed) return [];
     stream.closed = true;
+    stream.content.clear();
     streams.activeMessageId = undefined;
     streams.snapshotHandled = false;
     const threadId = context?.threadId ?? "";
@@ -1757,99 +1865,110 @@ export function createOmpDeltaTranslator(
           return unexpectedSdkEventDeltas(event, context);
         }
         const assistantEvent = ompEvent.data.assistantMessageEvent;
+        const textEvent = assistantEvent.type === "text_start" ||
+          assistantEvent.type === "text_delta" || assistantEvent.type === "text_end";
+        const thinkingEvent = assistantEvent.type === "thinking_start" ||
+          assistantEvent.type === "thinking_delta" || assistantEvent.type === "thinking_end";
+        if (!textEvent && !thinkingEvent &&
+          assistantEvent.type !== "start" && assistantEvent.type !== "done") return [];
+
+        const deltaEvent = assistantEvent.type === "text_delta" || assistantEvent.type === "thinking_delta";
+        const index = assistantEvent.contentIndex ?? (textEvent ? 0 : undefined);
+        let boundary: OmpAssistantStreamBlock | undefined;
+        let thinkingMetadata = false;
+        if (!deltaEvent && (textEvent || thinkingEvent)) {
+          const parsed = ompAssistantStreamBlockSchema.safeParse(assistantEvent.content);
+          if (parsed.success && parsed.data.type === (textEvent ? "text" : "thinking")) {
+            const text = parsed.data.type === "text" ? parsed.data.text : parsed.data.thinking;
+            if (text) {
+              boundary = parsed.data;
+              thinkingMetadata = parsed.data.type === "thinking";
+            }
+          } else if (typeof assistantEvent.content === "string" && assistantEvent.content) {
+            boundary = textEvent
+              ? { type: "text", text: assistantEvent.content }
+              : { type: "thinking", thinking: assistantEvent.content };
+          }
+        }
+        if (thinkingEvent && index === undefined && (boundary || (deltaEvent && assistantEvent.delta))) {
+          return unexpectedSdkEventDeltas(event, context);
+        }
+
+        const partial = ompAssistantContentSnapshotSchema.safeParse(assistantEvent.partial);
+        const message = ompAssistantUpdateMessageSchema.safeParse(ompEvent.data.message);
         const streams = assistantStreams(context);
-        const stream = assistantStream(streams, ompEvent.data.messageId);
+        const stream = assistantStream(
+          streams,
+          ompEvent.data.messageId ?? (message.success ? message.data.messageId : undefined),
+        );
         if (stream.closed) return [];
         streams.snapshotHandled = false;
-        if (assistantEvent.type === "text_delta") {
-          const delta = assistantEvent.delta;
-          if (!delta) {
-            return [];
+        const observed = new Set<number>();
+        const previousText = index === undefined ? "" : stream.content.get(index)?.text ?? "";
+        let snapshotText: string | undefined;
+        let narration = false;
+        for (const snapshot of [
+          partial.success ? partial.data : undefined,
+          message.success ? message.data : undefined,
+        ]) {
+          if (!snapshot) continue;
+          if (snapshot.api !== undefined) {
+            stream.deferThinking = Object.hasOwn(ompNarrationApis, snapshot.api);
           }
-          stream.answerStreamed = true;
-          return [
-            {
-              kind: "item.textDelta",
-              key: { providerItemId: stream.id, ...parentRefField },
-              channel: "agentMessage",
-              text: delta,
-            },
-          ];
+          for (const [contentIndex, block] of snapshot.content.entries()) {
+            if (thinkingEvent && contentIndex === index) {
+              const flags = ompThinkingBlockFlagsSchema.safeParse(block);
+              if (flags.success) {
+                thinkingMetadata = true;
+                narration ||= flags.data.narration === true;
+              }
+            }
+            const parsed = ompAssistantStreamBlockSchema.safeParse(block);
+            if (!parsed.success || !observeAssistantBlock(stream, contentIndex, parsed.data)) continue;
+            observed.add(contentIndex);
+            if (contentIndex === index && parsed.data.type === (textEvent ? "text" : "thinking")) {
+              const text = parsed.data.type === "text" ? parsed.data.text : parsed.data.thinking;
+              if (text.startsWith(previousText) && (snapshotText === undefined || text.length > snapshotText.length)) {
+                snapshotText = text;
+              }
+            }
+          }
         }
-        if (assistantEvent.type === "thinking_delta") {
-          const delta = assistantEvent.delta;
-          if (!delta) {
-            return [];
-          }
-          if (typeof assistantEvent.contentIndex !== "number") {
-            return unexpectedSdkEventDeltas(event, context);
-          }
-          stream.thinking.set(assistantEvent.contentIndex, false);
-          return [
-            {
-              kind: "item.textDelta",
-              key: {
-                providerItemId: `${stream.id}:thinking-${assistantEvent.contentIndex}`,
-                ...parentRefField,
-              },
-              channel: "reasoningText",
-              text: delta,
-            },
-          ];
+        if (boundary && index !== undefined) {
+          if (boundary.type === "thinking" && narration) boundary = { ...boundary, narration: true };
+          if (observeAssistantBlock(stream, index, boundary)) observed.add(index);
         }
-        if (assistantEvent.type === "thinking_end") {
-          const content = assistantEvent.content;
-          if (typeof content !== "string" || content.length === 0) {
-            return [];
+        if (deltaEvent && assistantEvent.delta && index !== undefined) {
+          const delta = assistantDeltaSuffix(assistantEvent.delta, snapshotText, previousText.length);
+          if (delta) {
+            const block: OmpAssistantStreamBlock = textEvent
+              ? { type: "text", text: delta }
+              : { type: "thinking", thinking: delta };
+            if (observeAssistantBlock(stream, index, block, true)) observed.add(index);
           }
-          if (typeof assistantEvent.contentIndex !== "number") {
-            return unexpectedSdkEventDeltas(event, context);
-          }
-          const index = assistantEvent.contentIndex;
-          if (stream.thinking.get(index)) return [];
-          // `messageUpdates: "delta"` strips `partial`; then narration is
-          // first known at message_end. Full frames (e.g. subagents) carry it.
-          const partial = ompThinkingEndPartialSchema.safeParse(assistantEvent.partial);
-          const block = partial.success ? partial.data.content[index] : undefined;
-          if (block !== undefined && isNarrationBlock(block)) {
-            const streamed = stream.thinking.get(index) === false;
+        }
+
+        // Observe the complete frame before emitting so that its narration flags
+        // and content order apply once, even when both snapshot forms are present.
+        const deltas: ThreadDelta[] = [];
+        for (const contentIndex of [...observed].sort((a, b) => a - b)) {
+          deltas.push(...flushAssistantBlock(stream, contentIndex, context));
+        }
+        if (assistantEvent.type === "thinking_end" && index !== undefined &&
+          (boundary || observed.has(index)) && !stream.thinking.get(index) &&
+          (thinkingMetadata || !stream.deferThinking)) {
+          const content = stream.content.get(index);
+          if (content?.type === "thinking") {
             stream.thinking.set(index, true);
-            stream.narration.add(index);
-            // message_end presents an unstreamed block with the answer text.
-            if (!streamed) return [];
-            const preview: ThreadDelta = {
-              kind: "item.textDelta",
-              key: { providerItemId: stream.id, ...parentRefField },
-              channel: "agentMessage",
-              // message_end replaces this preview with the joined answer text.
-              text: stream.answerStreamed ? `\n${content}` : content,
-            };
-            stream.answerStreamed = true;
-            return [retractedReasoningDelta(stream, index, context?.parentToolCallId), preview];
-          }
-          if (block === undefined && stream.deferThinking) {
-            if (stream.thinking.has(index)) return [];
-            stream.thinking.set(index, false);
-            return [
-              {
-                kind: "item.textDelta",
-                key: { providerItemId: `${stream.id}:thinking-${index}`, ...parentRefField },
-                channel: "reasoningText",
-                text: content,
-              },
-            ];
-          }
-          stream.thinking.set(index, true);
-          return [
-            {
+            deltas.push({
               kind: "item.textClose",
               key: { providerItemId: `${stream.id}:thinking-${index}`, ...parentRefField },
               channel: "reasoningText",
-              text: rewriteOmpFileLinks(content, context?.fileRoots),
-            },
-          ];
+              text: rewriteOmpFileLinks(content.text, context?.fileRoots),
+            });
+          }
         }
-        return [];
+        return deltas;
       }
 
       case "tool_execution_start": {

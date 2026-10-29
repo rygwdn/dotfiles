@@ -135,9 +135,17 @@ describe("provider visibility raw events", () => {
 
   it.each([
     { type: "text_delta", delta: "Hello" },
+    { type: "text_delta", delta: "" },
+    { type: "text_start", content: "Hello" },
+    { type: "text_end", content: "Hello" },
     { type: "thinking_delta", delta: "Considering the options" },
+    {
+      type: "thinking_start",
+      contentIndex: 0,
+      content: "Considering the options",
+    },
     { type: "thinking_end", content: "The final reasoning" },
-  ])("normalizes assistant $type", (assistantMessageEvent) => {
+  ])("normalizes legacy string assistant $type", (assistantMessageEvent) => {
     expect(
       describeSdkEvent({ type: "message_update", assistantMessageEvent }),
     ).toEqual({
@@ -147,13 +155,121 @@ describe("provider visibility raw events", () => {
   });
 
   it.each([
+    { type: "text_start", content: { type: "text", text: "Hello" } },
+    { type: "text_end", content: { type: "text", text: "Hello there" } },
+    {
+      type: "thinking_start",
+      content: { type: "thinking", thinking: "Considering the options" },
+    },
+    {
+      type: "thinking_end",
+      content: { type: "thinking", thinking: "The final reasoning" },
+    },
+    {
+      type: "thinking_end",
+      content: { type: "thinking", thinking: "Narration", narration: true },
+    },
+  ])("normalizes block-bearing assistant $type", (assistantMessageEvent) => {
+    expect(
+      describeSdkEvent({
+        type: "message_update",
+        assistantMessageEvent: { ...assistantMessageEvent, contentIndex: 0 },
+      }),
+    ).toEqual({
+      kind: `sdk/message_update:${assistantMessageEvent.type}`,
+      coverage: "normalized",
+    });
+  });
+
+  it.each([
+    "start",
+    "text_start",
+    "text_delta",
+    "text_end",
+    "thinking_start",
+    "thinking_delta",
+    "thinking_end",
+    "done",
+  ])("normalizes renderable %s restart snapshots", (type) => {
+    for (const content of [
+      [{ type: "text", text: "Recovered answer" }],
+      [{ type: "thinking", thinking: "Recovered reasoning" }],
+      [{ type: "thinking", thinking: "Recovered narration", narration: true }],
+      [
+        { type: "text", text: "Before the tool" },
+        { type: "toolCall", id: "call-1", name: "ask", arguments: {} },
+        { type: "thinking", thinking: "After the tool" },
+        { type: "image", data: "aGVsbG8=", mimeType: "image/png" },
+      ],
+    ]) {
+      const snapshot = { role: "assistant", content };
+      for (const update of [
+        {
+          assistantMessageEvent: { type, contentIndex: 0 },
+          message: snapshot,
+        },
+        {
+          assistantMessageEvent: { type, contentIndex: 0, partial: snapshot },
+        },
+      ]) {
+        expect(describeSdkEvent({ type: "message_update", ...update })).toEqual({
+          kind: `sdk/message_update:${type}`,
+          coverage: "normalized",
+        });
+      }
+    }
+  });
+
+  it("preserves legacy partial snapshots without a role", () => {
+    expect(
+      describeSdkEvent({
+        type: "message_update",
+        assistantMessageEvent: {
+          type: "thinking_end",
+          contentIndex: 0,
+          partial: {
+            content: [{ type: "thinking", thinking: "Recovered reasoning" }],
+          },
+        },
+      }),
+    ).toEqual({
+      kind: "sdk/message_update:thinking_end",
+      coverage: "normalized",
+    });
+  });
+
+  it.each([
     { type: "thinking_delta", delta: "" },
     { type: "thinking_delta", delta: { text: "Not a string" } },
     { type: "thinking_end", content: "" },
-    { type: "thinking_end", content: { thinking: "Not a string" } },
+    { type: "thinking_end", content: { thinking: "Missing block type" } },
     { type: "text_start" },
-    { type: "text_end", content: "Hello" },
+    { type: "text_start", content: { type: "text", text: "" } },
+    { type: "text_end", content: "" },
+    { type: "text_end", content: { type: "text", text: 42 } },
+    {
+      type: "text_end",
+      content: { type: "thinking", thinking: "Wrong block type" },
+    },
     { type: "thinking_start" },
+    { type: "thinking_start", content: { type: "thinking", thinking: "" } },
+    { type: "thinking_end", content: { type: "thinking", thinking: "" } },
+    { type: "thinking_end", content: { type: "text", text: "Wrong block type" } },
+    { type: "start" },
+    { type: "done" },
+  ])(
+    "ignores empty or unsupported assistant $type content",
+    (assistantMessageEvent) => {
+      expect(
+        describeSdkEvent({ type: "message_update", assistantMessageEvent }),
+      ).toEqual({
+        kind: `sdk/message_update:${assistantMessageEvent.type}`,
+        coverage: "noise",
+      });
+    },
+  );
+
+  it.each([
     { type: "toolcall_start" },
     { type: "toolcall_delta", delta: "{\"question\":" },
     { type: "toolcall_end", toolCall: { name: "ask" } },
@@ -162,18 +278,67 @@ describe("provider visibility raw events", () => {
       content: { type: "image", data: "aGVsbG8=", mimeType: "image/png" },
     },
     { type: "future_assistant_event", content: { arbitrary: true } },
-  ])("ignores assistant $type safely", (assistantMessageEvent) => {
+  ])(
+    "ignores assistant $type even with renderable snapshots",
+    (assistantMessageEvent) => {
+      const snapshot = {
+        role: "assistant",
+        content: [
+          { type: "thinking", thinking: "Snapshot reasoning" },
+          { type: "text", text: "Snapshot answer" },
+        ],
+      };
+      expect(
+        describeSdkEvent({
+          type: "message_update",
+          assistantMessageEvent: { ...assistantMessageEvent, partial: snapshot },
+          message: snapshot,
+        }),
+      ).toEqual({
+        kind: `sdk/message_update:${assistantMessageEvent.type}`,
+        coverage: "noise",
+      });
+    },
+  );
+
+  it.each([
+    { role: "assistant", content: [] },
+    {
+      role: "assistant",
+      content: [
+        null,
+        { type: "text", text: "" },
+        { type: "thinking", thinking: "" },
+        { type: "image", data: "aGVsbG8=", mimeType: "image/png" },
+        { type: "toolCall", name: "ask", arguments: {} },
+        { type: "future", text: "Unsupported block" },
+      ],
+    },
+    { role: "assistant", content: "Not a content-block array" },
+    { role: "user", content: [{ type: "text", text: "User content" }] },
+    { role: null, content: [{ type: "text", text: "Invalid role" }] },
+    { role: 42, content: [{ type: "text", text: "Invalid role" }] },
+  ])("ignores nonrenderable snapshots: %j", (snapshot) => {
+    for (const update of [
+      { assistantMessageEvent: { type: "start" }, message: snapshot },
+      { assistantMessageEvent: { type: "start", partial: snapshot } },
+    ]) {
+      expect(describeSdkEvent({ type: "message_update", ...update })).toEqual({
+        kind: "sdk/message_update:start",
+        coverage: "noise",
+      });
+    }
+  });
+
+  it("requires an assistant role on an outer restart snapshot", () => {
     expect(
       describeSdkEvent({
         type: "message_update",
-        assistantMessageEvent,
-        message: {
-          role: "assistant",
-          content: [{ type: "thinking", thinking: "Snapshot reasoning" }],
-        },
+        assistantMessageEvent: { type: "start" },
+        message: { content: [{ type: "text", text: "Missing role" }] },
       }),
     ).toEqual({
-      kind: `sdk/message_update:${assistantMessageEvent.type}`,
+      kind: "sdk/message_update:start",
       coverage: "noise",
     });
   });

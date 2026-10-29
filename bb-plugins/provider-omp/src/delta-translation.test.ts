@@ -45,10 +45,10 @@ interface NativeOmpEvent {
   [key: string]: unknown;
 }
 
-function loadFixture(name: string): NativeOmpEvent {
+function loadFixture<T = NativeOmpEvent>(name: string): T {
   return JSON.parse(
     readFileSync(resolve(FIXTURES, name), "utf8"),
-  ) as NativeOmpEvent;
+  ) as T;
 }
 
 function loadSettledAgentEndFixture(): NativeOmpEvent {
@@ -1180,6 +1180,375 @@ describe("omp delta translation equivalence", () => {
         scope: turnScope(turnId),
       }),
     ]);
+  });
+
+  describe("block-aware message updates", () => {
+    interface SyntheticUpdateFixture {
+      synthetic: true;
+      ompVersion: string;
+      events: NativeOmpEvent[];
+    }
+
+    function streamed(events: ThreadEvent[]) {
+      const answers = new Map<string, string>();
+      const thinking = new Map<string, string>();
+      for (const event of events) {
+        if (event.type !== "item/agentMessage/delta" && event.type !== "item/reasoning/textDelta") continue;
+        const texts = event.type === "item/agentMessage/delta" ? answers : thinking;
+        texts.set(event.itemId, (texts.get(event.itemId) ?? "") + event.delta);
+      }
+      return { answers, thinking };
+    }
+
+    function update(assistantMessageEvent: Record<string, unknown>) {
+      return {
+        type: "message_update",
+        messageId: "block-message",
+        message: { role: "assistant" },
+        assistantMessageEvent,
+      };
+    }
+
+    it("reconstructs synthetic 18.13.2 boundary blocks once in order around an execution tool", () => {
+      const fixture = loadFixture<SyntheticUpdateFixture>("message-update-block-boundaries-18.13.2.synthetic.json");
+      expect(fixture).toMatchObject({ synthetic: true, ompVersion: "18.13.2" });
+      const harness = createHarness();
+      const batches = fixture.events.map((event) => harness.translate(event));
+      const events = batches.flat();
+      const { answers, thinking } = streamed(events);
+      expect([...thinking.values()]).toEqual(["Check the plan."]);
+      expect([...answers.values()]).toEqual(["Before tool.", "After tool."]);
+
+      const started = events.flatMap((event) => event.type === "item/started" ? [event.item] : []);
+      expect(started.map((item) => item.type)).toEqual([
+        "reasoning", "agentMessage", "toolCall", "agentMessage",
+      ]);
+      const completed = events.flatMap((event) => event.type === "item/completed" ? [event.item] : []);
+      expect(completed).toEqual([
+        expect.objectContaining({ type: "reasoning", id: [...thinking.keys()][0], content: ["Check the plan."] }),
+        expect.objectContaining({ type: "agentMessage", id: [...answers.keys()][0], text: "Before tool." }),
+        expect.objectContaining({ type: "toolCall", id: started[2]?.id }),
+        expect.objectContaining({ type: "agentMessage", id: [...answers.keys()][1], text: "After tool." }),
+      ]);
+      expect(new Set(started.map((item) => item.id)).size).toBe(4);
+      expect(events.filter((event) => event.type === "thread/tokenUsage/updated")).toHaveLength(2);
+
+      const thinkingEnds: ThreadEvent[][] = [];
+      for (const [index, frame] of fixture.events.entries()) {
+        const assistantEvent = frame.assistantMessageEvent as { type?: string } | undefined;
+        if (assistantEvent?.type === "thinking_end") thinkingEnds.push(batches[index]!);
+        if (assistantEvent?.type === "text_end" || assistantEvent?.type?.startsWith("toolcall_")) {
+          expect(batches[index]).toEqual([]);
+        }
+      }
+      expect(thinkingEnds[0]).toContainEqual(expect.objectContaining({ type: "item/completed" }));
+      expect(thinkingEnds[1]).toEqual([]);
+    });
+
+    it("reconciles a synthetic restart snapshot without closing the stream or losing later deltas", () => {
+      const fixture = loadFixture<SyntheticUpdateFixture>("message-update-restart-snapshot-18.13.2.synthetic.json");
+      expect(fixture).toMatchObject({ synthetic: true, ompVersion: "18.13.2" });
+      const harness = createHarness();
+      const batches = fixture.events.map((event) => harness.translate(event));
+      const events = batches.flat();
+      const { answers, thinking } = streamed(events);
+      expect([...thinking.values()]).toEqual(["Weigh the options carefully."]);
+      expect([...answers.values()]).toEqual(["Hello world!"]);
+      expect(batches[4]).toEqual([
+        expect.objectContaining({
+          type: "item/reasoning/textDelta", itemId: [...thinking.keys()][0], delta: "the options",
+        }),
+        expect.objectContaining({
+          type: "item/agentMessage/delta", itemId: [...answers.keys()][0], delta: " world",
+        }),
+      ]);
+      expect(batches[5]).toEqual([]);
+      expect(batches[6]).toContainEqual(expect.objectContaining({
+        type: "item/reasoning/textDelta", itemId: [...thinking.keys()][0], delta: " carefully.",
+      }));
+      // This delta is already included by both the partial and outer snapshot.
+      expect(batches[7]).toEqual([
+        expect.objectContaining({
+          type: "item/agentMessage/delta", itemId: [...answers.keys()][0], delta: "!",
+        }),
+      ]);
+      expect(batches[8]).toEqual([]);
+      expect(batches[9]).toEqual([]);
+      expect(events.filter((event) => event.type === "item/started").map((event) => event.item.type))
+        .toEqual(["reasoning", "agentMessage"]);
+      expect(events).toContainEqual(expect.objectContaining({
+        type: "item/completed",
+        item: expect.objectContaining({
+          type: "reasoning", id: [...thinking.keys()][0], content: ["Weigh the options carefully."],
+        }),
+      }));
+      expect(events).toContainEqual(expect.objectContaining({
+        type: "item/completed",
+        item: expect.objectContaining({
+          type: "agentMessage", id: [...answers.keys()][0], text: "Hello world!",
+        }),
+      }));
+      for (const [index, frame] of fixture.events.entries()) {
+        if (frame.type === "message_update") {
+          expect(batches[index]?.some((event) => event.type === "thread/tokenUsage/updated")).toBe(false);
+        }
+      }
+      const usage = events.filter((event) => event.type === "thread/tokenUsage/updated");
+      expect(usage).toHaveLength(1);
+      expect(usage[0]).toMatchObject({
+        tokenUsage: { total: { totalTokens: 5 }, last: { totalTokens: 5 } },
+      });
+      expect(harness.translate(fixture.events.at(-1))).toEqual([]);
+    });
+
+    it.each([
+      { type: "text_end", content: { type: "text", text: "End-only answer." }, expected: "End-only answer." },
+      { type: "thinking_end", content: { type: "thinking", thinking: "End-only thought." }, expected: "End-only thought." },
+    ])("recovers $type block content even when no delta preceded it", ({ type, content, expected }) => {
+      const harness = createHarness();
+      harness.translate({ type: "agent_start" });
+      const boundary = update({ type, contentIndex: 0, content });
+      const events = harness.translate(boundary);
+      const texts = streamed(events);
+      expect([...(type === "text_end" ? texts.answers : texts.thinking).values()]).toEqual([expected]);
+      expect(harness.translate(boundary)).toEqual([]);
+      if (type === "text_end") {
+        expect(events.some((event) => event.type === "item/completed")).toBe(false);
+        const completed = harness.translate({
+          type: "message_end", messageId: "block-message",
+          message: { role: "assistant", content: [content] },
+        });
+        expect(completed).toEqual([
+          expect.objectContaining({
+            type: "item/completed",
+            item: expect.objectContaining({
+              type: "agentMessage", id: [...texts.answers.keys()][0], text: expected,
+            }),
+          }),
+        ]);
+      }
+    });
+
+    it("keeps legacy string boundaries and role-less partials scoped to each content index", () => {
+      const harness = createHarness();
+      harness.translate({ type: "agent_start" });
+      const thinkingEnd = update({
+        type: "thinking_end", contentIndex: 0, content: "Old thought.",
+        partial: { content: [{ type: "thinking", thinking: "Old thought." }] },
+      });
+      const textEnd = update({ type: "text_end", contentIndex: 1, content: "Same" });
+      const events = [
+        update({ type: "thinking_start", contentIndex: 0, content: "Old " }),
+        update({ type: "thinking_delta", contentIndex: 0, delta: "thought" }),
+        thinkingEnd,
+        update({ type: "text_delta", contentIndex: 1, delta: "Same" }),
+        textEnd,
+        update({ type: "text_start", contentIndex: 2, content: "Same" }),
+        update({
+          type: "text_delta", contentIndex: 2, delta: " again",
+          partial: {
+            content: [
+              { type: "thinking", thinking: "Old thought." },
+              { type: "text", text: "Same" },
+              { type: "text", text: "Same again" },
+            ],
+          },
+        }),
+      ].flatMap((event) => harness.translate(event));
+      expect(harness.translate(thinkingEnd)).toEqual([]);
+      expect(harness.translate(textEnd)).toEqual([]);
+      const { answers, thinking } = streamed(events);
+      expect([...thinking.values()]).toEqual(["Old thought."]);
+      expect([...answers.values()]).toEqual(["Same\nSame again"]);
+      const completed = harness.translate({
+        type: "message_end", messageId: "block-message",
+        message: {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "Old thought." },
+            { type: "text", text: "Same" },
+            { type: "text", text: "Same again" },
+          ],
+        },
+      });
+      expect(completed).toEqual([
+        expect.objectContaining({
+          type: "item/completed",
+          item: expect.objectContaining({
+            type: "agentMessage", id: [...answers.keys()][0], text: "Same\nSame again",
+          }),
+        }),
+      ]);
+    });
+
+    it("does not rewind block cursors for delayed shorter start/end snapshots", () => {
+      const harness = createHarness();
+      harness.translate({ type: "agent_start" });
+      const first = harness.translate(update({
+        type: "text_delta", contentIndex: 0, delta: "Prefix and tail",
+      }));
+      expect(harness.translate(update({
+        type: "text_start", contentIndex: 0, content: { type: "text", text: "Prefix" },
+      }))).toEqual([]);
+      expect(harness.translate({
+        ...update({ type: "start" }),
+        message: { role: "assistant", content: [{ type: "text", text: "Prefix" }] },
+      })).toEqual([]);
+      const remaining = harness.translate(update({ type: "text_delta", contentIndex: 0, delta: "!" }));
+      expect(remaining).toEqual([
+        expect.objectContaining({
+          type: "item/agentMessage/delta", itemId: agentMessageDeltaId(first), delta: "!",
+        }),
+      ]);
+      expect(harness.translate(update({ type: "text_end", contentIndex: 0, content: "Prefix" }))).toEqual([]);
+      expect([...streamed([...first, ...remaining]).answers.values()]).toEqual(["Prefix and tail!"]);
+    });
+
+    it("appends only the delta suffix not covered by fresh snapshots and keeps deltas after stale ones", () => {
+      const harness = createHarness();
+      harness.translate({ type: "agent_start" });
+      const prefix = harness.translate(update({ type: "text_delta", contentIndex: 0, delta: "Hello " }));
+      const snapshot = (text: string) => ({ role: "assistant", content: [{ type: "text", text }] });
+      const overlapping = harness.translate({
+        ...update({
+          type: "text_delta", contentIndex: 0, delta: "world",
+          partial: snapshot("Hello wo"),
+        }),
+        message: snapshot("Hello wor"),
+      });
+      expect(overlapping).toEqual([
+        expect.objectContaining({
+          type: "item/agentMessage/delta", itemId: agentMessageDeltaId(prefix), delta: "world",
+        }),
+      ]);
+      const afterStale = harness.translate({
+        ...update({ type: "text_delta", contentIndex: 0, delta: "!" }),
+        message: snapshot("Hello wor"),
+      });
+      const afterUnchanged = harness.translate({
+        ...update({ type: "text_delta", contentIndex: 0, delta: " Again." }),
+        message: snapshot("Hello world!"),
+      });
+      expect(afterStale).toEqual([
+        expect.objectContaining({
+          type: "item/agentMessage/delta", itemId: agentMessageDeltaId(prefix), delta: "!",
+        }),
+      ]);
+      expect(afterUnchanged).toEqual([
+        expect.objectContaining({
+          type: "item/agentMessage/delta", itemId: agentMessageDeltaId(prefix), delta: " Again.",
+        }),
+      ]);
+      const repeated = { ...update({ type: "start" }), message: snapshot("Hello world! Again.") };
+      expect(harness.translate(repeated)).toEqual([]);
+      expect(harness.translate(repeated)).toEqual([]);
+      expect([...streamed([...prefix, ...overlapping, ...afterStale, ...afterUnchanged]).answers.values()])
+        .toEqual(["Hello world! Again."]);
+    });
+
+    it("applies block-valued narration flags without duplicating already-streamed reasoning", () => {
+      const harness = createHarness();
+      harness.translate({ type: "agent_start" });
+      harness.translate({
+        type: "message_start", messageId: "block-message",
+        message: { role: "assistant", api: "anthropic-messages" },
+      });
+      const prefix = harness.translate(update({ type: "thinking_delta", contentIndex: 0, delta: "Inspect " }));
+      const narration = { type: "thinking", thinking: "Inspect logs.", narration: true };
+      const end = update({ type: "thinking_end", contentIndex: 0, content: narration });
+      const promoted = harness.translate(end);
+      expect(harness.translate(end)).toEqual([]);
+      const answer = harness.translate(update({
+        type: "text_start", contentIndex: 1, content: { type: "text", text: "Done." },
+      }));
+      const completed = harness.translate({
+        type: "message_end", messageId: "block-message",
+        message: { role: "assistant", content: [narration, { type: "text", text: "Done." }] },
+      });
+      const reasoningId = [...streamed(prefix).thinking.keys()][0];
+      expect(promoted).toContainEqual(expect.objectContaining({
+        type: "item/completed",
+        item: expect.objectContaining({ type: "reasoning", id: reasoningId, content: [" "] }),
+      }));
+      const { answers } = streamed([...prefix, ...promoted, ...answer]);
+      expect([...answers.values()]).toEqual(["Inspect logs.\nDone."]);
+      expect(completed).toContainEqual(expect.objectContaining({
+        type: "item/completed",
+        item: expect.objectContaining({
+          type: "agentMessage", id: [...answers.keys()][0], text: "Inspect logs.\nDone.",
+        }),
+      }));
+    });
+
+    it("isolates reconstructed block state by message, thread, parent, and reset generation", () => {
+      const translator = createOmpDeltaTranslator({ resolveModelContextWindow: fixtureModelResolver });
+      const contexts: OmpTestContext[] = [
+        { threadId: "thread-a" },
+        { threadId: "thread-b" },
+        { threadId: "thread-a", parentToolCallId: "parent-a" },
+        { threadId: "thread-a", parentToolCallId: "parent-b" },
+      ];
+      const snapshot = {
+        ...update({ type: "start" }),
+        message: {
+          role: "assistant",
+          content: [{ type: "thinking", thinking: "Plan." }, { type: "text", text: "Shared" }],
+        },
+      };
+      const ids = new Set<string | undefined>();
+      for (const context of contexts) {
+        const first = translator.translate(snapshot, context);
+        const answer = first.filter((delta) => delta.kind === "item.textDelta")
+          .find((delta) => delta.channel === "agentMessage");
+        expect(answer).toMatchObject({
+          kind: "item.textDelta", text: "Shared",
+          key: expect.objectContaining(context.parentToolCallId ? { parentRef: context.parentToolCallId } : {}),
+        });
+        ids.add(answer?.key.providerItemId);
+        expect(translator.translate(snapshot, context)).toEqual([]);
+        expect(translator.translate(update({ type: "text_delta", contentIndex: 1, delta: " tail" }), context))
+          .toEqual([expect.objectContaining({ kind: "item.textDelta", key: answer?.key, text: " tail" })]);
+        expect(translator.translate(snapshot, context)).toEqual([]);
+      }
+      expect(ids.size).toBe(contexts.length);
+      const otherMessage = translator.translate({ ...snapshot, messageId: "another-message" }, contexts[0]);
+      expect(otherMessage).toContainEqual(expect.objectContaining({ kind: "item.textDelta", text: "Shared" }));
+      translator.resetThread("thread-a");
+      const reset = translator.translate(snapshot, contexts[0]);
+      const resetAnswer = reset.filter((delta) => delta.kind === "item.textDelta")
+        .find((delta) => delta.channel === "agentMessage");
+      expect(resetAnswer).toMatchObject({ kind: "item.textDelta", text: "Shared" });
+      expect(ids.has(resetAnswer?.key.providerItemId)).toBe(false);
+      expect(translator.translate(snapshot, contexts[1])).toEqual([]);
+    });
+
+    it("ignores non-renderable blocks and incidental snapshots on tool/image/unknown updates", () => {
+      const harness = createHarness();
+      harness.translate({ type: "agent_start" });
+      const ignored = [
+        { type: "toolCall", id: "tool", name: "bash", arguments: { command: "pwd" } },
+        { type: "image", data: "AAAA", mimeType: "image/png" },
+        { type: "unknown", text: "Not assistant text." },
+      ];
+      for (const type of ["start", "done"]) {
+        expect(harness.translate({
+          ...update({ type }), message: { role: "assistant", content: ignored },
+        })).toEqual([]);
+      }
+      for (const type of ["toolcall_start", "toolcall_delta", "toolcall_end", "image_end", "unknown"]) {
+        expect(harness.translate({
+          ...update({ type, contentIndex: 0, delta: "ignored" }),
+          message: { role: "assistant", content: [{ type: "text", text: "Not this event." }] },
+        })).toEqual([]);
+      }
+      expect(harness.translate({
+        ...update({ type: "start", partial: { role: "toolResult", content: [{ type: "text", text: "Ignored" }] } }),
+        message: { role: "user", content: [{ type: "text", text: "Ignored" }] },
+      })).toEqual([]);
+      expect(harness.translate(update({ type: "text_delta", delta: "Legacy without an index." }))).toContainEqual(
+        expect.objectContaining({ type: "item/agentMessage/delta", delta: "Legacy without an index." }),
+      );
+    });
   });
 
   describe("narration thinking", () => {

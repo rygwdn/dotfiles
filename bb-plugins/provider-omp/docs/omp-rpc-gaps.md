@@ -5,6 +5,10 @@ What omp's RPC mode offers that this plugin doesn't use yet, or uses only in par
 Checked against omp 18.12.6 (`@oh-my-pi/pi-coding-agent`, `src/modes/rpc/rpc-types.ts`,
 `rpc-mode.ts` and `wire/events.ts` / `wire/frames.ts`) and `@get-bb/plugin-sdk` 0.6.75.
 
+OMP-13 also adds plugin-side compatibility for block-bearing `message_update` boundaries and
+restart snapshots described for omp 18.13.2. Its new fixture cases are synthetic compatibility
+tests, not captured 18.13.2 RPC traffic; they do not extend the source audit above.
+
 ## What already works
 
 So the gaps below make sense, here's what the plugin covers today:
@@ -21,6 +25,15 @@ So the gaps below make sense, here's what the plugin covers today:
   todo/subagent reconciliation; `turn_end` refreshes context usage.
 - **Streaming:** `message_start` / `message_update` / `message_end` with delta updates, text and thinking deltas, tool execution and tool stream events.
   Each assistant message closes at its own `message_end`. Bash results keep the real exit code.
+  Text/thinking start and end updates accept content blocks as well as legacy string content.
+  On text/thinking updates and general `start` / `done` updates, renderable snapshots from
+  `assistantMessageEvent.partial.content` or the outer assistant `message.content` reconcile
+  with per-message, per-content-index stream state: repeated prefixes appear once and later
+  deltas continue the same stream. Legacy partial snapshots may omit `role`; outer message
+  snapshots require `role: "assistant"`. These updates never invoke message completion or own usage;
+  `message_end` remains the completion boundary. Unsupported/image blocks are ignored.
+  Assistant `toolcall_*`, image and unknown update types remain noise even with a snapshot;
+  only execution events create tool rows.
   File reads, directory/search, web-search, web-fetch and reasoning use native typed rows.
   Single-file reads send the returned text (including errors) and explicit selector/range metadata;
   ambiguous multi-target reads remain generic. Searches (`grep`, `glob`, `find`, `ast_grep`, and
@@ -41,8 +54,10 @@ So the gaps below make sense, here's what the plugin covers today:
   `tool` items, but not typed `fileRead`, `search`, `webSearch`, `webFetch`, `fileChange`, `delegation`,
   or their headers. Replacing or augmenting the typed rows requires a new SDK/core timeline hook.
   Narration thinking blocks (omp 18.12+, Opus 5.5 prose between tool calls) render as answer text.
-  With delta updates the flag only arrives at `message_end`, so Claude thinking stays open until then;
+  With legacy delta-only updates the flag only arrives at `message_end`, so Claude thinking stays open until then;
   a narration block that streamed as reasoning is closed blank so it leaves no Thought row.
+  Boundary/snapshot narration flags are recognized while reasoning is still open; already-settled
+  reasoning is not emitted again as narration.
 - **Model and reasoning:** `get_available_models`, `set_model`, `set_thinking_level`, plus `--model` / `--thinking` at launch.
   Model-list requests honour `envVars`; reasoning effort choices are per-model, from catalog capabilities.
 - **Fast mode:** omp's `/fast` command owns it; it passes through as a slash command. bb shows no Fast
@@ -155,6 +170,21 @@ Lower value or niche. Listed so nothing is missed.
 | `CompactionResult.providerReplayThroughEntryId` | Last entry a prefix-only remote compaction covers; later entries replay normally | Ignored. Internal replay bookkeeping with nothing to show |
 | `setTitle` (extension UI) | Set terminal title | Ignored |
 | `predict_word`, `predict_word_feedback` | Composer word prediction | Not used |
+
+### OMP-13 protocol evidence boundary
+
+The compatible block shapes are `{ type: "text", text }` and
+`{ type: "thinking", thinking, narration? }` in start/end `content`; supported snapshots carry
+arrays of those existing block types. Captured legacy traffic
+(`src/__fixtures__/omp/real-rpc-stream.json`) establishes string text deltas/end content;
+existing plugin tests and `src/bridge/subagents.ts` establish the
+`assistantMessageEvent.partial` convention. Neither establishes the exact 18.13.2 start/end
+nesting, which update subtype carries a restart snapshot, whether every restart preserves
+message IDs and content indices with prefix-monotone content, or whether a snapshot already
+includes a delta carried by the same frame. Those upstream wire details remain unverified by
+captured 18.13.2 traffic.
+The synthetic cases exercise the stated plugin-side compatibility contract, not additional
+undocumented envelope aliases or guarantees about arbitrary snapshot rewrites.
 
 ## Not used on purpose
 
